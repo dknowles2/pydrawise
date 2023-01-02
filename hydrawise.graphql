@@ -1,0 +1,1634 @@
+type Query {
+  me: User!
+  controller(controllerId: Int!): Controller
+  contractorsByName(searchString: String!): [PublicContractorProfile]!
+  contractorsByGeoLocation(latitude: Float!, longitude: Float!, radius: Float!): [PublicContractorProfile]!
+  zone(zoneId: Int!): Zone
+  configuration: Configuration
+  controllerModelBySerialNumber(serialNumber: String!): ControllerModel
+  controllerConfigurationUploadStatus(transactionId: Int!): ConfigurationUploadStatus!
+}
+
+type User {
+  id: Int!
+  customerId: Int!
+  name: String!
+  email: String
+  localeName: String!
+  lastContact: String
+  validated: Boolean!
+  appValidated: Boolean!
+  adminType: Int!
+  type: String!
+  userType: UserTypeEnum
+  userAvatar: File
+  contractor: Contractor
+  managedByContractor: PublicContractorProfile
+  currentController: Controller
+  bocTopologyDesired: [BocTopology]
+  bocTopologyActual: [BocTopology]
+  gateways: [BocGateway]
+  repeaters: [BocRepeater]
+  controllers: [Controller]
+  controllerWatchList: [Controller]
+  customer: Customer
+  notifications: [Notification]
+  units: UnitsSummary!
+  messageApp: MessageApp!
+  dashboardNotifications(timeZoneId: String!): [DashboardNotification!]!
+}
+
+enum UserTypeEnum {
+  READ_WRITE
+  READ_ONLY
+  CUSTOMER_ADMIN
+  SUPER_ADMIN
+}
+
+type File {
+  id: Int!
+  fileName: String
+  url: String
+  fileSize: Int
+  fileDate(timeZoneId: String!): DateTime
+  presignedUrl: String
+}
+
+type DateTime {
+  value: String!
+  timestamp: Int!
+  largeTimestamp: Float!
+  timeZone: TimeZone!
+  relativeTime: String!
+}
+
+type TimeZone {
+  name: String!
+  offset: Int!
+  options: [String]
+}
+
+type Contractor {
+  id: Int
+  customerId: Int
+  avatar: String
+  business: String
+  coordinates: GeoCoordinates
+  location: String
+  contact: String
+  description: String
+  online: Boolean
+  website: String
+  statistic: [ContractorStatistic]
+  plans: [CustomerPlan]
+  events(length: Int = 1500): [Event]
+  customer(customerId: Int!): Customer
+  directCustomers: [Customer]
+  customers: [Customer]
+  pendingCustomers: [RestrictedCustomer]
+  alerts: [Alert]
+  customerReports: [CustomerReport]
+  wateringPrograms: [WateringProgram]
+  defaultWateringTriggers: WateringTriggers
+  defaultProgramStartTimes: [ProgramStartTime]
+}
+
+type GeoCoordinates {
+  latitude: Float
+  longitude: Float
+}
+
+type ContractorStatistic {
+  id: Int!
+  controllersOnline: Int!
+  controllersOffline: Int!
+  actualWateringWeek: Int!
+  normalWateringWeek: Int!
+  customers: Int!
+  customersPending: Int!
+  customerId: Int!
+  epoch: Int!
+  wateringSavingMinute: Int!
+  wateringSavingPercentage: Int!
+}
+
+type CustomerPlan {
+  id: Int!
+  planId: Int!
+  name: String!
+  expiry: String!
+}
+
+type Event {
+  id: Int!
+  customerId: Int!
+  controllerId: Int
+  eventTime: String!
+  severity: String!
+  message: String!
+  isAlert: Boolean!
+  customer: Customer
+  user: User
+  controller: Controller
+  actions: [String]
+}
+
+type Customer {
+  id: Int!
+  customerKey: String
+  apiKey: String
+  organization: String
+  created: String!
+  contractor: Contractor
+  bocTopologyDesired: [BocTopology]
+  bocTopologyActual: [BocTopology]
+  gateways: [BocGateway]
+  repeaters: [BocRepeater]
+  controllers: [Controller]
+  notifyUser: User
+  users: [User]
+  plan: Plan
+  plans: [CustomerPlan]
+  availablePlans: [AvailablePlan]
+  files: [File]
+  statistics: CustomerStatistics
+  sensors: [Sensor]
+  sensorCategories: [SensorModelCategory]
+  customSensorTypes: [SensorModel]
+  alerts: [Alert]
+  programs(includeZoneSpecific: Boolean! = false): [Program!]!
+  wateringPrograms: [WateringProgram] @deprecated(reason: "Use programs property")
+}
+
+type BocTopology {
+  id: Int!
+  parentDeviceId: Int!
+  childDeviceId: Int!
+}
+
+type BocGateway {
+  id: Int!
+  deviceId: Int!
+  name: String
+  serialNumber: String
+  status: String
+  lastContactTime: DateTime
+  inSync: Boolean
+  online: Boolean
+  location: Location
+  timeZone: TimeZone!
+  siteId: Int!
+  rfChannel: Int!
+  rescanPeriod: Int!
+  snrThreshold: Int!
+  firmware: BocGatewayStatistics @deprecated(reason: "Use modules")
+  modules: [Module]
+  retries: Int!
+  sensors: [Sensor]
+  sensorCategories: [SensorModelCategory]
+  connectedControllersDesired: [Controller]
+  connectedRepeatersDesired: [BocRepeater]
+}
+
+type Location {
+  id: Int!
+  coordinates: GeoCoordinates
+  address: String
+  country: String
+  state: String
+  locality: String
+  forecast(days: Int = 1): [Forecast]
+  nearbyWeatherStations: [WeatherStation]
+  historicalWeather: WeatherStatisticsStation
+  currentWeatherObservations: [WeatherObservation!]!
+}
+
+type Forecast {
+  time: String!
+  updateTime: String
+  highTemperature: LocalizedValueType
+  lowTemperature: LocalizedValueType
+  evapotranspiration: LocalizedValueType
+  probabilityOfPrecipitation: Float
+  precipitation: LocalizedValueType
+  averageHumidity: Float
+  averageWindSpeed: LocalizedValueType
+  conditions: String
+  icon: Icon
+}
+
+type LocalizedValueType {
+  value: Float
+  unit: String
+}
+
+type Icon {
+  name: String
+  url: String
+}
+
+type WeatherStation {
+  id: Int!
+  key: String!
+  coordinates: GeoCoordinates
+  source: Int!
+  location: String
+  currentObservation: Observation
+  distance: LocalizedValueType
+}
+
+type Observation {
+  time: String!
+  updateTime: String!
+  temperature: LocalizedValueType
+  precipitation: LocalizedValueType
+  precipitationLastHour: LocalizedValueType
+  humidity: Float
+  wind: LocalizedValueType
+  windGust: LocalizedValueType
+  dewPoint: Float
+  pressure: LocalizedValueType
+  evapotranspiration: LocalizedValueType
+}
+
+type WeatherStatisticsStation {
+  coordinates: GeoCoordinates
+  name: String!
+  monthlyData: [WeatherStatistics]
+  peakIrrigationMonth: String!
+}
+
+type WeatherStatistics {
+  maxTemperature: LocalizedValueType
+  minTemperature: LocalizedValueType
+  precipitation: LocalizedValueType
+  evapotranspiration: LocalizedValueType
+  deltaEvapotranspiration: LocalizedValueType
+}
+
+type WeatherObservation {
+  time: DateTime!
+  precipitation: LocalizedValueType
+  precipitationLastFewDays: LocalizedValueType
+  precipitationAccumulationPeriod: Int!
+  temperature: LocalizedValueType
+  evapotranspiration: LocalizedValueType
+  humidity: Float
+  windSpeed: LocalizedValueType
+}
+
+type BocGatewayStatistics {
+  version: String
+}
+
+type Module {
+  id: Long!
+  name: String!
+  serialNumber: String!
+  moduleType: String!
+  firmwareVersion: String!
+  showInApp: Boolean!
+  properties: ModuleProperties!
+}
+
+scalar Long
+
+union ModuleProperties = CommonModuleProperties | AppModuleProperties
+
+type CommonModuleProperties {
+  type: String!
+}
+
+type AppModuleProperties {
+  type: String!
+  rssi: Int
+}
+
+type Sensor {
+  id: Int!
+  name: String!
+  model: SensorModel!
+  input: SensorInput!
+  zones: [Zone]
+  status: SensorStatus!
+
+  """
+  Required parameters: **start**: UTC epoch time. **end**: UTC epoch time.
+  """
+  flowSummary(start: Int!, end: Int!): SensorFlowSummary
+}
+
+type SensorModel {
+  id: Int!
+  name: String
+  modeType: CustomSensorModeTypeEnum!
+  mode: CustomSensorModeTypeEnum!
+  active: Boolean
+  offLevel: Int
+  offTimer: Int
+  delay: Int
+  divisor: Float
+  flowRate: Float
+  customerId: Int
+  sensorType: CustomSensorTypeEnum
+  type: SelectedOption!
+  category: SensorModelCategory
+}
+
+enum CustomSensorModeTypeEnum {
+  START
+  STOP
+  REPORT
+}
+
+enum CustomSensorTypeEnum {
+  LEVEL_OPEN
+  LEVEL_CLOSED
+  FLOW
+  THRESHOLD
+}
+
+type SelectedOption {
+  value: Int!
+  label: String
+  options: [Option]
+}
+
+type Option {
+  value: Int!
+  label: String!
+}
+
+type SensorModelCategory {
+  id: Int!
+  name: String!
+  models: [SensorModel]
+}
+
+type SensorInput {
+  number: Int!
+  label: String!
+}
+
+type Zone {
+  id: Int!
+  number: SelectedOption!
+  name: String!
+  icon: ZoneIcon!
+  images: [FileWithThumbnail]
+  schedulingMethod: SelectedOption! @deprecated(reason: "Get the scheduling method from ProgramType")
+  wateringSettings: WateringSettings!
+  permittedProgramStartTimes: [ProgramStartTime] @deprecated(reason: "Use wateringSettings(AdvancedWateringSettings)::programStartTime property")
+  scheduledRuns: ScheduledZoneRuns!
+  pastRuns: PastZoneRuns!
+  runsBetween(from: Int!, until: Int!): [ScheduledZoneRun]!
+  status: ZoneStatus!
+  sensors: [Sensor]
+
+  """
+  -1 means that the global setting is accepted, 0 is that global settings are ignored and master valve is always disabled
+  """
+  masterValve: Int!
+  suspensions: [ZoneSuspension]!
+  runSummary: ZoneRunSummary!
+}
+
+type ZoneIcon {
+  id: Int
+  fileName: String
+  customImage: File
+}
+
+type FileWithThumbnail {
+  id: Int!
+  name: String!
+  url: String
+  thumbnail: File!
+}
+
+interface WateringSettings {
+  fixedWateringAdjustment: Int!
+  cycleAndSoakSettings: CycleAndSoakSettings
+  wateringProgram: WateringProgram! @deprecated(reason: "Use either advancedProgram or standardProgramApplications")
+  wateringAdjustment: Int! @deprecated(reason: "Use fixedWateringAdjustment property")
+}
+
+type CycleAndSoakSettings {
+  """Watering cycle duration in minutes"""
+  cycleDuration: Int!
+
+  """Watering pause duration in minutes"""
+  soakDuration: Int!
+}
+
+type WateringProgram {
+  id: Int
+  syntheticId: String!
+  originId: Int
+  type: SelectedExtendedOption!
+  name: String
+  runDuration: RunTime!
+  frequency: WateringFrequency! @deprecated(reason: "Use ProgramWateringFrequency")
+  programAdjustment: SelectedOption @deprecated(reason: "Use conditionalWateringAdjustments in ProgramType")
+  seasonalAdjustment: [Int]
+  wateringProgramMode: SelectedOption!
+  fixedWateringProgram: FixedWateringProgram!
+  virtualSolarSyncWateringProgram: VirtualSolarSyncWateringProgram!
+  smartWateringProgram: SmartWateringProgram!
+  controllerWateringProgramAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment] @deprecated(reason: "Use conditionalWateringAdjustments")
+}
+
+type SelectedExtendedOption {
+  value: Int!
+  label: String!
+  description: String!
+  options: [ExtendedOption]
+}
+
+type ExtendedOption {
+  value: Int!
+  label: String!
+  description: String!
+}
+
+type RunTime {
+  base: Int!
+  adjusted: Int!
+}
+
+type WateringFrequency {
+  label: String!
+  period: WateringPeriod!
+  description: String!
+}
+
+type WateringPeriod {
+  value: Int
+  label: String
+}
+
+type FixedWateringProgram {
+  runDuration: Int
+  period: FixedWateringPeriod
+  programAdjustment: SelectedOption @deprecated(reason: "Use conditionalWateringAdjustments in ProgramType")
+}
+
+type FixedWateringPeriod {
+  value: Int
+  label: String
+}
+
+type VirtualSolarSyncWateringProgram {
+  runDuration: Int
+  period: VirtualSolarSyncWateringPeriod
+}
+
+type VirtualSolarSyncWateringPeriod {
+  value: Int
+  label: String
+}
+
+type SmartWateringProgram {
+  runDuration: Int
+  period: SmartWateringPeriod
+  seasonalAdjustment: [Int]
+}
+
+type SmartWateringPeriod {
+  value: Int
+  label: String
+}
+
+type WateringProgramAdjustment {
+  id: Int!
+  label: String!
+  applicableSchedulingMethod: ApplicableSchedulingMethod!
+}
+
+type ApplicableSchedulingMethod {
+  value: Int
+  label: String
+}
+
+type ProgramStartTime {
+  id: Int!
+  type: SelectedExtendedOption!
+  time: Time!
+  wateringDays: [AdvancedProgramDayPatternEnum]
+  application: ProgramStartTimeApplication!
+}
+
+scalar Time
+
+enum AdvancedProgramDayPatternEnum {
+  EVEN
+  ODD
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+  DAYS
+}
+
+type ProgramStartTimeApplication {
+  all: Boolean!
+  zones: [Zone]
+  wateringPrograms: [WateringProgram] @deprecated(reason: "use appliesToPrograms property")
+}
+
+type ScheduledZoneRuns {
+  summary: String!
+  currentlyRunning: Boolean! @deprecated(reason: "Use currentRun")
+  currentRun: ScheduledZoneRun
+  nextRun: ScheduledZoneRun
+  status: String
+  currentWaterUsage: LocalizedValueType
+  runs: [ScheduledZoneRun!]!
+  waterUsage(since: Int!): LocalizedValueType
+}
+
+type ScheduledZoneRun {
+  id: String!
+  startTime: DateTime!
+  endTime: DateTime!
+
+  """in minutes"""
+  normalDuration: Int!
+
+  """in minutes"""
+  duration: Int!
+
+  """in seconds"""
+  remainingTime: Int!
+  status: RunStatus!
+}
+
+type RunStatus {
+  value: Int
+  label: String
+}
+
+type PastZoneRuns {
+  lastRun: ScheduledZoneRun
+  runs: [ScheduledZoneRun]
+}
+
+type ZoneStatus {
+  relativeWaterBalance: Int!
+  suspendedUntil: DateTime
+  lastRun: DateTime!
+  nextRun: DateTime!
+}
+
+type ZoneSuspension {
+  id: Int!
+  zone: Zone!
+  startTime: DateTime
+  endTime: DateTime
+  createdCustomer: RestrictedCustomer!
+  createdByContractor: Boolean!
+}
+
+type RestrictedCustomer {
+  id: Int!
+  organization: String
+  user: RestrictedUser
+}
+
+type RestrictedUser {
+  id: Int!
+  name: String!
+  email: String
+}
+
+type ZoneRunSummary {
+  """Weekly zone run summary. Data is accumulated on daily basis"""
+  weekly(startWeek: Int!, endWeek: Int!, year: Int!): ZoneRunSummaryDetails
+
+  """Monthly zone run summary. Data is accumulated on daily basis"""
+  monthly(startMonth: Int!, endMonth: Int!, year: Int!): ZoneRunSummaryDetails
+
+  """Annual zone run summary. Data is accumulated on daily basis"""
+  annual(startYear: Int!, endYear: Int!): ZoneRunSummaryDetails
+}
+
+type ZoneRunSummaryDetails {
+  """Total normal watering run time in minutes"""
+  totalNormalRunTime: Int
+
+  """Total actual watering run time in minutes"""
+  totalActualRunTime: Int
+
+  """Total water volume in litres or gallons"""
+  totalWaterVolume: LocalizedValueType
+}
+
+type SensorStatus {
+  waterFlow: LocalizedValueType
+  active: Boolean
+}
+
+type SensorFlowSummary {
+  """Total water volume in litres or gallons"""
+  totalWaterVolume: LocalizedValueType
+}
+
+type Controller {
+  id: Int!
+  deviceId: Int!
+  name: String
+  wizardComplete: Boolean!
+  hardware: ControllerHardware!
+  boc: Boolean! @deprecated
+  softwareVersion: String
+  connectedGatewayActual: BocGateway
+  bocTopologyDesired: BocTopology
+  bocStatistic: BocStatistic
+  lastContactTime: DateTime
+  lastAction: DateTime
+  inSync: Boolean
+  online: Boolean
+  settings: ControllerSettings
+  location: Location
+  wateringTriggers: WateringTriggers
+  sensors: [Sensor]
+  expanders: [Expander]
+  zones: [Zone]
+  masterZone: MasterValve
+  programMode: ControllerProgramModeEnum!
+  programs(includeZoneSpecific: Boolean! = false): [Program!]!
+  runTimeGroups: [RunTimeGroup!]!
+  permittedProgramStartTimes: [ProgramStartTime]
+  wateringPrograms: [WateringProgram] @deprecated(reason: "Use programs property")
+  weatherStations: [WeatherStation]
+  customer: Customer
+  events(length: Int = 1500, page: Int = 0): [Event]
+  alerts(after: Int! = 0): [Event!]!
+  zoneNumbers: [ZoneNumber]
+  status: ControllerStatus!
+  observationsSummary: ObservationsSummary!
+  reporting(option: Int!, startTime: Int, endTime: Int): Reporting!
+  reportTypeGroups: [ReportTypeGroup]!
+  runSummary: ControllerRunSummary!
+  dashboardNotifications(timeZoneId: String!): [DashboardNotification!]!
+}
+
+type ControllerHardware {
+  serialNumber: String
+  version: String
+  status: String
+  installationDate: String
+  model: ControllerModel
+  firmware: [ControllerFirmware]
+  modules: [Module]
+}
+
+type ControllerModel {
+  id: String!
+  family: ControllerFamily
+  name: String!
+  image: String!
+  description: String!
+  dedicatedMasterValve: Boolean!
+  perZoneMasterValveSelectable: Boolean!
+  maxZones: Int!
+  maxZoneExpanders: Int!
+  isBoc: Boolean! @deprecated
+  visible: Boolean!
+  skus: [ControllerSku]
+  advancedModeSupported: Boolean!
+  standardModeSupported: Boolean!
+  dowSupported: Boolean!
+  growInProgramSupported: Boolean!
+}
+
+type ControllerFamily {
+  id: Int!
+  name: String!
+  description: String
+  image: String
+  controllerModels: [ControllerModel]
+}
+
+type ControllerSku {
+  id: Int!
+  sku: String!
+  modelId: String!
+}
+
+type ControllerFirmware {
+  type: String!
+  version: String
+}
+
+type BocStatistic {
+  id: Int!
+  signalStrength: Int
+  battery: Int
+}
+
+type ControllerSettings {
+  offline: ControllerOfflineSettings!
+  zones: ControllerZoneSettings!
+  timeZone: TimeZone!
+  hidePassword: SelectedOption!
+  disableLocalAccess: SelectedOption!
+  hibernateStatus: Boolean
+}
+
+type ControllerOfflineSettings {
+  mode: SelectedOption
+  notificationDelay: SelectedOption
+  notificationUser: RestrictedUser @deprecated(reason: "Use prop notificationUsers instead")
+  notificationUsers: SelectedOption
+  seasonalAdjustments: [Int]
+}
+
+type ControllerZoneSettings {
+  interZoneDelay: Int!
+  masterZone: MasterValve!
+}
+
+type MasterValve {
+  zoneNumber: SelectedOption
+  delay: Int
+  postTimer: Int
+}
+
+type WateringTriggers {
+  id: Int!
+  extendWaterTemperature: LocalizedValueType
+  extendWaterTemperatureEnabled: Boolean!
+  extendWaterTemperaturePercentage: Int!
+  extendWaterHumidity: Int!
+  extendWaterHumidityEnabled: Boolean!
+  suspendWaterWeekRain: LocalizedValueType
+  suspendWaterRainDays: Int!
+  suspendWaterWeekRainEnabled: Boolean!
+  suspendWaterRain: LocalizedValueType
+  suspendWaterRainEnabled: Boolean!
+  suspendWaterTemperature: LocalizedValueType
+  suspendWaterTemperatureEnabled: Boolean!
+  suspendProbabilityOfPrecipitation: Int!
+  suspendProbabilityOfPrecipitationEnabled: Boolean!
+  suspendWind: LocalizedValueType
+  suspendWindEnabled: Boolean!
+  enableEvapotranspirationForecastTemperature: Boolean!
+  enableEvapotranspirationForecastRain: Boolean!
+  reduceWaterTemperatureEnabled: Boolean!
+  reduceWaterTemperature: LocalizedValueType
+  reduceWaterTemperaturePercentage: Int!
+}
+
+type Expander {
+  id: Int!
+  name: String!
+  number: Int!
+  hardware: ExpanderHardware!
+  status: ExpanderStatus!
+  controller: Controller!
+}
+
+type ExpanderHardware {
+  model: ExpanderModel!
+  firmware: [ExpanderFirmware]
+}
+
+type ExpanderModel {
+  id: String!
+}
+
+type ExpanderFirmware {
+  type: String!
+  version: Float
+  bank: Int
+}
+
+type ExpanderStatus {
+  lastSeen: String
+  lastNotified: String
+}
+
+enum ControllerProgramModeEnum {
+  ADVANCED
+  STANDARD
+}
+
+interface Program {
+  id: Int!
+  name: String!
+  schedulingMethod(hideProgramName: Boolean = false): SelectedOption!
+  monthlyWateringAdjustments: [Int!]!
+  appliesToZones: [Zone!]!
+  conditionalWateringAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment!]!
+}
+
+type RunTimeGroup {
+  id: Int!
+  name: String
+  duration: Int!
+}
+
+type ZoneNumber {
+  value: Int
+  label: String
+}
+
+type ControllerStatus {
+  summary: String!
+  icon: String!
+  online: Boolean!
+  accumulatedWaterSavings: Int!
+  actualWaterTime: ActualWaterTime
+  normalWaterTime: NormalWaterTime
+  lastContact: DateTime
+}
+
+type ActualWaterTime {
+  value: Int
+  label: String
+}
+
+type NormalWaterTime {
+  value: Int
+  label: String
+}
+
+type ObservationsSummary {
+  """Max temperature since midnight"""
+  maxTemperatureSinceMidnight: LocalizedValueType
+
+  """Max temperature since midnight"""
+  currentTemperature: LocalizedValueType
+
+  """Recorded rainfall for the last 24 hours"""
+  rainfallLast24Hours: LocalizedValueType
+
+  """Recorded rainfall for the last 7 × 24 hours"""
+  rainfallLast168hours: LocalizedValueType
+}
+
+type Reporting {
+  calendarType(type: ReportCalendarCategoryEnum!): [ReportCalendar]!
+  chartType(type: ReportChartCategoryEnum!): ChartReport!
+  wateringSchedules: [ReportCalendar]!
+  wateringHistory: [ReportCalendar]!
+  weatherForecast: ChartReport!
+  stationTemperature: ChartReport!
+  stationRainfall: ChartReport!
+  stationWindGust: ChartReport!
+  evapotranspiration: ChartReport!
+  waterSaving: ChartReport!
+  flowMeterMeasurement: ChartReport!
+  totalWaterUsage: ChartReport!
+  flowRate: ChartReport!
+  sensorLevel: ChartReport!
+  smartWaterBalance: ChartReport!
+  virtualSolarSync: ChartReport!
+  latePollType: ChartReport!
+  solenoidLoadType: ChartReport!
+  mqttConnType: ChartReport!
+  latePollSummary: ChartReport!
+  scheduleUpdates: ChartReport!
+  observationUpdate: ChartReport!
+  dailyCustomers: ChartReport!
+  dailyAverageObservations: ChartReport!
+  dailyRunTimes: ChartReport!
+  dailyScheduleUpdatePerformance: ChartReport!
+  hourlyScheduleUpdatePerformance: ChartReport!
+  queueSize: ChartReport!
+  monthlyEvapotranspiration: ChartReport!
+  monthlyTemperatureRainfall: ChartReport!
+  waterUsage: TableReport!
+  upcomingWatering: TableReport!
+}
+
+enum ReportCalendarCategoryEnum {
+  WATERING_SCHEDULE_TYPE
+  WATERING_HISTORY_TYPE
+}
+
+scalar ReportCalendar
+
+enum ReportChartCategoryEnum {
+  WEATHER_FORECAST_TYPE
+  STATION_TEMPERATURE_TYPE
+  STATION_RAINFALL_TYPE
+  STATION_WIND_GUST_TYPE
+  EVAPOTRANSPIRATION_TYPE
+  WATERING_SAVING_TYPE
+  FLOW_METER_MEASUREMENT_TYPE
+  TOTAL_WATER_USAGE_TYPE
+  FLOW_RATE_TYPE
+  SENSOR_LEVEL_TYPE
+  SMART_WATER_BALANCE_TYPE
+  VIRTUAL_SOLAR_SYNC_TYPE
+  LATE_POLL_TYPE
+  SOLENOID_LOAD_TYPE
+  MQTT_CONN_TYPE
+  LATE_POLL_SUMMARY
+  SCHEDULE_UPDATES
+  OBSERVATION_UPDATE
+  DAILY_CUSTOMERS
+  DAILY_AVERAGE_OBSERVATIONS
+  DAILY_RUN_TIMES
+  DAILY_SCHEDULE_UPDATE_PERFORMANCE
+  HOURLY_SCHEDULE_UPDATE_PERFORMANCE
+  QUEUE_SIZE
+  MONTHLY_EVAPOTRANSPIRATION
+  MONTHLY_TEMPERATURE_RAINFALL
+}
+
+type ChartReport {
+  statistics: ChartStatistics!
+  title: GeneralJson
+  subtitle: GeneralJson
+  results: [GeneralJson]!
+  xaxisArray: GeneralJson!
+  yaxisArray: [GeneralJson]
+  xmin: Float!
+  xmax: Float!
+  ymin: Int
+  yaxis: String
+  message: String
+}
+
+scalar ChartStatistics
+
+scalar GeneralJson
+
+type TableReport {
+  header: [String]
+  row: [[String]]
+  message: String
+}
+
+type ReportTypeGroup {
+  label: String!
+  name: String!
+  nameKey: String!
+  types: [ReportCategory]!
+}
+
+type ReportCategory {
+  token: String!
+  label: String!
+  format: ReportFormatEnum!
+  tokenKey: String!
+}
+
+enum ReportFormatEnum {
+  CALENDAR_FORMAT
+  CHART_FORMAT
+  TABLE_FORMAT
+}
+
+type ControllerRunSummary {
+  """Weekly controller run summary. Data is accumulated on daily basis"""
+  weekly(startWeek: Int!, endWeek: Int!, year: Int!): ControllerRunSummaryDetails
+
+  """Monthly controller run summary. Data is accumulated on daily basis"""
+  monthly(startMonth: Int!, endMonth: Int!, year: Int!): ControllerRunSummaryDetails
+
+  """Annual controller run summary. Data is accumulated on daily basis"""
+  annual(startYear: Int!, endYear: Int!): ControllerRunSummaryDetails
+}
+
+type ControllerRunSummaryDetails {
+  """Total normal watering run time in minutes"""
+  totalNormalRunTime: Int
+
+  """Total actual watering run time in minutes"""
+  totalActualRunTime: Int
+}
+
+type DashboardNotification {
+  key: DashboardNotificationKeyEnum!
+  message: String!
+  callToAction: String
+  priority: Int!
+  policy: DashboardNotificationPolicyEnum!
+  obsoleteAfter: DateTime
+}
+
+enum DashboardNotificationKeyEnum {
+  MISSING_SERIAL_NUMBER
+  PLAN_NEAR_EXPIRY
+  PLAN_NEAR_LIMIT_ON_CONTROLLERS
+  CONTROLLER_OFFLINE
+  CONTROLLER_HIBERNATED
+  UNREAD_MESSAGES_FROM_CONTRACTOR
+  UNREAD_MESSAGES_FROM_CLIENTS
+  CONTROLLER_ONLINE
+  WATER_USAGE
+  WEATHER_STATION_OFFLINE
+  WIZARD_NOT_COMPLETED
+  RAIN_SENSOR_STOPPED_IRRIGATION
+  PLANNED_MAINTENANCE
+  MANUAL_RUN
+  CONTROLLER_IN_STANDBY_MODE
+  ALL_ZONES_SUSPENDED
+  SERVER_ERROR
+  ALERTS_COUNT
+  CUSTOMERS_WITHOUT_VALID_EMAIL
+}
+
+enum DashboardNotificationPolicyEnum {
+  DISMISSIBLE
+  DISMISSIBLE_FOR_A_DAY
+  DISMISSIBLE_FOR_A_WEEK
+  NON_DISMISSIBLE
+}
+
+type BocRepeater {
+  id: Int!
+  deviceId: Int!
+  name: String
+  serialNumber: String
+  status: String
+  lastContactTime: DateTime
+  inSync: Boolean
+  online: Boolean
+  firmware: BocRepeaterStatistics
+  location: Location
+  timeZone: TimeZone!
+  connectedGatewayActual: BocGateway
+  bocTopologyDesired: BocTopology
+  bocStatistic: BocStatistic
+}
+
+type BocRepeaterStatistics {
+  version: String!
+}
+
+type Plan {
+  name: String!
+  freeWeatherStationsQuantity: Int!
+  weatherStationsQuantity: Int!
+  smsQuantity: Int!
+  controllerQuantity: Int!
+  fileLimit: Int!
+  contractor: Boolean!
+  boc: Boolean!
+  cost: Cost
+}
+
+type Cost {
+  defaultValue: Int!
+  us: Int!
+  au: Int!
+  eu: Int!
+  ca: Int!
+  uk: Int!
+}
+
+type AvailablePlan {
+  planId: Int!
+  name: String!
+  quantity: Int!
+  length: Int!
+}
+
+type CustomerStatistics {
+  imageUsage: Int!
+  fileUsage: Int!
+  totalUsage: Int!
+  smsUsed: Int!
+  controllerUsed: Int!
+  numberOfZoneSuspensions: Int!
+}
+
+type Alert {
+  id: Int!
+  name: String!
+  unitOfMeasurement: Int
+  value: Float
+  phoneNumber: String
+  alertType: AlertType
+  notificationUser: User
+  applications: [AlertApplication]
+  sendAppNotification: Boolean
+  isContractorLevel: Boolean
+  addToEventLog: Boolean
+  valveShutoffActive: Boolean!
+  valveShutoffValue: Int
+  sendEmailActive: Boolean!
+  emailNotificationUser: User
+}
+
+type AlertType {
+  id: Int!
+  conditionId: Int
+  triggerId: Int
+  caption: String!
+  category: String!
+  groupKey: String
+  unitsOfMeasurement: [String]
+  valueRequired: Boolean
+  description: String!
+  actions: [AlertTypeAction]
+}
+
+type AlertTypeAction {
+  id: Int!
+  value: String!
+  description: String
+}
+
+type AlertApplication {
+  contractorOwned: Boolean!
+  customer: Customer
+  controller: Controller
+  sensor: Sensor
+}
+
+type CustomerReport {
+  id: Int!
+  name: String!
+  instruction: String
+  type: CustomerReportTypes!
+  frequency: CustomerReportTypesFrequency!
+  customerId: Int!
+  applyToAllCustomer: Boolean!
+  sendEmail: Boolean!
+  sendAppNotification: Boolean!
+  applications: [CustomerReportApplication]
+}
+
+type CustomerReportTypes {
+  id: Int!
+  name: String!
+  frequency: [CustomerReportTypesFrequency]
+}
+
+type CustomerReportTypesFrequency {
+  id: Int!
+  value: String!
+}
+
+type CustomerReportApplication {
+  customer: Customer
+}
+
+type PublicContractorProfile {
+  id: Int
+  customerId: Int!
+  avatar: String
+  business: String
+  coordinates: GeoCoordinates
+  location: String
+  contact: String
+  description: String
+  website: String
+  highestPlan: PublicCustomerPlan!
+}
+
+type PublicCustomerPlan {
+  id: Int!
+  name: String!
+}
+
+type Notification {
+  type: NotificationTypeEnum!
+  header: String
+  content: String!
+  version: String!
+  displayMode: String!
+}
+
+enum NotificationTypeEnum {
+  GENERIC
+  CONTRACTOR_INFO
+}
+
+type UnitsSummary {
+  id: Int!
+  unitsName: String!
+  temperatureUnit: String
+  rainUnit: String
+  temperatureMax: String!
+  temperatureMin: String!
+  rainMax: String!
+  rainMin: String!
+  rainMaxWeek: String!
+  windMin: String!
+  windMax: String!
+  windUnit: String!
+  sensorUnit: String!
+  longUnit: String!
+}
+
+type MessageApp {
+  conversations: [Conversation]!
+  conversation(id: Int!): Conversation!
+}
+
+type Conversation {
+  id: Int!
+  type: String!
+  participants: [PublicUser]!
+  precedingMessages(offset: Int!): [Message]!
+  lastMessages: [Message]!
+  followingMessages(offset: Int!): [Message]!
+  lastMessage: Message
+}
+
+type PublicUser {
+  id: Int!
+  customerId: Int!
+  name: String!
+  userAvatar: File
+}
+
+type Message {
+  id: Int!
+  authorParticipantId: Int!
+  created: Int!
+  content: String!
+  shortContent: String!
+  messageStateId: Int!
+  read: Boolean!
+  authorDetails: User!
+  conversationId: Int!
+}
+
+type Configuration {
+  units: [UnitsSummary]
+  timeZones: [String]
+  model(name: String!): ControllerModel
+  plans: [PlanWithFeatures]!
+  weatherSources: [WeatherSource]
+  sensorInputs(hardware: String = ""): [SensorInput]
+  controllerFamilies: [ControllerFamily]
+  sensorCategories: [SensorModelCategory]
+  alertTypes: [AlertType]
+  customerReportTypes: [CustomerReportTypes]
+  zoneIcons: [ZoneIcon]
+  customSensorTypes: [CustomSensorTypeOptions]
+  wateringProgramTypes: [WateringScheduleRunType]
+  wateringProgramAdjustmentOptions: [WateringProgramAdjustmentOption] @deprecated(reason: "Use controllerWateringProgramAdjustments")
+  controllerWateringProgramAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment]
+  supportedFeatures(module: String!, version: String!): [BluetoothFeaturesEnum]
+  locales: [LocaleOption]
+}
+
+type PlanWithFeatures {
+  id: Int!
+  contractor: Boolean!
+  name: String!
+  cost: Cost
+  price: Price!
+  features: [String]!
+}
+
+type Price {
+  amount: Int!
+  label: String!
+}
+
+type WeatherSource {
+  id: Int!
+  title: String!
+  description: String!
+  style: String
+}
+
+type CustomSensorTypeOptions {
+  value: String
+  label: String
+}
+
+type WateringScheduleRunType {
+  value: Int
+  label: String
+}
+
+type WateringProgramAdjustmentOption {
+  value: Int
+  label: String
+}
+
+enum BluetoothFeaturesEnum {
+  BluetoothX2Provision
+  BluetoothRemoteControl
+  BluetoothScheduleTransfer
+  BluetoothDiagnostics
+}
+
+type LocaleOption {
+  value: String
+  label: String
+}
+
+type ConfigurationUploadStatus {
+  id: String!
+  serialNumber: String!
+  sentEpoch: Int!
+  receivedEpoch: Int!
+  status: Int!
+  programs: String!
+}
+
+type Mutation {
+  acknowledgeEvent(eventId: Int!, controllerId: Int!): Boolean
+  acknowledgeAllEvents(controllerId: Int!): Boolean
+  updateLocation(deviceId: Int!, address: String!): Location
+  updateLocationCoordinates(deviceId: Int!, latitude: Float!, longitude: Float!): Location
+  updateSeasonalAdjustments(controllerId: Int!, factors: [Int]!): Boolean
+  updateControllerWatchList(controllerIds: [Int]!, customerId: Int!): Boolean
+  createExpander(controllerId: Int!, name: String!, number: Int!): Expander
+  updateExpander(expanderId: Int!, name: String!, number: Int!): Expander
+  deleteExpander(expanderId: Int!): Boolean
+  createSensor(controllerId: Int!, name: String!, modelId: Int!, inputNumber: Int!, zoneIds: [Int]!): Sensor
+  updateSensor(sensorId: Int!, controllerId: Int!, name: String!, modelId: Int!, inputNumber: Int!, zoneIds: [Int]): Sensor
+  deleteSensor(sensorId: Int!): Boolean
+  createCustomSensorType(customerId: Int!, name: String!, customSensorType: CustomSensorTypeEnum!, modeType: CustomSensorModeTypeEnum!, delay: Int, offTimer: Int, flowSensorRate: Float): SensorModel
+  updateCustomSensorType(customSensorTypeId: Int!, customerId: Int!, controllerId: Int!, name: String!, customSensorType: CustomSensorTypeEnum!, modeType: CustomSensorModeTypeEnum!, delay: Int, offTimer: Int, flowSensorRate: Float): SensorModel
+  deleteCustomSensorType(id: Int!): Int
+  clearAllEventLogs(controllerId: Int!): Boolean
+  clearReports(controllerId: Int!): Boolean
+  addWeatherStation(controllerId: Int!, weatherStationId: Int!): Boolean
+  addVirtualWeatherStation(controllerId: Int!): Boolean!
+  removeWeatherStation(controllerId: Int!, weatherStationId: Int!): Boolean
+  removeAllWeatherStations(controllerId: Int!): Boolean
+  createAlert(controllerId: Int!, name: String!, alertTypeId: Int!, alertUnitId: Int, value: Int!, customers: [Int], controllers: [Int], sensors: [Int], addToEventLog: Boolean!, sendAppNotification: Boolean!, notificationUserId: Int, phoneNumber: String, valveShutoffActive: Boolean, valveShutoffValue: Int, sendEmailActive: Boolean, emailNotificationUserId: Int, applyToAll: Boolean!, isContractorLevel: Boolean!): Alert @deprecated(reason: "Use CreateNewAlertMutation instead")
+  updateAlert(alertId: Int!, controllerId: Int!, name: String!, alertTypeId: Int!, alertUnitId: Int, value: Int!, customers: [Int], controllers: [Int], sensors: [Int], addToEventLog: Boolean!, sendAppNotification: Boolean!, notificationUserId: Int, phoneNumber: String, valveShutoffActive: Boolean, valveShutoffValue: Int, sendEmailActive: Boolean, emailNotificationUserId: Int, applyToAll: Boolean!, isContractorLevel: Boolean!): Alert
+  createNewAlert(controllerId: Int!, name: String!, alertTypeId: Int!, alertUnitId: Int, value: Float!, customers: [Int], controllers: [Int], sensors: [Int], addToEventLog: Boolean!, sendAppNotification: Boolean!, notificationUserId: Int, phoneNumber: String, valveShutoffActive: Boolean, valveShutoffValue: Int, sendEmailActive: Boolean, emailNotificationUserId: Int, applyToAll: Boolean!, isContractorLevel: Boolean!): Alert
+  updateNewAlert(alertId: Int!, controllerId: Int!, name: String!, alertTypeId: Int!, alertUnitId: Int, value: Float!, customers: [Int], controllers: [Int], sensors: [Int], addToEventLog: Boolean!, sendAppNotification: Boolean!, notificationUserId: Int, phoneNumber: String, valveShutoffActive: Boolean, valveShutoffValue: Int, sendEmailActive: Boolean, emailNotificationUserId: Int, applyToAll: Boolean!, isContractorLevel: Boolean!): Alert
+  deleteAlert(alertId: Int!): Boolean
+  createCustomerReport(customerId: Int!, name: String!, instruction: String, typeId: Int!, frequencyId: Int!, applyToAllCustomer: Boolean!, customers: [Int], sendEmail: Boolean!, sendAppNotification: Boolean!): CustomerReport
+  updateCustomerReport(customerReportId: Int!, customerId: Int!, name: String!, instruction: String, typeId: Int!, frequencyId: Int!, applyToAllCustomer: Boolean!, customers: [Int], sendEmail: Boolean!, sendAppNotification: Boolean!): CustomerReport
+  deleteCustomerReport(customerReportId: Int!): Int!
+  createZone(controllerId: Int!, icon: Int, name: String!, number: Int!, wateringMode: Int!, globalMasterValve: Int!, scheduleAdjustmentIds: [Int]!, wateringAdjustment: Int!, wateringType: Int!, runTime: Int, wateringFrequencyMode: Int!, fixedWateringFrequency: Int, smartWateringFrequency: Int, virtualSolarSyncWateringFrequency: Int, runNextAvailableStartTime: Int, preConfiguredWateringScheduleId: Int, cycleSoakEnable: Int, cycleCustomTime: Int, soakCustomTime: Int, factors: [Int], reusableSchedule: Boolean, reusableScheduleName: String): Zone
+  updateZone(zoneId: Int!, icon: Int, iconFileId: Int, name: String!, number: Int!, wateringMode: Int!, globalMasterValve: Int!, scheduleAdjustmentIds: [Int]!, wateringAdjustment: Int!, wateringType: Int!, runTime: Int, wateringFrequencyMode: Int!, fixedWateringFrequency: Int, smartWateringFrequency: Int, virtualSolarSyncWateringFrequency: Int, runNextAvailableStartTime: Int, preConfiguredWateringScheduleId: Int, cycleSoakEnable: Int, cycleCustomTime: Int, soakCustomTime: Int, factors: [Int], reusableSchedule: Boolean, reusableScheduleName: String): Zone
+  createZoneStandard(controllerId: Int!, icon: Int, name: String!, number: Int!, globalMasterValve: Int!, wateringAdjustment: Int!, cycleSoakEnable: Boolean!, cycleCustomTime: Int, soakCustomTime: Int): Zone
+  updateZoneStandard(zoneId: Int!, icon: Int, iconFileId: Int, name: String!, number: Int!, globalMasterValve: Int!, wateringAdjustment: Int!, cycleSoakEnable: Boolean!, cycleCustomTime: Int, soakCustomTime: Int): Zone
+  deleteZone(zoneId: Int!): Boolean
+  updateMasterValve(zoneNumber: Int!, controllerId: Int): MasterValve @deprecated(reason: "Use UpdateControllerMasterValve")
+  updateControllerMasterValve(zoneNumber: Int!, controllerId: Int!): MasterValve
+  removeZoneImage(imageId: Int!): Boolean
+  cancelAllControllerRuns: String
+  cancelAllZoneRuns: String
+  cancelRunsForZone(zoneId: Int!): StatusCodeAndSummary!
+  startAllZones(controllerId: Int!, markRunAsScheduled: Boolean = false, customRunDuration: Int): StatusCodeAndSummary!
+  startSelectedZones(zoneIds: [Int!]!, runDurations: [Int!]!, markRunAsScheduled: Boolean = false): StatusCodeAndSummary!
+  startZones(zoneIds: [Int]!, markRunAsScheduled: Boolean = false, customRunDuration: Int): StatusCodeAndSummary!
+  startZone(zoneId: Int!, markRunAsScheduled: Boolean = false, stackRuns: Boolean, customRunDuration: Int): StatusCodeAndSummary!
+  stopAllZones(controllerId: Int!): StatusCodeAndSummary!
+  stopZone(zoneId: Int!): StatusCodeAndSummary!
+  startZonesWithProgramStartTime(programStartTimeId: Int!, markRunAsScheduled: Boolean!, customDuration: Int): StatusCodeAndSummary!
+  startZonesWithProgram(programId: Int!, markRunAsScheduled: Boolean!, customDuration: Int): StatusCodeAndSummary!
+  createController(customerId: Int!, controllerName: String!, controllerModel: String, serialNumber: String, address: String, isContractorLevel: Boolean!, parentDeviceId: Int): Controller
+  deleteController(deviceId: Int!): Int
+  assignPlanCodeToCustomer(customerId: Int!, upgradeKey: String!): StatusCodeAndSummary!
+  hibernateController(controllerId: Int!): Boolean
+  wakeController(controllerId: Int!): Boolean
+  setCurrentController(controllerId: Int!): Controller
+  assignSerialNumber(controllerId: Int, serialNumber: String!, deviceId: Int, deviceType: DeviceTypeEnum): StatusCodeAndSummary!
+  removeSerialNumber(controllerId: Int, deviceId: Int, deviceType: DeviceTypeEnum): StatusCodeAndSummary!
+  updateControllerProgramMode(controllerId: Int!, programMode: ControllerProgramModeEnum): Controller
+  moveCustomerDevice(deviceId: Int!, customerId: Int!): StatusCodeAndSummary!
+  createGateway(customerId: Int!, name: String!, serialNumber: String, address: String): BocGateway @deprecated
+  updateGateway(customerId: Int!, deviceId: Int!, name: String!, serialNumber: String, address: String!, siteId: Int!, rfChannel: Int!, snrThreshold: Int!, retries: Int!, sensorId: Int, sensorType: Int, zoneIds: [Int]): BocGateway @deprecated
+  deleteGateway(deviceId: Int!): Int @deprecated
+  createRepeater(customerId: Int!, name: String!, serialNumber: String, address: String, parentDeviceId: Int!): BocRepeater @deprecated
+  updateRepeater(customerId: Int!, deviceId: Int!, name: String!, serialNumber: String, address: String!, parentDeviceId: Int!): BocRepeater @deprecated
+  deleteRepeater(deviceId: Int!): Int @deprecated
+  addBocTopology(customerId: Int!, childDeviceId: Int!, parentDeviceId: Int!): Boolean @deprecated
+  removeBocTopology(customerId: Int!, childDeviceId: Int!): Boolean @deprecated
+  refreshBocStatus(controllerId: Int!): StatusCodeAndSummary! @deprecated
+  rescanNode(deviceId: Int!): StatusCodeAndSummary! @deprecated
+  updateFile(id: Int!, fileName: String!): File
+  deleteFile(id: Int!): Int
+  createUser(name: String!, email: String, userType: UserTypeEnum, customerId: Int, currentControllerId: Int): User
+  updateUserType(userId: Int!, userType: UserTypeEnum!): User
+  deleteUser(userId: Int!): Int
+  updateUserAndUserSettings(userId: Int!, name: String!, email: String!, unitId: Int!): User
+  updateUserAndUserType(userId: Int!, name: String!, email: String, userType: UserTypeEnum!): User
+  unlinkCustomer(customerId: Int!, isPendingCustomer: Boolean = false): Int
+  removeContractor: Boolean!
+  checkExistingCustomer(emailOrSerialNumber: String!, customerId: Int!): StatusCodeWithEmailAndSerialNumber
+  requestLinkCustomer(emailOrSerialNumber: String!, contractorCustomerId: Int!): StatusCodeAndSummary!
+  createCustomer(name: String!, email: String, userType: UserTypeEnum!, notifyUserId: Int, sendEmail: Boolean!, contractorCustomerId: Int!): Customer!
+  sendActivationEmail(email: String!): StatusCodeAndSummary!
+  initialisePassword(email: String!, key: String!, password: String!): StatusCodeAndSummary!
+  loginAs(key: String!, email: String!): StatusCodeAndSummary!
+  updateTandcVersion(email: String!, tandcVersion: Int!): StatusCodeAndSummary!
+  resetPassword(email: String!): StatusCodeAndSummary!
+  updatePassword(oldPassword: String!, newPassword: String!): StatusCodeAndSummary!
+  updateWateringTriggers(extendWaterTemperature: Float!, extendWaterTemperatureEnabled: Boolean!, extendWaterTemperaturePercentage: Int!, extendWaterHumidity: Int!, extendWaterHumidityEnabled: Boolean!, suspendWaterWeekRain: Float!, suspendWaterRainDays: Int!, suspendWaterWeekRainEnabled: Boolean!, suspendWaterRain: Float!, suspendWaterRainEnabled: Boolean!, suspendWaterTemperature: Float!, suspendWaterTemperatureEnabled: Boolean!, suspendProbabilityOfPrecipitation: Int!, suspendProbabilityOfPrecipitationEnabled: Boolean!, suspendWind: Float!, suspendWindEnabled: Boolean!, enableEvapotranspirationForecastTemperature: Boolean!, enableEvapotranspirationForecastRain: Boolean!, reduceWaterTemperatureEnabled: Boolean!, reduceWaterTemperaturePercentage: Int!, reduceWaterTemperature: Float!, controllerId: Int, contractorId: Int, isContractor: Boolean!): WateringTriggers
+  applyContractorWateringTriggersSettings(contractorId: Int!, controllers: [Int] = [], applyAll: Boolean!): Boolean!
+  createProgramStartTime(contractorId: Int, isContractor: Boolean!, controllerId: Int, applyAll: Boolean!, zones: [Int], schedules: [Int], time: String!, wateringType: Int!, timeType: String!, sunday: Int!, monday: Int!, tuesday: Int!, wednesday: Int!, thursday: Int!, friday: Int!, saturday: Int!): ProgramStartTime
+  updateProgramStartTime(id: Int!, contractorId: Int, isContractor: Boolean!, controllerId: Int, applyAll: Boolean!, zones: [Int], schedules: [Int], time: String!, wateringType: Int!, timeType: String!, sunday: Int!, monday: Int!, tuesday: Int!, wednesday: Int!, thursday: Int!, friday: Int!, saturday: Int!): ProgramStartTime
+  deleteProgramStartTime(id: Int!, controllerId: Int, isContractor: Boolean!): Int
+  createStandardProgram(controllerId: Int!, name: String!, programType: Int!, dayPattern: String!, standardProgramDayPattern: StandardProgramDayPatternEnum, interval: Int, seriesStart: Int, startTimes: [String]!, zoneRunTimes: [ZoneRunTime!]!, scheduleAdjustmentIds: [Int]!, seasonalAdjustmentFactors: [Int]!, validFrom: Int, validTo: Int, ignoreRainSensor: Boolean): StandardProgram
+  updateStandardProgram(programId: Int!, controllerId: Int!, name: String!, programType: Int!, dayPattern: String!, standardProgramDayPattern: StandardProgramDayPatternEnum, interval: Int, seriesStart: Int, startTimes: [String]!, zoneRunTimes: [ZoneRunTime!]!, scheduleAdjustmentIds: [Int]!, seasonalAdjustmentFactors: [Int]!, validFrom: Int, validTo: Int, ignoreRainSensor: Boolean): StandardProgram
+  deleteStandardProgram(programId: Int!, controllerId: Int!): Int
+  applyContractorProgramStartTime(contractorId: Int!, controllers: [Int], applyAll: Boolean!): Boolean!
+  selectLocale(locale: String!): Boolean!
+  createTimeBasedWateringProgram(wateringProgramName: String!, wateringProgramType: Int, fixedWateringRunTime: Int!, fixedWateringFrequencyMode: Int!, fixedWateringFrequencyValue: Int, wateringProgramAdjustment: Int, scheduleAdjustmentIds: [Int], controllerId: Int!, seasonalAdjustment: [Int]): WateringProgram!
+  createSmartBasedWateringProgram(wateringProgramName: String!, smartWateringRunTime: Int!, smartWateringFrequencyValue: Int!, wateringProgramType: Int = 0, controllerId: Int!, seasonalAdjustment: [Int], scheduleAdjustmentIds: [Int]): WateringProgram!
+  createVirtualSolarSyncWateringProgram(wateringProgramName: String!, wateringProgramType: Int, virtualSolarSyncWateringRunTime: Int!, virtualSolarSyncWateringFrequencyMode: Int!, virtualSolarSyncWateringFrequencyValue: Int, controllerId: Int!, scheduleAdjustmentIds: [Int]!, seasonalAdjustment: [Int]): WateringProgram!
+  updateTimeBasedWateringProgram(wateringProgramId: Int!, wateringProgramName: String!, wateringProgramType: Int, fixedWateringRunTime: Int!, fixedWateringFrequencyMode: Int!, fixedWateringFrequencyValue: Int, wateringProgramAdjustment: Int, scheduleAdjustmentIds: [Int], controllerId: Int!, seasonalAdjustment: [Int]): WateringProgram!
+  updateSmartBasedWateringProgram(wateringProgramId: Int!, wateringProgramName: String!, wateringProgramType: Int, smartWateringRunTime: Int!, smartWateringFrequencyValue: Int!, controllerId: Int!, seasonalAdjustment: [Int], scheduleAdjustmentIds: [Int]): WateringProgram!
+  updateVirtualSolarSyncWateringProgram(wateringProgramId: Int!, wateringProgramName: String!, wateringProgramType: Int, virtualSolarSyncWateringRunTime: Int!, virtualSolarSyncWateringFrequencyMode: Int!, virtualSolarSyncWateringFrequencyValue: Int, controllerId: Int!, scheduleAdjustmentIds: [Int]!, seasonalAdjustment: [Int]): WateringProgram!
+  removeWateringProgram(wateringProgramId: Int!): Int!
+  updateCustomerOrganization(customerId: Int!, organization: String!): Customer
+  appointNotificationUser(userId: Int!): Customer
+  createApiKey: StatusCodeAndSummary!
+  registerDevice(uuid: String = "", deviceType: Int!, token: String = "", manufacturer: String = "", serial: String = "", model: String = "", nativeVersion: String = ""): Boolean
+  createOrUpdateUserDeviceWithTokenAndAppVersions(uuid: String!, nativeVersion: String!, codePushVersion: String, deviceToken: String): UserDevice
+  registerFreePlan(planId: Int!, customerId: Int!): CustomerPlan!
+  upgradePlanCode(customerId: Int!, upgradeCode: String!): CustomerPlan!
+  removeUserThumbnail(userId: Int!): Boolean
+  removeCustomerThumbnail(customerId: Int!): Boolean
+  sendChatMessageToSpecificUsers(conversationId: Int, conversationType: String!, toUserIds: [Int]!, message: String!): Message
+  sendChatMessageToAllUsers(conversationId: Int, message: String!): Message
+  deleteConversation(conversationId: Int!): Boolean
+  markMessagesAsRead(conversationId: Int!, messageIds: [Int]!): Boolean
+  suspendAllZones(controllerId: Int!, until: String!): StatusCodeAndSummary!
+  suspendZone(zoneId: Int!, until: String!): StatusCodeAndSummary!
+  resumeAllZones(controllerId: Int!): StatusCodeAndSummary!
+  resumeZone(zoneId: Int!): StatusCodeAndSummary!
+  createZoneSuspensions(zoneIds: [Int]!, startTime: Int, endTime: Int!): [Zone]!
+  createZoneSuspensionsByControllers(controllerIds: [Int]!, startTime: Int, endTime: Int!): StatusCodeAndSummary!
+  createZoneSuspensionsByCustomers(customerIds: [Int]!, startTime: Int, endTime: Int!): StatusCodeAndSummary!
+  deleteZoneSuspension(id: Int!): Boolean!
+  deleteZoneSuspensions(zoneSuspensionIds: [Int]!): Boolean!
+  resumeZones(zoneIds: [Int]!): Boolean!
+  resumeZonesByControllers(controllerIds: [Int]!, resumeForOtherCustomers: Boolean = false): StatusCodeAndSummary!
+  resumeZonesByCustomers(customerIds: [Int]!, resumeForOtherCustomers: Boolean = false): StatusCodeAndSummary!
+  updateZoneSpecificSeasonalAdjustment(zoneId: Int!, factors: [Int]): Zone @deprecated(reason: "Use UpdateZoneMutation")
+  removeZoneSpecificSeasonalAdjustment(zoneId: Int!): Boolean! @deprecated(reason: "Use DeleteZoneMutation")
+  updateProgramSpecificSeasonalAdjustment(wateringProgramId: Int!, factors: [Int]): Boolean! @deprecated(reason: "Use UpdateProgramStartTimeMutation")
+  removeProgramSpecificSeasonalAdjustment(wateringProgramId: Int!): Boolean! @deprecated(reason: "Use DeleteProgramStartTimeMutation")
+  sendAppNotification(userId: Int!, message: String!): StatusCodeAndSummary
+  sendTestSmsNotification(mobileNumber: String!, controllerId: Int!): Boolean!
+  createJobSheet(controllerId: Int!, number: String!, action: String!, emails: [String]!, instruction: String!, includeZoneDetails: Boolean!, includeZonePictures: Boolean!, includeAlerts: Boolean!, attachFiles: Boolean!): JobSheet
+  assignAvailablePlan(planId: Int!, planLength: Int!, customerId: Int!, contractorCustomerId: Int!): CustomerPlan
+  linkCustomerToContractor(contractorCustomerId: Int!, customerId: Int!): Boolean
+  addOrUpdateContractorDetails(customerId: Int!, business: String!, website: String!, description: String!, contact: String!, location: String!, online: Boolean!): Boolean
+  updateControllerModel(controllerId: Int!, value: String!): Boolean
+  updateControllerName(controllerId: Int!, value: String!): Boolean
+  updateControllerOffline(controllerId: Int!, value: Int!): Boolean
+  updateControllerHidePassword(controllerId: Int!, value: Int!): Boolean
+  updateControllerTimeZone(controllerId: Int!, value: String!): Boolean
+  updateControllerZoneDelay(controllerId: Int!, value: Int!): Boolean
+  updateControllerMasterDelay(controllerId: Int!, value: Int!): Boolean
+  updateControllerWizardComplete(controllerId: Int!, value: Boolean!): Boolean
+  notifyEmailLinkedAccount(serialNumber: String!): StatusCodeAndSummary!
+  updateControllerNotifyUser(controllerId: Int!, value: Int): Boolean
+  updateControllerNotifyOffline(controllerId: Int!, value: Int): Boolean
+  updateControllerUnit(controllerId: Int!, value: Int!): Boolean
+  updateControllerDisableAccess(controllerId: Int!, value: Int): Boolean
+  uploadControllerConfiguration(controllerId: Int!): Int
+  updateConfigurationUploadStatus(controllerId: Int!, transactionId: Int!, operation: Int!): Int
+}
+
+type StatusCodeAndSummary {
+  status: StatusCodeEnum!
+  summary: String!
+}
+
+enum StatusCodeEnum {
+  OK
+  WARNING
+  ERROR
+}
+
+enum DeviceTypeEnum {
+  controller
+}
+
+type StatusCodeWithEmailAndSerialNumber {
+  status: StatusCodeEnum!
+  message: String!
+  validEmail: Boolean!
+  validSerialNumber: Boolean!
+}
+
+enum StandardProgramDayPatternEnum {
+  dow
+  even
+  odd
+  interval
+}
+
+input ZoneRunTime {
+  zoneNumber: Int!
+  runTimeGroupId: Int
+  runDuration: Int
+}
+
+type StandardProgram implements Program {
+  id: Int!
+  name: String!
+  schedulingMethod(hideProgramName: Boolean = false): SelectedOption!
+  monthlyWateringAdjustments: [Int!]!
+  appliesToZones: [Zone!]!
+  conditionalWateringAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment!]!
+  applications: [StandardProgramApplication!]!
+  startTimes: [Time!]!
+  timeRange: Unit!
+  ignoreRainSensor: Boolean!
+  wateringDays: [String]! @deprecated(reason: "Use daysRun")
+  daysRun: [DaysOfWeekEnum]!
+  standardProgramDayPattern: String!
+  periodicity: StandardProgramPeriodicity
+}
+
+type StandardProgramApplication {
+  zone: Zone!
+  standardProgram: StandardProgram!
+  runTimeGroup: RunTimeGroup!
+}
+
+type Unit {
+  validFrom: Int
+  validTo: Int
+}
+
+enum DaysOfWeekEnum {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+type StandardProgramPeriodicity {
+  period: Int!
+  seriesStart: DateTime!
+}
+
+type UserDevice {
+  id: Int!
+  nativeVersion: String
+  codePushVersion: String
+
+  """
+  Device token is from cordova PushNotification plugin. We can only get the token if
+                          and only if the user allow to receive notification in their device
+  """
+  deviceToken: String
+}
+
+type JobSheet {
+  fileName: String!
+  downloadUrl: String!
+}
+
+type AdvancedProgram implements Program {
+  id: Int!
+  name: String!
+  schedulingMethod(hideProgramName: Boolean = false): SelectedOption!
+  monthlyWateringAdjustments: [Int!]!
+  zoneSpecific: Boolean!
+  appliesToZones: [Zone!]!
+  conditionalWateringAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment!]!
+  advancedProgramId: Int!
+
+  """Defines if the program applies to customer or contractor"""
+  scope: AdvancedProgramScopeEnum!
+  wateringFrequency: ProgramWateringFrequency!
+  runTimeGroup: RunTimeGroup
+}
+
+enum AdvancedProgramScopeEnum {
+  CUSTOMER
+  CONTRACTOR
+}
+
+type ProgramWateringFrequency {
+  label: String!
+  period: WateringPeriodicity!
+  description: String!
+}
+
+type WateringPeriodicity {
+  value: Int
+  label: String
+}
+
+type AdvancedWateringSettings implements WateringSettings {
+  fixedWateringAdjustment: Int!
+  cycleAndSoakSettings: CycleAndSoakSettings
+  advancedProgram: AdvancedProgram!
+  wateringProgram: WateringProgram! @deprecated(reason: "Use either advancedProgram or standardProgramApplications")
+  wateringAdjustment: Int! @deprecated(reason: "Use fixedWateringAdjustment property")
+  programStartTimes: [ProgramStartTime!]!
+}
+
+type StandardWateringSettings implements WateringSettings {
+  fixedWateringAdjustment: Int!
+  cycleAndSoakSettings: CycleAndSoakSettings
+  standardProgramApplications: [StandardProgramApplication!]!
+  wateringProgram: WateringProgram! @deprecated(reason: "Use either advancedProgram or standardProgramApplications")
+  wateringAdjustment: Int! @deprecated(reason: "Use fixedWateringAdjustment property")
+  defaultRunDuration(currentTime: Int): Int!
+}
