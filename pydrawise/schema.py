@@ -7,19 +7,26 @@ from collections import namedtuple
 from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import datetime, timedelta, timezone
 from enum import auto, Enum
-from functools import cache, wraps
+from functools import cache
 from typing import Iterator, List, Type, get_args, get_origin, get_type_hints
 from types import NoneType, UnionType
 
+from apischema import deserialize as _deserialize
 from apischema.conversions import Conversion
 from apischema.graphql import graphql_schema
 from apischema.metadata import conversion, skip
 from apischema.metadata.keys import CONVERSION_METADATA, SKIP_METADATA
+from apischema.utils import to_camel_case
 from gql.dsl import DSLField, DSLSchema
 from graphql import GraphQLSchema
 
 from .auth import Auth
 from .exceptions import NotAuthenticatedError
+
+
+def deserialize(*args, **kwargs):
+    kwargs.setdefault("aliaser", to_camel_case)
+    return _deserialize(*args, **kwargs)
 
 
 @cache
@@ -361,6 +368,19 @@ class Controller:
         repr=False,
         metadata=skip(serialization=True, deserialization=True),
     )
+
+    async def get_zones(self) -> list[Zone]:
+        if not self._auth:
+            raise NotAuthenticatedError
+        ds = DSLSchema(get_schema())
+        selector = ds.Query.controller(controllerId=self.id).select(
+            ds.Controller.zones.select(*get_selectors(ds, Zone)),
+        )
+        result = await self._auth.query(selector)
+        zones = deserialize(list[Zone], result["controller"]["zones"])
+        for zone in zones:
+            zone._auth = self._auth
+        return zones
 
     async def start_all_zones(
         self, mark_run_as_scheduled: bool = False, custom_run_duration: int = 0

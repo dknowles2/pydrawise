@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-from apischema import deserialize as _deserialize
-from apischema.utils import to_camel_case
 from gql.dsl import DSLSchema
 
 from .auth import Auth
@@ -13,14 +11,10 @@ from .schema import (
     StatusCodeAndSummary,
     User,
     Zone,
+    deserialize,
     get_schema,
     get_selectors,
 )
-
-
-def deserialize(*args, **kwargs):
-    kwargs.setdefault("aliaser", to_camel_case)
-    return _deserialize(*args, **kwargs)
 
 
 class Hydrawise:
