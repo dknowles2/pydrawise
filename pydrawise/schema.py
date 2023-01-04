@@ -289,11 +289,19 @@ class ControllerFirmware:
 
 
 @dataclass
+class ControllerModel:
+
+    name: str
+    description: str
+
+
+@dataclass
 class ControllerHardware:
 
     serial_number: str
     version: str
     status: str
+    model: ControllerModel
     firmware: list[ControllerFirmware]
 
 
