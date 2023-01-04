@@ -8,7 +8,16 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import datetime, timedelta, timezone
 from enum import auto, Enum
 from functools import cache
-from typing import Iterator, List, Optional, Type, Union, get_args, get_origin, get_type_hints
+from typing import (
+    Iterator,
+    List,
+    Optional,
+    Type,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from apischema import deserialize as _deserialize
 from apischema.conversions import Conversion
