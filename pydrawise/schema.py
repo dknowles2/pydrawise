@@ -8,8 +8,16 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import datetime, timedelta, timezone
 from enum import auto, Enum
 from functools import cache
-from typing import Iterator, List, Type, get_args, get_origin, get_type_hints
-from types import UnionType
+from typing import (
+    Iterator,
+    List,
+    Optional,
+    Type,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from apischema import deserialize as _deserialize
 from apischema.conversions import Conversion
@@ -68,7 +76,7 @@ def _fields(cls) -> Iterator[_Field]:
         field_type = hints[f.name]
         origin = get_origin(field_type)
 
-        if origin == UnionType:
+        if origin == Union:
             # Drop None from unions.
             # We assume all unions only have a single base.
             [field_type] = set(get_args(field_type)) - {NoneType}
@@ -165,7 +173,7 @@ class CycleAndSoakSettings:
 class WateringSettings:
 
     fixed_watering_adjustment: int
-    cycle_and_soak_settings: CycleAndSoakSettings | None
+    cycle_and_soak_settings: Optional[CycleAndSoakSettings]
 
 
 @dataclass
@@ -190,15 +198,15 @@ class ScheduledZoneRun:
 class ScheduledZoneRuns:
 
     summary: str
-    current_run: ScheduledZoneRun | None
-    next_run: ScheduledZoneRun | None
-    status: str | None
+    current_run: Optional[ScheduledZoneRun]
+    next_run: Optional[ScheduledZoneRun]
+    status: Optional[str]
 
 
 @dataclass
 class PastZoneRuns:
 
-    last_run: ScheduledZoneRun | None
+    last_run: Optional[ScheduledZoneRun]
     runs: list[ScheduledZoneRun]
 
 
@@ -229,7 +237,7 @@ class Zone:
     status: ZoneStatus
     suspensions: list[ZoneSuspension] = field(default_factory=list)
 
-    _auth: Auth | None = field(
+    _auth: Optional[Auth] = field(
         default=None,
         init=False,
         repr=False,
@@ -239,7 +247,7 @@ class Zone:
     async def start(
         self,
         mark_run_as_scheduled: bool = False,
-        custom_run_duration: int | None = None,
+        custom_run_duration: Optional[int] = None,
     ):
         if not self._auth:
             raise NotAuthenticatedError
@@ -325,7 +333,7 @@ class SensorModel:
 @dataclass
 class SensorStatus:
 
-    water_flow: LocalizedValueType | None
+    water_flow: Optional[LocalizedValueType]
     active: bool
 
 
@@ -357,7 +365,7 @@ class ControllerStatus:
     online: bool
     actual_water_time: WaterTime
     normal_water_time: WaterTime
-    last_contact: DateTime | None = None
+    last_contact: Optional[DateTime] = None
 
 
 @dataclass
@@ -372,9 +380,9 @@ class Controller:
     online: bool
     sensors: list[Sensor]
     zones: list[Zone] = field(default_factory=list, metadata=skip(deserialization=True))
-    status: ControllerStatus | None = field(default=None)
+    status: Optional[ControllerStatus] = field(default=None)
 
-    _auth: Auth | None = field(
+    _auth: Optional[Auth] = field(
         default=None,
         init=False,
         repr=False,
@@ -451,7 +459,7 @@ class User:
         default_factory=list, metadata=skip(deserialization=True)
     )
 
-    _auth: Auth | None = field(
+    _auth: Optional[Auth] = field(
         default=None,
         init=False,
         repr=False,
