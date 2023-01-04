@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from enum import auto, Enum
 from functools import cache
 from typing import Iterator, List, Type, get_args, get_origin, get_type_hints
-from types import NoneType, UnionType
+from types import UnionType
 
 from apischema import deserialize as _deserialize
 from apischema.conversions import Conversion
@@ -22,6 +22,10 @@ from graphql import GraphQLSchema
 
 from .auth import Auth
 from .exceptions import NotAuthenticatedError
+
+
+# For compatibility with < python 3.10.
+NoneType = type(None)
 
 
 def deserialize(*args, **kwargs):
