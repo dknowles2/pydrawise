@@ -25,7 +25,7 @@ from apischema.graphql import graphql_schema
 from apischema.metadata import conversion, skip
 from apischema.metadata.keys import CONVERSION_METADATA, SKIP_METADATA
 from apischema.utils import to_camel_case
-from gql.dsl import DSLField, DSLSchema
+from gql.dsl import DSLField, DSLInlineFragment, DSLSchema
 from graphql import GraphQLSchema
 
 from .auth import Auth
@@ -58,7 +58,7 @@ def get_schema() -> GraphQLSchema:
     )
 
 
-_Field = namedtuple("_Field", ["name", "type"])
+_Field = namedtuple("_Field", ["name", "types"])
 
 
 def _fields(cls) -> Iterator[_Field]:
@@ -70,32 +70,50 @@ def _fields(cls) -> Iterator[_Field]:
 
         conversion_md = f.metadata.get(CONVERSION_METADATA, None)
         if conversion_md:
-            yield _Field(f.name, conversion_md.deserialization.source)
+            yield _Field(f.name, [conversion_md.deserialization.source])
             continue
 
         field_type = hints[f.name]
         origin = get_origin(field_type)
 
         if origin == Union:
-            # Drop None from unions.
-            # We assume all unions only have a single base.
-            [field_type] = set(get_args(field_type)) - {NoneType}
+            # Drop None from Optional fields.
+            field_types = set(get_args(field_type)) - {NoneType}
+            if len(field_types) == 1:
+                [field_type] = field_types
+            else:
+                yield _Field(f.name, list(field_types))
+                continue
         elif origin in (List, list):
             # Extract the contained type.
             # We assume all list types are uniform.
             [field_type] = get_args(field_type)
 
-        yield _Field(f.name, field_type)
+        yield _Field(f.name, [field_type])
 
 
 def get_selectors(ds: DSLSchema, cls: Type) -> list[DSLField]:
     ret = []
     for f in _fields(cls):
         dsl_field = getattr(getattr(ds, cls.__name__), f.name)
-        if is_dataclass(f.type):
-            ret.append(getattr(dsl_field, "select")(*get_selectors(ds, f.type)))
+        if len(f.types) == 1:
+            [f_type] = f.types
+            if is_dataclass(f_type):
+                ret.append(getattr(dsl_field, "select")(*get_selectors(ds, f_type)))
+            else:
+                ret.append(dsl_field)
         else:
-            ret.append(dsl_field)
+            # This is a Union; we must pass an inline fragment for each type.
+            sel_args = []
+            for f_type in f.types:
+                if not is_dataclass(f_type):
+                    raise NotImplementedError
+                sel_args.append(
+                    DSLInlineFragment()
+                    .on(getattr(ds, f_type.__name__))
+                    .select(*get_selectors(ds, f_type))
+                )
+            ret.append(getattr(dsl_field, "select")(*sel_args))
     return ret
 
 
@@ -170,10 +188,82 @@ class CycleAndSoakSettings:
 
 
 @dataclass
+class RunTimeGroup:
+
+    id: int
+    duration: timedelta = field(metadata=duration_conversion)
+
+
+@dataclass
+class AdvancedProgram:
+
+    advanced_program_id: int
+    run_time_group: RunTimeGroup
+
+
+class AdvancedProgramDayPatternEnum(Enum):
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+    EVEN = auto()
+    ODD = auto()
+    MONDAY = auto()
+    TUESDAY = auto()
+    WEDNESDAY = auto()
+    THURSDAY = auto()
+    FRIDAY = auto()
+    SATURDAY = auto()
+    SUNDAY = auto()
+    DAYS = auto()
+
+
+@dataclass
+class ProgramStartTimeApplication:
+
+    all: bool
+    zones: [BaseZone]
+
+
+@dataclass
+class ProgramStartTime:
+
+    id: int
+    time: str  # e.g. "02:00"
+    watering_days: list[AdvancedProgramDayPatternEnum]
+
+
+@dataclass
 class WateringSettings:
 
     fixed_watering_adjustment: int
     cycle_and_soak_settings: Optional[CycleAndSoakSettings]
+
+
+@dataclass
+class AdvancedWateringSettings(WateringSettings):
+
+    advanced_program: Optional[AdvancedProgram]
+
+
+@dataclass
+class StandardProgram:
+
+    name: str
+    start_times: list[str]
+
+
+@dataclass
+class StandardProgramApplication:
+
+    zone: BaseZone
+    standard_program: StandardProgram
+    run_time_group: RunTimeGroup
+
+
+@dataclass
+class StandardWateringSettings(WateringSettings):
+
+    standard_program_applications: list[StandardProgramApplication]
 
 
 @dataclass
@@ -226,12 +316,17 @@ class ZoneSuspension:
 
 
 @dataclass
-class Zone:
+class BaseZone:
 
     id: int
     number: Option
     name: str
-    watering_settings: WateringSettings
+
+
+@dataclass
+class Zone(BaseZone):
+
+    watering_settings: Union[AdvancedWateringSettings, StandardWateringSettings]
     scheduled_runs: ScheduledZoneRuns
     past_runs: PastZoneRuns
     status: ZoneStatus
@@ -380,6 +475,7 @@ class Controller:
     online: bool
     sensors: list[Sensor]
     zones: list[Zone] = field(default_factory=list, metadata=skip(deserialization=True))
+    permitted_program_start_times: list[ProgramStartTime] = field(default_factory=list)
     status: Optional[ControllerStatus] = field(default=None)
 
     _auth: Optional[Auth] = field(
