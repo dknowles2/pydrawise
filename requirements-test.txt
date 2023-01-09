@@ -1,0 +1,5 @@
+aiohttp==3.8.3
+aioresponses==0.7.4
+apischema==0.18.0
+gql[aiohttp]==3.4.0
+graphql-core==3.2.3
