@@ -25,8 +25,9 @@ class Auth:
         self._token: str | None = None
         self._token_type: str | None = None
         self._token_expires: datetime | None = None
+        self._refresh_token: str | None = None
 
-    async def _fetch_token(self, refresh=False):
+    async def _fetch_token_locked(self, refresh=False):
         data = {
             "client_id": CLIENT_ID,
             "client_secret": CLIENT_SECRET,
@@ -34,7 +35,7 @@ class Auth:
         if refresh:
             assert self._token is not None
             data["grant_type"] = "refresh_token"
-            data["refresh_token"] = self._token["refresh_token"]
+            data["refresh_token"] = self._refresh_token
         else:
             data["grant_type"] = "password"
             data["scope"] = "all"
@@ -54,6 +55,7 @@ class Auth:
                     self._token_expires = None
                     raise NotAuthorizedError(resp_json["message"])
                 self._token = resp_json["access_token"]
+                self._refresh_token = self._token["refresh_token"]
                 self._token_type = resp_json["token_type"]
                 self._token_expires = datetime.now() + timedelta(
                     seconds=resp_json["expires_in"]
@@ -62,9 +64,9 @@ class Auth:
     async def check_token(self):
         with self._lock:
             if self._token is None:
-                await self._fetch_token(refresh=False)
+                await self._fetch_token_locked(refresh=False)
             elif self._token_expires - datetime.now() < timedelta(minutes=5):
-                await self._fetch_token(refresh=True)
+                await self._fetch_token_locked(refresh=True)
 
     async def token(self) -> str:
         await self.check_token()
