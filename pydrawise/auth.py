@@ -2,13 +2,17 @@
 
 import aiohttp
 from datetime import datetime, timedelta
+import logging
 from threading import Lock
 
 from gql import Client
 from gql.dsl import DSLField, DSLMutation, DSLQuery, DSLSelectable, dsl_gql
-from gql.transport.aiohttp import AIOHTTPTransport
+from gql.transport.aiohttp import AIOHTTPTransport, log as gql_log
 
 from .exceptions import MutationError, NotAuthorizedError
+
+# GQL is quite chatty in logs by default.
+gql_log.setLevel(logging.ERROR)
 
 CLIENT_ID = "hydrawise_app"
 CLIENT_SECRET = "zn3CrjglwNV1"
