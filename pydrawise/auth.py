@@ -59,7 +59,7 @@ class Auth:
                     self._token_expires = None
                     raise NotAuthorizedError(resp_json["message"])
                 self._token = resp_json["access_token"]
-                self._refresh_token = self._token["refresh_token"]
+                self._refresh_token = resp_json["refresh_token"]
                 self._token_type = resp_json["token_type"]
                 self._token_expires = datetime.now() + timedelta(
                     seconds=resp_json["expires_in"]
