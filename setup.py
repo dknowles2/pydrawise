@@ -1,7 +1,7 @@
 from pathlib import Path
 from setuptools import setup, find_packages
 
-VERSION = "2023.1.2"
+VERSION = "2023.1.3"
 
 setup(
     name="pydrawise",
