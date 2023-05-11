@@ -1,24 +1,15 @@
 """Authentication support for the Hydrawise v2 GraphQL API."""
 
-import logging
 from datetime import datetime, timedelta
 from threading import Lock
 
 import aiohttp
-from gql import Client
-from gql.dsl import DSLField, DSLMutation, DSLQuery, DSLSelectable, dsl_gql
-from gql.transport.aiohttp import AIOHTTPTransport
-from gql.transport.aiohttp import log as gql_log
 
-from .exceptions import MutationError, NotAuthorizedError
-
-# GQL is quite chatty in logs by default.
-gql_log.setLevel(logging.ERROR)
+from .exceptions import NotAuthorizedError
 
 CLIENT_ID = "hydrawise_app"
 CLIENT_SECRET = "zn3CrjglwNV1"
 TOKEN_URL = "https://app.hydrawise.com/api/v2/oauth/access-token"
-API_URL = "https://app.hydrawise.com/api/v2/graph"
 DEFAULT_TIMEOUT = 60
 
 
@@ -77,24 +68,3 @@ class Auth:
         await self.check_token()
         with self._lock:
             return f"{self._token_type} {self._token}"
-
-    async def client(self) -> Client:
-        headers = {"Authorization": await self.token()}
-        transport = AIOHTTPTransport(url=API_URL, headers=headers)
-        return Client(transport=transport, parse_results=True)
-
-    async def query(self, selector: DSLSelectable) -> dict:
-        async with await self.client() as session:
-            return await session.execute(dsl_gql(DSLQuery(selector)))
-
-    async def mutation(self, selector: DSLField) -> None:
-        async with await self.client() as session:
-            result = await session.execute(dsl_gql(DSLMutation(selector)))
-            resp = result[selector.name]
-            if isinstance(resp, dict):
-                if resp["status"] != "OK":
-                    raise MutationError(resp["summary"])
-                return
-            elif not resp:
-                # Assume bool response
-                raise MutationError
