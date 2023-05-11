@@ -43,8 +43,8 @@ class Hydrawise:
         result = await self._auth.query(selector)
         return deserialize(Controller, result["controller"])
 
-    async def get_zones(self, controller_id: int) -> list[Zone]:
-        selector = self._schema.Query.controller(controllerId=controller_id).select(
+    async def get_zones(self, controller: Controller) -> list[Zone]:
+        selector = self._schema.Query.controller(controllerId=controller.id).select(
             self._schema.Controller.zones.select(*get_selectors(self._schema, Zone)),
         )
         result = await self._auth.query(selector)
@@ -59,12 +59,12 @@ class Hydrawise:
 
     async def start_zone(
         self,
-        zone_id: int,
+        zone: Zone,
         mark_run_as_scheduled: bool = False,
         custom_run_duration: int = 0,
     ):
         kwargs = {
-            "zoneId": zone_id,
+            "zoneId": zone.id,
             "markRunAsScheduled": mark_run_as_scheduled,
         }
         if custom_run_duration > 0:
@@ -75,20 +75,20 @@ class Hydrawise:
         )
         await self._auth.mutation(selector)
 
-    async def stop_zone(self, zone_id: int):
-        selector = self._schema.Mutation.stopZone.args(zoneId=zone_id).select(
+    async def stop_zone(self, zone: Zone):
+        selector = self._schema.Mutation.stopZone.args(zoneId=zone.id).select(
             *get_selectors(self._schema, StatusCodeAndSummary),
         )
         await self._auth.mutation(selector)
 
     async def start_all_zones(
         self,
-        controller_id: int,
+        controller: Controller,
         mark_run_as_scheduled: bool = False,
         custom_run_duration: int = 0,
     ):
         kwargs = {
-            "controllerId": controller_id,
+            "controllerId": controller.id,
             "markRunAsScheduled": mark_run_as_scheduled,
         }
         if custom_run_duration > 0:
@@ -99,41 +99,41 @@ class Hydrawise:
         )
         await self._auth.mutation(selector)
 
-    async def stop_all_zones(self, controller_id: int):
+    async def stop_all_zones(self, controller: Controller):
         selector = self._schema.Mutation.stopAllZones.args(
-            controllerId=controller_id
+            controllerId=controller.id
         ).select(
             *get_selectors(self._schema, StatusCodeAndSummary),
         )
         await self._auth.mutation(selector)
 
-    async def suspend_zone(self, zone_id: int, until: datetime):
+    async def suspend_zone(self, zone: Zone, until: datetime):
         selector = self._schema.Mutation.suspendZone.args(
-            zoneId=zone_id,
+            zoneId=zone.id,
             until=DateTime.to_json(until).value,
         ).select(
             *get_selectors(self._schema, StatusCodeAndSummary),
         )
         await self._auth.mutation(selector)
 
-    async def resume_zone(self, zone_id: int):
-        selector = self._schema.Mutation.resumeZone.args(zoneId=zone_id).select(
+    async def resume_zone(self, zone: Zone):
+        selector = self._schema.Mutation.resumeZone.args(zoneId=zone.id).select(
             *get_selectors(self._schema, StatusCodeAndSummary),
         )
         await self._auth.mutation(selector)
 
-    async def suspend_all_zones(self, controller_id: int, until: datetime):
+    async def suspend_all_zones(self, controller: Controller, until: datetime):
         selector = self._schema.Mutation.suspendZone.args(
-            controllerId=controller_id,
+            controllerId=controller.id,
             until=DateTime.to_json(until).value,
         ).select(
             *get_selectors(self._schema, StatusCodeAndSummary),
         )
         await self._auth.mutation(selector)
 
-    async def resume_all_zones(self, controller_id: int):
+    async def resume_all_zones(self, controller: Controller):
         selector = self._schema.Mutation.resumeAllZones.args(
-            controllerId=controller_id
+            controllerId=controller.id
         ).select(
             *get_selectors(self._schema, StatusCodeAndSummary),
         )
