@@ -37,12 +37,14 @@ NoneType = type(None)
 
 
 def deserialize(*args, **kwargs):
+    """:meta private:"""
     kwargs.setdefault("aliaser", to_camel_case)
     return _deserialize(*args, **kwargs)
 
 
 @cache
 def get_schema() -> GraphQLSchema:
+    """:meta private:"""
     return graphql_schema(
         query=[Query.me, Query.controller, Query.zone],
         mutation=[
@@ -93,6 +95,7 @@ def _fields(cls) -> Iterator[_Field]:
 
 
 def get_selectors(ds: DSLSchema, cls: Type) -> list[DSLField]:
+    """:meta private:"""
     ret = []
     for f in _fields(cls):
         dsl_field = getattr(getattr(ds, cls.__name__), f.name)
@@ -118,6 +121,7 @@ def get_selectors(ds: DSLSchema, cls: Type) -> list[DSLField]:
 
 
 class StatusCodeEnum(Enum):
+    """Response status codes."""
 
     OK = auto()
     WARNING = auto()
@@ -126,6 +130,7 @@ class StatusCodeEnum(Enum):
 
 @dataclass
 class StatusCodeAndSummary:
+    """A response status code and a human-readable summary."""
 
     status: StatusCodeEnum
     summary: str
@@ -133,6 +138,7 @@ class StatusCodeAndSummary:
 
 @dataclass
 class LocalizedValueType:
+    """A localized value."""
 
     value: float
     unit: str
@@ -140,6 +146,7 @@ class LocalizedValueType:
 
 @dataclass
 class Option:
+    """A generic option."""
 
     value: int
     label: str
@@ -147,6 +154,10 @@ class Option:
 
 @dataclass
 class DateTime:
+    """A date & time.
+
+    This is only used for serialization and deserialization.
+    """
 
     value: str
     timestamp: int
@@ -181,7 +192,17 @@ duration_conversion = conversion(
 
 
 @dataclass
+class BaseZone:
+    """Basic zone information."""
+
+    id: int
+    number: Option
+    name: str
+
+
+@dataclass
 class CycleAndSoakSettings:
+    """Cycle and soak durations."""
 
     cycle_duration: timedelta = field(metadata=duration_conversion)
     soak_duration: timedelta = field(metadata=duration_conversion)
@@ -189,6 +210,7 @@ class CycleAndSoakSettings:
 
 @dataclass
 class RunTimeGroup:
+    """The runtime of a watering program group."""
 
     id: int
     duration: timedelta = field(metadata=duration_conversion)
@@ -196,12 +218,15 @@ class RunTimeGroup:
 
 @dataclass
 class AdvancedProgram:
+    """An advanced watering program."""
 
     advanced_program_id: int
     run_time_group: RunTimeGroup
 
 
 class AdvancedProgramDayPatternEnum(Enum):
+    """A value for an advanced watering program day pattern."""
+
     def _generate_next_value_(name, start, count, last_values):
         return name
 
@@ -218,14 +243,8 @@ class AdvancedProgramDayPatternEnum(Enum):
 
 
 @dataclass
-class ProgramStartTimeApplication:
-
-    all: bool
-    zones: [BaseZone]
-
-
-@dataclass
 class ProgramStartTime:
+    """Start time for a watering program."""
 
     id: int
     time: str  # e.g. "02:00"
@@ -234,6 +253,7 @@ class ProgramStartTime:
 
 @dataclass
 class WateringSettings:
+    """Generic settings for a watering program."""
 
     fixed_watering_adjustment: int
     cycle_and_soak_settings: Optional[CycleAndSoakSettings]
@@ -241,12 +261,14 @@ class WateringSettings:
 
 @dataclass
 class AdvancedWateringSettings(WateringSettings):
+    """Advanced watering program settings."""
 
     advanced_program: Optional[AdvancedProgram]
 
 
 @dataclass
 class StandardProgram:
+    """A standard watering program."""
 
     name: str
     start_times: list[str]
@@ -254,6 +276,7 @@ class StandardProgram:
 
 @dataclass
 class StandardProgramApplication:
+    """A standard watering program."""
 
     zone: BaseZone
     standard_program: StandardProgram
@@ -262,12 +285,14 @@ class StandardProgramApplication:
 
 @dataclass
 class StandardWateringSettings(WateringSettings):
+    """Standard watering settings."""
 
     standard_program_applications: list[StandardProgramApplication]
 
 
 @dataclass
 class RunStatus:
+    """Run status."""
 
     value: int
     label: str
@@ -275,6 +300,7 @@ class RunStatus:
 
 @dataclass
 class ScheduledZoneRun:
+    """A scheduled zone run."""
 
     id: str
     start_time: datetime = field(metadata=DateTime.conversion())
@@ -286,6 +312,7 @@ class ScheduledZoneRun:
 
 @dataclass
 class ScheduledZoneRuns:
+    """Scheduled runs for a zone."""
 
     summary: str
     current_run: Optional[ScheduledZoneRun]
@@ -295,6 +322,7 @@ class ScheduledZoneRuns:
 
 @dataclass
 class PastZoneRuns:
+    """Previous zone runs."""
 
     last_run: Optional[ScheduledZoneRun]
     runs: list[ScheduledZoneRun]
@@ -302,6 +330,7 @@ class PastZoneRuns:
 
 @dataclass
 class ZoneStatus:
+    """A zone's status."""
 
     relative_water_balance: int
     suspended_until: datetime = field(metadata=DateTime.conversion())
@@ -309,6 +338,7 @@ class ZoneStatus:
 
 @dataclass
 class ZoneSuspension:
+    """A zone suspension."""
 
     id: int
     start_time: datetime = field(metadata=DateTime.conversion())
@@ -316,15 +346,8 @@ class ZoneSuspension:
 
 
 @dataclass
-class BaseZone:
-
-    id: int
-    number: Option
-    name: str
-
-
-@dataclass
 class Zone(BaseZone):
+    """A watering zone."""
 
     watering_settings: Union[AdvancedWateringSettings, StandardWateringSettings]
     scheduled_runs: ScheduledZoneRuns
@@ -343,7 +366,14 @@ class Zone(BaseZone):
         self,
         mark_run_as_scheduled: bool = False,
         custom_run_duration: Optional[int] = None,
-    ):
+    ) -> None:
+        """Starts a watering cycle for the zone.
+
+        :param mark_run_as_scheduled: When `True`, runs the zone for its normally scheduled duration.
+        :type mark_run_as_scheduled: bool
+        :param custom_run_duration: A duration (in minutes) to run the zone, instead of its normally scheduled duration.
+        :type custom_run_duration: int | None
+        """
         if not self._auth:
             raise NotAuthenticatedError
         ds = DSLSchema(get_schema())
@@ -360,6 +390,7 @@ class Zone(BaseZone):
         await self._auth.mutation(selector)
 
     async def stop(self) -> None:
+        """Stops the zone's watering cycle."""
         if not self._auth:
             raise NotAuthenticatedError
         ds = DSLSchema(get_schema())
@@ -369,6 +400,11 @@ class Zone(BaseZone):
         await self._auth.mutation(selector)
 
     async def suspend(self, until: datetime) -> None:
+        """Suspends the zone until the given date & time.
+
+        :param until: The date & time to resume the zone's regular schedule.
+        :type until: datetime
+        """
         if not self._auth:
             raise NotAuthenticatedError
         ds = DSLSchema(get_schema())
@@ -379,6 +415,7 @@ class Zone(BaseZone):
         await self._auth.mutation(selector)
 
     async def resume(self) -> None:
+        """Resumes the zone's regular schedule."""
         if not self._auth:
             raise NotAuthenticatedError
         ds = DSLSchema(get_schema())
@@ -390,6 +427,7 @@ class Zone(BaseZone):
 
 @dataclass
 class ControllerFirmware:
+    """Information about the controller's firmware."""
 
     type: str
     version: str
@@ -397,6 +435,7 @@ class ControllerFirmware:
 
 @dataclass
 class ControllerModel:
+    """Information about a controller model."""
 
     name: str
     description: str
@@ -404,6 +443,7 @@ class ControllerModel:
 
 @dataclass
 class ControllerHardware:
+    """Information about a controller's hardware."""
 
     serial_number: str
     version: str
@@ -414,6 +454,7 @@ class ControllerHardware:
 
 @dataclass
 class SensorModel:
+    """Information about a sensor model."""
 
     id: int
     name: str
@@ -427,6 +468,7 @@ class SensorModel:
 
 @dataclass
 class SensorStatus:
+    """Current status of a sensor."""
 
     water_flow: Optional[LocalizedValueType]
     active: bool
@@ -434,12 +476,14 @@ class SensorStatus:
 
 @dataclass
 class SensorFlowSummary:
+    """Summary of a sensor's water flow."""
 
     total_water_volume: LocalizedValueType
 
 
 @dataclass
 class Sensor:
+    """A sensor connected to a controller."""
 
     id: int
     name: str
@@ -449,12 +493,14 @@ class Sensor:
 
 @dataclass
 class WaterTime:
+    """A water time duration."""
 
     value: timedelta = field(metadata=duration_conversion)
 
 
 @dataclass
 class ControllerStatus:
+    """Current status of a controller."""
 
     summary: str
     online: bool
@@ -465,6 +511,7 @@ class ControllerStatus:
 
 @dataclass
 class Controller:
+    """A Hydrawise controller."""
 
     id: int
     name: str
@@ -486,6 +533,10 @@ class Controller:
     )
 
     async def get_zones(self) -> list[Zone]:
+        """Retrieves all zones associated with this controller.
+
+        :rtype: list[Zone]
+        """
         if not self._auth:
             raise NotAuthenticatedError
         ds = DSLSchema(get_schema())
@@ -499,8 +550,17 @@ class Controller:
         return zones
 
     async def start_all_zones(
-        self, mark_run_as_scheduled: bool = False, custom_run_duration: int = 0
+        self,
+        mark_run_as_scheduled: bool = False,
+        custom_run_duration: Optional[int] = None,
     ) -> None:
+        """Starts watering in all zones.
+
+        :param mark_run_as_scheduled: When `True`, runs each zone for its normally scheduled duration.
+        :type mark_run_as_scheduled: bool
+        :param custom_run_duration: A duration (in minutes) to run each zone, instead of their normally scheduled durations.
+        :type custom_run_duration: int | None
+        """
         if not self._auth:
             raise NotAuthenticatedError
         ds = DSLSchema(get_schema())
@@ -508,7 +568,7 @@ class Controller:
             "controllerId": self.id,
             "markRunAsScheduled": mark_run_as_scheduled,
         }
-        if custom_run_duration > 0:
+        if custom_run_duration is not None:
             kwargs["customRunDuration"] = custom_run_duration
 
         selector = ds.Mutation.startAllZones.args(**kwargs).select(
@@ -517,6 +577,7 @@ class Controller:
         await self._auth.mutation(selector)
 
     async def stop_all_zones(self) -> None:
+        """Stops the watering cycle for all zones."""
         if not self._auth:
             raise NotAuthenticatedError
         ds = DSLSchema(get_schema())
@@ -526,6 +587,11 @@ class Controller:
         await self._auth.mutation(selector)
 
     async def suspend_all_zones(self, until: datetime) -> None:
+        """Suspends all zones until the given date & time.
+
+        :param until: The date & time to resume the zones' regular schedules.
+        :type until: datetime
+        """
         if not self._auth:
             raise NotAuthenticatedError
         ds = DSLSchema(get_schema())
@@ -536,6 +602,7 @@ class Controller:
         await self._auth.mutation(selector)
 
     async def resume_all_zones(self) -> None:
+        """Resumes all zones' regular schedules."""
         if not self._auth:
             raise NotAuthenticatedError
         ds = DSLSchema(get_schema())
@@ -546,11 +613,20 @@ class Controller:
 
 
 @dataclass
+class Customer:
+    id: int
+    customerKey: str
+    apiKey: str
+
+
+@dataclass
 class User:
+    """A Hydrawise user account."""
 
     id: int
     name: str
     email: str
+    customer: Customer
     controllers: list[Controller] = field(
         default_factory=list, metadata=skip(deserialization=True)
     )
@@ -564,44 +640,75 @@ class User:
 
 
 class Query(ABC):
+    """GraphQL schema for queries.
+
+    :meta private:
+    """
+
     @staticmethod
     @abstractmethod
     def me() -> User:
-        ...
+        """Returns the current user.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def controller(controller_id: int) -> Controller:
-        ...
+        """Returns a controller by its unique identifier.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def zone(zone_id: int) -> Zone:
-        ...
+        """Returns a zone by its unique identifier.
+
+        :meta private:
+        """
 
 
 class Mutation(ABC):
+    """GraphQL schema for mutations.
+
+    :meta private:
+    """
+
     @staticmethod
     @abstractmethod
     def start_zone(
         zone_id: int, mark_run_as_scheduled: bool = False, custom_run_duration: int = 0
     ) -> StatusCodeAndSummary:
-        ...
+        """Starts a zone.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def stop_zone(zone_id: int) -> StatusCodeAndSummary:
-        ...
+        """Stops a zone.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def suspend_zone(zone_id: int, until: str) -> StatusCodeAndSummary:
-        ...
+        """Suspends a zone.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def resume_zone(zone_id: int) -> StatusCodeAndSummary:
-        ...
+        """Resumes a zone.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
@@ -610,19 +717,31 @@ class Mutation(ABC):
         mark_run_as_scheduled: bool = False,
         custom_run_duration: int = 0,
     ) -> StatusCodeAndSummary:
-        ...
+        """Starts all zones.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def stop_all_zones(controller_id: int) -> StatusCodeAndSummary:
-        ...
+        """Stops all zones.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def suspend_all_zones(controller_id: int, until: str) -> StatusCodeAndSummary:
-        ...
+        """Suspends all zones.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def resume_all_zones(controller_id: int) -> StatusCodeAndSummary:
-        ...
+        """Resumes all zones.
+
+        :meta private:
+        """

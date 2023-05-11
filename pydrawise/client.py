@@ -18,11 +18,25 @@ from .schema import (
 
 
 class Hydrawise:
+    """Client library for interacting with Hydrawise sprinkler controllers.
+
+    Should be instantiated with an Auth object that handles authentication and low-level transport.
+    """
+
     def __init__(self, auth: Auth) -> None:
+        """Initializes the client.
+
+        :param auth: Handles authentication and transport.
+        :type auth: Auth
+        """
         self._auth = auth
         self._schema = get_schema()
 
     async def get_user(self) -> User:
+        """Retrieves the currently authenticated user.
+
+        :rtype: User
+        """
         ds = DSLSchema(self._schema)
         selector = ds.Query.me.select(*get_selectors(ds, User))
         result = await self._auth.query(selector)
@@ -31,6 +45,10 @@ class Hydrawise:
         return user
 
     async def get_controllers(self) -> list[Controller]:
+        """Retrieves all controllers associated with the currently authenticated user.
+
+        :rtype: list[Controller]
+        """
         ds = DSLSchema(self._schema)
         selector = ds.Query.me.select(
             ds.User.controllers.select(*get_selectors(ds, Controller)),
@@ -42,6 +60,12 @@ class Hydrawise:
         return controllers
 
     async def get_controller(self, controller_id: int) -> Controller:
+        """Retrieves a single controller by its unique identifier.
+
+        :param controller_id: Unique identifier for the controller to retrieve.
+        :type controller_id: int
+        :rtype: Controller
+        """
         ds = DSLSchema(self._schema)
         selector = ds.Query.controller(controllerId=controller_id).select(
             *get_selectors(ds, Controller),
