@@ -206,7 +206,7 @@ class BaseZone:
 @dataclass
 class ProgramStartTimeApplication:
     all: bool
-    zones: [BaseZone]
+    zones: List[BaseZone]
 
 
 @dataclass
