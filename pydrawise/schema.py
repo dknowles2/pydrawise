@@ -118,7 +118,6 @@ def get_selectors(ds: DSLSchema, cls: Type) -> list[DSLField]:
 
 
 class StatusCodeEnum(Enum):
-
     OK = auto()
     WARNING = auto()
     ERROR = auto()
@@ -126,28 +125,24 @@ class StatusCodeEnum(Enum):
 
 @dataclass
 class StatusCodeAndSummary:
-
     status: StatusCodeEnum
     summary: str
 
 
 @dataclass
 class LocalizedValueType:
-
     value: float
     unit: str
 
 
 @dataclass
 class Option:
-
     value: int
     label: str
 
 
 @dataclass
 class DateTime:
-
     value: str
     timestamp: int
 
@@ -182,21 +177,18 @@ duration_conversion = conversion(
 
 @dataclass
 class CycleAndSoakSettings:
-
     cycle_duration: timedelta = field(metadata=duration_conversion)
     soak_duration: timedelta = field(metadata=duration_conversion)
 
 
 @dataclass
 class RunTimeGroup:
-
     id: int
     duration: timedelta = field(metadata=duration_conversion)
 
 
 @dataclass
 class AdvancedProgram:
-
     advanced_program_id: int
     run_time_group: RunTimeGroup
 
@@ -219,14 +211,12 @@ class AdvancedProgramDayPatternEnum(Enum):
 
 @dataclass
 class ProgramStartTimeApplication:
-
     all: bool
     zones: [BaseZone]
 
 
 @dataclass
 class ProgramStartTime:
-
     id: int
     time: str  # e.g. "02:00"
     watering_days: list[AdvancedProgramDayPatternEnum]
@@ -234,27 +224,23 @@ class ProgramStartTime:
 
 @dataclass
 class WateringSettings:
-
     fixed_watering_adjustment: int
     cycle_and_soak_settings: Optional[CycleAndSoakSettings]
 
 
 @dataclass
 class AdvancedWateringSettings(WateringSettings):
-
     advanced_program: Optional[AdvancedProgram]
 
 
 @dataclass
 class StandardProgram:
-
     name: str
     start_times: list[str]
 
 
 @dataclass
 class StandardProgramApplication:
-
     zone: BaseZone
     standard_program: StandardProgram
     run_time_group: RunTimeGroup
@@ -262,20 +248,17 @@ class StandardProgramApplication:
 
 @dataclass
 class StandardWateringSettings(WateringSettings):
-
     standard_program_applications: list[StandardProgramApplication]
 
 
 @dataclass
 class RunStatus:
-
     value: int
     label: str
 
 
 @dataclass
 class ScheduledZoneRun:
-
     id: str
     start_time: datetime = field(metadata=DateTime.conversion())
     end_time: datetime = field(metadata=DateTime.conversion())
@@ -286,7 +269,6 @@ class ScheduledZoneRun:
 
 @dataclass
 class ScheduledZoneRuns:
-
     summary: str
     current_run: Optional[ScheduledZoneRun]
     next_run: Optional[ScheduledZoneRun]
@@ -295,21 +277,18 @@ class ScheduledZoneRuns:
 
 @dataclass
 class PastZoneRuns:
-
     last_run: Optional[ScheduledZoneRun]
     runs: list[ScheduledZoneRun]
 
 
 @dataclass
 class ZoneStatus:
-
     relative_water_balance: int
     suspended_until: datetime = field(metadata=DateTime.conversion())
 
 
 @dataclass
 class ZoneSuspension:
-
     id: int
     start_time: datetime = field(metadata=DateTime.conversion())
     end_time: datetime = field(metadata=DateTime.conversion())
@@ -317,7 +296,6 @@ class ZoneSuspension:
 
 @dataclass
 class BaseZone:
-
     id: int
     number: Option
     name: str
@@ -325,7 +303,6 @@ class BaseZone:
 
 @dataclass
 class Zone(BaseZone):
-
     watering_settings: Union[AdvancedWateringSettings, StandardWateringSettings]
     scheduled_runs: ScheduledZoneRuns
     past_runs: PastZoneRuns
@@ -390,21 +367,18 @@ class Zone(BaseZone):
 
 @dataclass
 class ControllerFirmware:
-
     type: str
     version: str
 
 
 @dataclass
 class ControllerModel:
-
     name: str
     description: str
 
 
 @dataclass
 class ControllerHardware:
-
     serial_number: str
     version: str
     status: str
@@ -414,7 +388,6 @@ class ControllerHardware:
 
 @dataclass
 class SensorModel:
-
     id: int
     name: str
     active: bool
@@ -427,20 +400,17 @@ class SensorModel:
 
 @dataclass
 class SensorStatus:
-
     water_flow: Optional[LocalizedValueType]
     active: bool
 
 
 @dataclass
 class SensorFlowSummary:
-
     total_water_volume: LocalizedValueType
 
 
 @dataclass
 class Sensor:
-
     id: int
     name: str
     model: SensorModel
@@ -449,13 +419,11 @@ class Sensor:
 
 @dataclass
 class WaterTime:
-
     value: timedelta = field(metadata=duration_conversion)
 
 
 @dataclass
 class ControllerStatus:
-
     summary: str
     online: bool
     actual_water_time: WaterTime
@@ -465,7 +433,6 @@ class ControllerStatus:
 
 @dataclass
 class Controller:
-
     id: int
     name: str
     software_version: str
@@ -547,7 +514,6 @@ class Controller:
 
 @dataclass
 class User:
-
     id: int
     name: str
     email: str
