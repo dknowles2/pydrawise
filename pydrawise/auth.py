@@ -1,13 +1,14 @@
 """Authentication support for the Hydrawise v2 GraphQL API."""
 
-import aiohttp
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
 from threading import Lock
 
+import aiohttp
 from gql import Client
 from gql.dsl import DSLField, DSLMutation, DSLQuery, DSLSelectable, dsl_gql
-from gql.transport.aiohttp import AIOHTTPTransport, log as gql_log
+from gql.transport.aiohttp import AIOHTTPTransport
+from gql.transport.aiohttp import log as gql_log
 
 from .exceptions import MutationError, NotAuthorizedError
 

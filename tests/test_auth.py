@@ -2,8 +2,9 @@ from datetime import timedelta
 
 from aioresponses import aioresponses
 from freezegun import freeze_time
-from pydrawise import auth
 from pytest import fixture
+
+from pydrawise import auth
 
 
 @fixture

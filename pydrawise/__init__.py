@@ -4,9 +4,9 @@ from .auth import Auth
 from .client import Hydrawise
 from .exceptions import (
     Error,
+    MutationError,
     NotAuthenticatedError,
     NotAuthorizedError,
-    MutationError,
     UnknownError,
 )
 from .schema import Controller, Sensor, User, Zone

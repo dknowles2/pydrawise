@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import datetime, timedelta, timezone
-from enum import auto, Enum
+from enum import Enum, auto
 from functools import cache
 from typing import (
     Iterator,
@@ -30,7 +30,6 @@ from graphql import GraphQLSchema
 
 from .auth import Auth
 from .exceptions import NotAuthenticatedError
-
 
 # For compatibility with < python 3.10.
 NoneType = type(None)
