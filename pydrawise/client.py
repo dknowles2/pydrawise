@@ -25,9 +25,7 @@ class Hydrawise:
     async def get_user(self) -> User:
         selector = self._schema.Query.me.select(*get_selectors(self._schema, User))
         result = await self._auth.query(selector)
-        user = deserialize(User, result["me"])
-        user._auth = self._auth
-        return user
+        return deserialize(User, result["me"])
 
     async def get_controllers(self) -> list[Controller]:
         selector = self._schema.Query.me.select(
@@ -36,38 +34,28 @@ class Hydrawise:
             ),
         )
         result = await self._auth.query(selector)
-        controllers = deserialize(list[Controller], result["me"]["controllers"])
-        for controller in controllers:
-            controller._auth = self._auth
-        return controllers
+        return deserialize(list[Controller], result["me"]["controllers"])
 
     async def get_controller(self, controller_id: int) -> Controller:
         selector = self._schema.Query.controller(controllerId=controller_id).select(
             *get_selectors(self._schema, Controller),
         )
         result = await self._auth.query(selector)
-        controller = deserialize(Controller, result["controller"])
-        controller._auth = self._auth
-        return controller
+        return deserialize(Controller, result["controller"])
 
     async def get_zones(self, controller_id: int) -> list[Zone]:
         selector = self._schema.Query.controller(controllerId=controller_id).select(
             self._schema.Controller.zones.select(*get_selectors(self._schema, Zone)),
         )
         result = await self._auth.query(selector)
-        zones = deserialize(list[Zone], result["controller"]["zones"])
-        for zone in zones:
-            zone._auth = self._auth
-        return zones
+        return deserialize(list[Zone], result["controller"]["zones"])
 
     async def get_zone(self, zone_id: int) -> Zone:
         selector = self._schema.Query.zone(zoneId=zone_id).select(
             *get_selectors(self._schema, Zone)
         )
         result = await self._auth.query(selector)
-        zone = deserialize(Zone, result["zone"])
-        zone._auth = self._auth
-        return zone
+        return deserialize(Zone, result["zone"])
 
     async def start_zone(
         self,
