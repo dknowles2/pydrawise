@@ -91,5 +91,10 @@ class Auth:
         async with await self.client() as session:
             result = await session.execute(dsl_gql(DSLMutation(selector)))
             resp = result[selector.name]
-            if resp["status"] != "OK":
-                raise MutationError(resp["summary"])
+            if isinstance(resp, dict):
+                if resp["status"] != "OK":
+                    raise MutationError(resp["summary"])
+                return
+            elif not resp:
+                # Assume bool response
+                raise MutationError

@@ -451,3 +451,8 @@ class Mutation(ABC):
     @abstractmethod
     def resume_all_zones(controller_id: int) -> StatusCodeAndSummary:
         ...
+
+    @staticmethod
+    @abstractmethod
+    def delete_zone_suspension(id: int) -> bool:
+        ...

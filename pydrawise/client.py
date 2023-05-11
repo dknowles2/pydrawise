@@ -11,6 +11,7 @@ from .schema import (
     StatusCodeAndSummary,
     User,
     Zone,
+    ZoneSuspension,
     deserialize,
     get_schema,
     get_selectors,
@@ -137,4 +138,10 @@ class Hydrawise:
         ).select(
             *get_selectors(self._schema, StatusCodeAndSummary),
         )
+        await self._auth.mutation(selector)
+
+    async def delete_zone_suspension(self, suspension: ZoneSuspension):
+        selector = self._schema.Mutation.deleteZoneSuspension.args(
+            id=suspension.id
+        ).select()
         await self._auth.mutation(selector)
