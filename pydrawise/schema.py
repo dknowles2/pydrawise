@@ -43,17 +43,8 @@ def deserialize(*args, **kwargs):
 @cache
 def get_schema() -> GraphQLSchema:
     return graphql_schema(
-        query=[Query.me, Query.controller, Query.zone],
-        mutation=[
-            Mutation.start_zone,
-            Mutation.stop_zone,
-            Mutation.suspend_zone,
-            Mutation.resume_zone,
-            Mutation.start_all_zones,
-            Mutation.stop_all_zones,
-            Mutation.suspend_all_zones,
-            Mutation.resume_all_zones,
-        ],
+        query=[getattr(Query, m) for m in Query.__abstractmethods__],
+        mutation=[getattr(Mutation, m) for m in Mutation.__abstractmethods__],
     )
 
 
