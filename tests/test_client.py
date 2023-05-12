@@ -8,7 +8,8 @@ from pytest import fixture
 
 from pydrawise.auth import Auth
 from pydrawise.client import Hydrawise
-from pydrawise.schema import Controller, Zone, ZoneSuspension, deserialize
+from pydrawise.schema import Controller, Zone, ZoneSuspension
+from pydrawise.schema_utils import deserialize
 
 
 @fixture
