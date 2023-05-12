@@ -2,25 +2,28 @@
 
 import logging
 from datetime import datetime
+from functools import cache
 
+from apischema.graphql import graphql_schema
 from gql import Client
 from gql.dsl import DSLField, DSLMutation, DSLQuery, DSLSchema, DSLSelectable, dsl_gql
 from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.aiohttp import log as gql_log
+from graphql import GraphQLSchema
 
 from .auth import Auth
 from .exceptions import MutationError
 from .schema import (
     Controller,
     DateTime,
+    Mutation,
     StatusCodeAndSummary,
+    Query,
     User,
     Zone,
     ZoneSuspension,
-    deserialize,
-    get_schema,
-    get_selectors,
 )
+from .schema_utils import deserialize, get_selectors
 
 # GQL is quite chatty in logs by default.
 gql_log.setLevel(logging.ERROR)
@@ -28,10 +31,18 @@ gql_log.setLevel(logging.ERROR)
 API_URL = "https://app.hydrawise.com/api/v2/graph"
 
 
+@cache
+def _get_schema() -> GraphQLSchema:
+    return graphql_schema(
+        query=[getattr(Query, m) for m in Query.__abstractmethods__],
+        mutation=[getattr(Mutation, m) for m in Mutation.__abstractmethods__],
+    )
+
+
 class Hydrawise:
     def __init__(self, auth: Auth) -> None:
         self._auth = auth
-        self._schema = DSLSchema(get_schema())
+        self._schema = DSLSchema(_get_schema())
 
     async def _client(self) -> Client:
         headers = {"Authorization": await self._auth.token()}
