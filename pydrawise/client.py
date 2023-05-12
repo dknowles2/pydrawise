@@ -1,7 +1,7 @@
 """Client library for interacting with Hydrawise's cloud API."""
 
-from datetime import datetime
 import logging
+from datetime import datetime
 
 from gql import Client
 from gql.dsl import DSLField, DSLMutation, DSLQuery, DSLSchema, DSLSelectable, dsl_gql
@@ -155,7 +155,7 @@ class Hydrawise:
         await self._mutation(selector)
 
     async def suspend_all_zones(self, controller: Controller, until: datetime):
-        selector = self._schema.Mutation.suspendZone.args(
+        selector = self._schema.Mutation.suspendAllZones.args(
             controllerId=controller.id,
             until=DateTime.to_json(until).value,
         ).select(
