@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import datetime, timedelta, timezone
-from enum import auto, Enum
+from enum import Enum, auto
 from functools import cache
 from typing import (
     Iterator,
@@ -28,10 +28,6 @@ from apischema.utils import to_camel_case
 from gql.dsl import DSLField, DSLInlineFragment, DSLSchema
 from graphql import GraphQLSchema
 
-from .auth import Auth
-from .exceptions import NotAuthenticatedError
-
-
 # For compatibility with < python 3.10.
 NoneType = type(None)
 
@@ -44,17 +40,8 @@ def deserialize(*args, **kwargs):
 @cache
 def get_schema() -> GraphQLSchema:
     return graphql_schema(
-        query=[Query.me, Query.controller, Query.zone],
-        mutation=[
-            Mutation.start_zone,
-            Mutation.stop_zone,
-            Mutation.suspend_zone,
-            Mutation.resume_zone,
-            Mutation.start_all_zones,
-            Mutation.stop_all_zones,
-            Mutation.suspend_all_zones,
-            Mutation.resume_all_zones,
-        ],
+        query=[getattr(Query, m) for m in Query.__abstractmethods__],
+        mutation=[getattr(Mutation, m) for m in Mutation.__abstractmethods__],
     )
 
 
@@ -210,9 +197,16 @@ class AdvancedProgramDayPatternEnum(Enum):
 
 
 @dataclass
+class BaseZone:
+    id: int
+    number: Option
+    name: str
+
+
+@dataclass
 class ProgramStartTimeApplication:
     all: bool
-    zones: [BaseZone]
+    zones: List[BaseZone]
 
 
 @dataclass
@@ -295,74 +289,12 @@ class ZoneSuspension:
 
 
 @dataclass
-class BaseZone:
-    id: int
-    number: Option
-    name: str
-
-
-@dataclass
 class Zone(BaseZone):
     watering_settings: Union[AdvancedWateringSettings, StandardWateringSettings]
     scheduled_runs: ScheduledZoneRuns
     past_runs: PastZoneRuns
     status: ZoneStatus
     suspensions: list[ZoneSuspension] = field(default_factory=list)
-
-    _auth: Optional[Auth] = field(
-        default=None,
-        init=False,
-        repr=False,
-        metadata=skip(serialization=True, deserialization=True),
-    )
-
-    async def start(
-        self,
-        mark_run_as_scheduled: bool = False,
-        custom_run_duration: Optional[int] = None,
-    ):
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        kwargs = {
-            "zoneId": self.id,
-            "markRunAsScheduled": mark_run_as_scheduled,
-        }
-        if custom_run_duration is not None:
-            kwargs["customRunDuration"] = custom_run_duration
-
-        selector = ds.Mutation.startZone.args(**kwargs).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
-    async def stop(self) -> None:
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.stopZone.args(zoneId=self.id).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
-    async def suspend(self, until: datetime) -> None:
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.suspendZone.args(
-            zoneId=self.id,
-            until=DateTime.to_json(until).value,
-        ).select(*get_selectors(ds, StatusCodeAndSummary))
-        await self._auth.mutation(selector)
-
-    async def resume(self) -> None:
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.resumeZone.args(zoneId=self.id).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
 
 
 @dataclass
@@ -445,72 +377,6 @@ class Controller:
     permitted_program_start_times: list[ProgramStartTime] = field(default_factory=list)
     status: Optional[ControllerStatus] = field(default=None)
 
-    _auth: Optional[Auth] = field(
-        default=None,
-        init=False,
-        repr=False,
-        metadata=skip(serialization=True, deserialization=True),
-    )
-
-    async def get_zones(self) -> list[Zone]:
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Query.controller(controllerId=self.id).select(
-            ds.Controller.zones.select(*get_selectors(ds, Zone)),
-        )
-        result = await self._auth.query(selector)
-        zones = deserialize(list[Zone], result["controller"]["zones"])
-        for zone in zones:
-            zone._auth = self._auth
-        return zones
-
-    async def start_all_zones(
-        self, mark_run_as_scheduled: bool = False, custom_run_duration: int = 0
-    ) -> None:
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        kwargs = {
-            "controllerId": self.id,
-            "markRunAsScheduled": mark_run_as_scheduled,
-        }
-        if custom_run_duration > 0:
-            kwargs["customRunDuration"] = custom_run_duration
-
-        selector = ds.Mutation.startAllZones.args(**kwargs).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
-    async def stop_all_zones(self) -> None:
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.stopAllZones.args(controllerId=self.id).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
-    async def suspend_all_zones(self, until: datetime) -> None:
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.suspendZone.args(
-            controllerId=self.id,
-            until=DateTime.to_json(until).value,
-        ).select(*get_selectors(ds, StatusCodeAndSummary))
-        await self._auth.mutation(selector)
-
-    async def resume_all_zones(self) -> None:
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.resumeAllZones.args(controllerId=self.id).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
 
 @dataclass
 class User:
@@ -519,13 +385,6 @@ class User:
     email: str
     controllers: list[Controller] = field(
         default_factory=list, metadata=skip(deserialization=True)
-    )
-
-    _auth: Optional[Auth] = field(
-        default=None,
-        init=False,
-        repr=False,
-        metadata=skip(serialization=True, deserialization=True),
     )
 
 
@@ -591,4 +450,9 @@ class Mutation(ABC):
     @staticmethod
     @abstractmethod
     def resume_all_zones(controller_id: int) -> StatusCodeAndSummary:
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def delete_zone_suspension(id: int) -> bool:
         ...
