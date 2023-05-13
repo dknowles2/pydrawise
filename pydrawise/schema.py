@@ -3,121 +3,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections import namedtuple
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from enum import auto, Enum
-from functools import cache
-from typing import (
-    Iterator,
-    List,
-    Optional,
-    Type,
-    Union,
-    get_args,
-    get_origin,
-    get_type_hints,
-)
+from enum import Enum, auto
+from typing import Optional, Union
 
-from apischema import deserialize as _deserialize
 from apischema.conversions import Conversion
-from apischema.graphql import graphql_schema
 from apischema.metadata import conversion, skip
-from apischema.metadata.keys import CONVERSION_METADATA, SKIP_METADATA
-from apischema.utils import to_camel_case
-from gql.dsl import DSLField, DSLInlineFragment, DSLSchema
-from graphql import GraphQLSchema
-
-from .auth import Auth
-from .exceptions import NotAuthenticatedError
-
-
-# For compatibility with < python 3.10.
-NoneType = type(None)
-
-
-def deserialize(*args, **kwargs):
-    """:meta private:"""
-    kwargs.setdefault("aliaser", to_camel_case)
-    return _deserialize(*args, **kwargs)
-
-
-@cache
-def get_schema() -> GraphQLSchema:
-    """:meta private:"""
-    return graphql_schema(
-        query=[Query.me, Query.controller, Query.zone],
-        mutation=[
-            Mutation.start_zone,
-            Mutation.stop_zone,
-            Mutation.suspend_zone,
-            Mutation.resume_zone,
-            Mutation.start_all_zones,
-            Mutation.stop_all_zones,
-            Mutation.suspend_all_zones,
-            Mutation.resume_all_zones,
-        ],
-    )
-
-
-_Field = namedtuple("_Field", ["name", "types"])
-
-
-def _fields(cls) -> Iterator[_Field]:
-    hints = get_type_hints(cls)
-    for f in fields(cls):
-        skip_md = f.metadata.get(SKIP_METADATA, None)
-        if skip_md and (skip_md.serialization or skip_md.deserialization):
-            continue
-
-        conversion_md = f.metadata.get(CONVERSION_METADATA, None)
-        if conversion_md:
-            yield _Field(f.name, [conversion_md.deserialization.source])
-            continue
-
-        field_type = hints[f.name]
-        origin = get_origin(field_type)
-
-        if origin == Union:
-            # Drop None from Optional fields.
-            field_types = set(get_args(field_type)) - {NoneType}
-            if len(field_types) == 1:
-                [field_type] = field_types
-            else:
-                yield _Field(f.name, list(field_types))
-                continue
-        elif origin in (List, list):
-            # Extract the contained type.
-            # We assume all list types are uniform.
-            [field_type] = get_args(field_type)
-
-        yield _Field(f.name, [field_type])
-
-
-def get_selectors(ds: DSLSchema, cls: Type) -> list[DSLField]:
-    """:meta private:"""
-    ret = []
-    for f in _fields(cls):
-        dsl_field = getattr(getattr(ds, cls.__name__), f.name)
-        if len(f.types) == 1:
-            [f_type] = f.types
-            if is_dataclass(f_type):
-                ret.append(getattr(dsl_field, "select")(*get_selectors(ds, f_type)))
-            else:
-                ret.append(dsl_field)
-        else:
-            # This is a Union; we must pass an inline fragment for each type.
-            sel_args = []
-            for f_type in f.types:
-                if not is_dataclass(f_type):
-                    raise NotImplementedError
-                sel_args.append(
-                    DSLInlineFragment()
-                    .on(getattr(ds, f_type.__name__))
-                    .select(*get_selectors(ds, f_type))
-                )
-            ret.append(getattr(dsl_field, "select")(*sel_args))
-    return ret
 
 
 class StatusCodeEnum(Enum):
@@ -355,75 +247,6 @@ class Zone(BaseZone):
     status: ZoneStatus
     suspensions: list[ZoneSuspension] = field(default_factory=list)
 
-    _auth: Optional[Auth] = field(
-        default=None,
-        init=False,
-        repr=False,
-        metadata=skip(serialization=True, deserialization=True),
-    )
-
-    async def start(
-        self,
-        mark_run_as_scheduled: bool = False,
-        custom_run_duration: Optional[int] = None,
-    ) -> None:
-        """Starts a watering cycle for the zone.
-
-        :param mark_run_as_scheduled: When `True`, runs the zone for its normally scheduled duration.
-        :type mark_run_as_scheduled: bool
-        :param custom_run_duration: A duration (in minutes) to run the zone, instead of its normally scheduled duration.
-        :type custom_run_duration: int | None
-        """
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        kwargs = {
-            "zoneId": self.id,
-            "markRunAsScheduled": mark_run_as_scheduled,
-        }
-        if custom_run_duration is not None:
-            kwargs["customRunDuration"] = custom_run_duration
-
-        selector = ds.Mutation.startZone.args(**kwargs).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
-    async def stop(self) -> None:
-        """Stops the zone's watering cycle."""
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.stopZone.args(zoneId=self.id).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
-    async def suspend(self, until: datetime) -> None:
-        """Suspends the zone until the given date & time.
-
-        :param until: The date & time to resume the zone's regular schedule.
-        :type until: datetime
-        """
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.suspendZone.args(
-            zoneId=self.id,
-            until=DateTime.to_json(until).value,
-        ).select(*get_selectors(ds, StatusCodeAndSummary))
-        await self._auth.mutation(selector)
-
-    async def resume(self) -> None:
-        """Resumes the zone's regular schedule."""
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.resumeZone.args(zoneId=self.id).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
 
 @dataclass
 class ControllerFirmware:
@@ -525,99 +348,6 @@ class Controller:
     permitted_program_start_times: list[ProgramStartTime] = field(default_factory=list)
     status: Optional[ControllerStatus] = field(default=None)
 
-    _auth: Optional[Auth] = field(
-        default=None,
-        init=False,
-        repr=False,
-        metadata=skip(serialization=True, deserialization=True),
-    )
-
-    async def get_zones(self) -> list[Zone]:
-        """Retrieves all zones associated with this controller.
-
-        :rtype: list[Zone]
-        """
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Query.controller(controllerId=self.id).select(
-            ds.Controller.zones.select(*get_selectors(ds, Zone)),
-        )
-        result = await self._auth.query(selector)
-        zones = deserialize(list[Zone], result["controller"]["zones"])
-        for zone in zones:
-            zone._auth = self._auth
-        return zones
-
-    async def start_all_zones(
-        self,
-        mark_run_as_scheduled: bool = False,
-        custom_run_duration: Optional[int] = None,
-    ) -> None:
-        """Starts watering in all zones.
-
-        :param mark_run_as_scheduled: When `True`, runs each zone for its normally scheduled duration.
-        :type mark_run_as_scheduled: bool
-        :param custom_run_duration: A duration (in minutes) to run each zone, instead of their normally scheduled durations.
-        :type custom_run_duration: int | None
-        """
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        kwargs = {
-            "controllerId": self.id,
-            "markRunAsScheduled": mark_run_as_scheduled,
-        }
-        if custom_run_duration is not None:
-            kwargs["customRunDuration"] = custom_run_duration
-
-        selector = ds.Mutation.startAllZones.args(**kwargs).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
-    async def stop_all_zones(self) -> None:
-        """Stops the watering cycle for all zones."""
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.stopAllZones.args(controllerId=self.id).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
-    async def suspend_all_zones(self, until: datetime) -> None:
-        """Suspends all zones until the given date & time.
-
-        :param until: The date & time to resume the zones' regular schedules.
-        :type until: datetime
-        """
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.suspendZone.args(
-            controllerId=self.id,
-            until=DateTime.to_json(until).value,
-        ).select(*get_selectors(ds, StatusCodeAndSummary))
-        await self._auth.mutation(selector)
-
-    async def resume_all_zones(self) -> None:
-        """Resumes all zones' regular schedules."""
-        if not self._auth:
-            raise NotAuthenticatedError
-        ds = DSLSchema(get_schema())
-        selector = ds.Mutation.resumeAllZones.args(controllerId=self.id).select(
-            *get_selectors(ds, StatusCodeAndSummary),
-        )
-        await self._auth.mutation(selector)
-
-
-@dataclass
-class Customer:
-    id: int
-    customerKey: str
-    apiKey: str
-
 
 @dataclass
 class User:
@@ -626,16 +356,8 @@ class User:
     id: int
     name: str
     email: str
-    customer: Customer
     controllers: list[Controller] = field(
         default_factory=list, metadata=skip(deserialization=True)
-    )
-
-    _auth: Optional[Auth] = field(
-        default=None,
-        init=False,
-        repr=False,
-        metadata=skip(serialization=True, deserialization=True),
     )
 
 
@@ -742,6 +464,14 @@ class Mutation(ABC):
     @abstractmethod
     def resume_all_zones(controller_id: int) -> StatusCodeAndSummary:
         """Resumes all zones.
+
+        :meta private:
+        """
+
+    @staticmethod
+    @abstractmethod
+    def delete_zone_suspension(id: int) -> bool:
+        """Deletes a zone suspension.
 
         :meta private:
         """
