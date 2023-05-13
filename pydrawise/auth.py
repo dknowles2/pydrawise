@@ -14,7 +14,10 @@ DEFAULT_TIMEOUT = 60
 
 
 class Auth:
+    """Authentication support for the Hydrawise GraphQL API."""
+
     def __init__(self, username: str, password: str) -> None:
+        """Initializer."""
         self.__username = username
         self.__password = password
         self._lock = Lock()
@@ -58,6 +61,7 @@ class Auth:
                 )
 
     async def check_token(self):
+        """Checks a token and refreshes if necessary."""
         with self._lock:
             if self._token is None:
                 await self._fetch_token_locked(refresh=False)
@@ -65,6 +69,10 @@ class Auth:
                 await self._fetch_token_locked(refresh=True)
 
     async def token(self) -> str:
+        """Retrieves an authentication token for the current user.
+
+        :rtype: string
+        """
         await self.check_token()
         with self._lock:
             return f"{self._token_type} {self._token}"

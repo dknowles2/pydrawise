@@ -11,6 +11,10 @@ from typing import Optional, Union
 from apischema.conversions import Conversion
 from apischema.metadata import conversion, skip
 
+# The names in this file are from the GraphQL schema and don't always adhere to
+# the naming scheme that pylint expects.
+# pylint: disable=invalid-name
+
 
 class StatusCodeEnum(Enum):
     """Response status codes."""
@@ -56,10 +60,12 @@ class DateTime:
 
     @staticmethod
     def from_json(dt: DateTime) -> datetime:
+        """Converts a DateTime to a native python type."""
         return datetime.fromtimestamp(dt.timestamp)
 
     @staticmethod
     def to_json(dt: datetime) -> DateTime:
+        """Converts a native datetime to a DateTime GraphQL type."""
         local = dt
         if local.tzinfo is None:
             # Make sure we have a timezone set so strftime outputs a valid string.
@@ -71,6 +77,7 @@ class DateTime:
 
     @staticmethod
     def conversion() -> conversion:
+        """Returns a GraphQL conversion for a DateTime."""
         return conversion(
             Conversion(DateTime.from_json, source=DateTime, target=datetime),
             Conversion(DateTime.to_json, source=datetime, target=DateTime),
@@ -119,7 +126,9 @@ class AdvancedProgram:
 class AdvancedProgramDayPatternEnum(Enum):
     """A value for an advanced watering program day pattern."""
 
+    @staticmethod
     def _generate_next_value_(name, start, count, last_values):
+        """Determines the value for an auto() call."""
         return name
 
     EVEN = auto()
@@ -470,7 +479,7 @@ class Mutation(ABC):
 
     @staticmethod
     @abstractmethod
-    def delete_zone_suspension(id: int) -> bool:
+    def delete_zone_suspension(id: int) -> bool:  # pylint: disable=redefined-builtin
         """Deletes a zone suspension.
 
         :meta private:

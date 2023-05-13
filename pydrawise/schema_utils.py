@@ -16,6 +16,10 @@ NoneType = type(None)
 
 
 def deserialize(*args, **kwargs):
+    """Deserializes a GraphQL JSON blob.
+
+    :meta private:
+    """
     kwargs.setdefault("aliaser", to_camel_case)
     return _deserialize(*args, **kwargs)
 
@@ -24,6 +28,10 @@ _Field = namedtuple("_Field", ["name", "types"])
 
 
 def _fields(cls) -> Iterator[_Field]:
+    """Returns _Field objects for every field on the given dataclass.
+
+    :meta private:
+    """
     hints = get_type_hints(cls)
     for f in fields(cls):
         skip_md = f.metadata.get(SKIP_METADATA, None)
@@ -55,6 +63,10 @@ def _fields(cls) -> Iterator[_Field]:
 
 
 def get_selectors(ds: DSLSchema, cls: Type) -> list[DSLField]:
+    """Constructs GraphQL selectors for the given dataclass.
+
+    :meta private:
+    """
     ret = []
     for f in _fields(cls):
         dsl_field = getattr(getattr(ds, cls.__name__), f.name)
