@@ -11,8 +11,14 @@ from typing import Optional, Union
 from apischema.conversions import Conversion
 from apischema.metadata import conversion, skip
 
+# The names in this file are from the GraphQL schema and don't always adhere to
+# the naming scheme that pylint expects.
+# pylint: disable=invalid-name
+
 
 class StatusCodeEnum(Enum):
+    """Response status codes."""
+
     OK = auto()
     WARNING = auto()
     ERROR = auto()
@@ -20,33 +26,46 @@ class StatusCodeEnum(Enum):
 
 @dataclass
 class StatusCodeAndSummary:
+    """A response status code and a human-readable summary."""
+
     status: StatusCodeEnum
     summary: str
 
 
 @dataclass
 class LocalizedValueType:
+    """A localized value."""
+
     value: float
     unit: str
 
 
 @dataclass
 class Option:
+    """A generic option."""
+
     value: int
     label: str
 
 
 @dataclass
 class DateTime:
+    """A date & time.
+
+    This is only used for serialization and deserialization.
+    """
+
     value: str
     timestamp: int
 
     @staticmethod
     def from_json(dt: DateTime) -> datetime:
+        """Converts a DateTime to a native python type."""
         return datetime.fromtimestamp(dt.timestamp)
 
     @staticmethod
     def to_json(dt: datetime) -> DateTime:
+        """Converts a native datetime to a DateTime GraphQL type."""
         local = dt
         if local.tzinfo is None:
             # Make sure we have a timezone set so strftime outputs a valid string.
@@ -58,6 +77,7 @@ class DateTime:
 
     @staticmethod
     def conversion() -> conversion:
+        """Returns a GraphQL conversion for a DateTime."""
         return conversion(
             Conversion(DateTime.from_json, source=DateTime, target=datetime),
             Conversion(DateTime.to_json, source=datetime, target=DateTime),
@@ -71,25 +91,44 @@ duration_conversion = conversion(
 
 
 @dataclass
+class BaseZone:
+    """Basic zone information."""
+
+    id: int
+    number: Option
+    name: str
+
+
+@dataclass
 class CycleAndSoakSettings:
+    """Cycle and soak durations."""
+
     cycle_duration: timedelta = field(metadata=duration_conversion)
     soak_duration: timedelta = field(metadata=duration_conversion)
 
 
 @dataclass
 class RunTimeGroup:
+    """The runtime of a watering program group."""
+
     id: int
     duration: timedelta = field(metadata=duration_conversion)
 
 
 @dataclass
 class AdvancedProgram:
+    """An advanced watering program."""
+
     advanced_program_id: int
     run_time_group: RunTimeGroup
 
 
 class AdvancedProgramDayPatternEnum(Enum):
+    """A value for an advanced watering program day pattern."""
+
+    @staticmethod
     def _generate_next_value_(name, start, count, last_values):
+        """Determines the value for an auto() call."""
         return name
 
     EVEN = auto()
@@ -105,20 +144,9 @@ class AdvancedProgramDayPatternEnum(Enum):
 
 
 @dataclass
-class BaseZone:
-    id: int
-    number: Option
-    name: str
-
-
-@dataclass
-class ProgramStartTimeApplication:
-    all: bool
-    zones: list[BaseZone]
-
-
-@dataclass
 class ProgramStartTime:
+    """Start time for a watering program."""
+
     id: int
     time: str  # e.g. "02:00"
     watering_days: list[AdvancedProgramDayPatternEnum]
@@ -126,23 +154,31 @@ class ProgramStartTime:
 
 @dataclass
 class WateringSettings:
+    """Generic settings for a watering program."""
+
     fixed_watering_adjustment: int
     cycle_and_soak_settings: Optional[CycleAndSoakSettings]
 
 
 @dataclass
 class AdvancedWateringSettings(WateringSettings):
+    """Advanced watering program settings."""
+
     advanced_program: Optional[AdvancedProgram]
 
 
 @dataclass
 class StandardProgram:
+    """A standard watering program."""
+
     name: str
     start_times: list[str]
 
 
 @dataclass
 class StandardProgramApplication:
+    """A standard watering program."""
+
     zone: BaseZone
     standard_program: StandardProgram
     run_time_group: RunTimeGroup
@@ -150,17 +186,23 @@ class StandardProgramApplication:
 
 @dataclass
 class StandardWateringSettings(WateringSettings):
+    """Standard watering settings."""
+
     standard_program_applications: list[StandardProgramApplication]
 
 
 @dataclass
 class RunStatus:
+    """Run status."""
+
     value: int
     label: str
 
 
 @dataclass
 class ScheduledZoneRun:
+    """A scheduled zone run."""
+
     id: str
     start_time: datetime = field(metadata=DateTime.conversion())
     end_time: datetime = field(metadata=DateTime.conversion())
@@ -171,6 +213,8 @@ class ScheduledZoneRun:
 
 @dataclass
 class ScheduledZoneRuns:
+    """Scheduled runs for a zone."""
+
     summary: str
     current_run: Optional[ScheduledZoneRun]
     next_run: Optional[ScheduledZoneRun]
@@ -179,18 +223,24 @@ class ScheduledZoneRuns:
 
 @dataclass
 class PastZoneRuns:
+    """Previous zone runs."""
+
     last_run: Optional[ScheduledZoneRun]
     runs: list[ScheduledZoneRun]
 
 
 @dataclass
 class ZoneStatus:
+    """A zone's status."""
+
     relative_water_balance: int
     suspended_until: datetime = field(metadata=DateTime.conversion())
 
 
 @dataclass
 class ZoneSuspension:
+    """A zone suspension."""
+
     id: int
     start_time: datetime = field(metadata=DateTime.conversion())
     end_time: datetime = field(metadata=DateTime.conversion())
@@ -198,6 +248,8 @@ class ZoneSuspension:
 
 @dataclass
 class Zone(BaseZone):
+    """A watering zone."""
+
     watering_settings: Union[AdvancedWateringSettings, StandardWateringSettings]
     scheduled_runs: ScheduledZoneRuns
     past_runs: PastZoneRuns
@@ -207,18 +259,24 @@ class Zone(BaseZone):
 
 @dataclass
 class ControllerFirmware:
+    """Information about the controller's firmware."""
+
     type: str
     version: str
 
 
 @dataclass
 class ControllerModel:
+    """Information about a controller model."""
+
     name: str
     description: str
 
 
 @dataclass
 class ControllerHardware:
+    """Information about a controller's hardware."""
+
     serial_number: str
     version: str
     status: str
@@ -228,6 +286,8 @@ class ControllerHardware:
 
 @dataclass
 class SensorModel:
+    """Information about a sensor model."""
+
     id: int
     name: str
     active: bool
@@ -240,17 +300,23 @@ class SensorModel:
 
 @dataclass
 class SensorStatus:
+    """Current status of a sensor."""
+
     water_flow: Optional[LocalizedValueType]
     active: bool
 
 
 @dataclass
 class SensorFlowSummary:
+    """Summary of a sensor's water flow."""
+
     total_water_volume: LocalizedValueType
 
 
 @dataclass
 class Sensor:
+    """A sensor connected to a controller."""
+
     id: int
     name: str
     model: SensorModel
@@ -259,11 +325,15 @@ class Sensor:
 
 @dataclass
 class WaterTime:
+    """A water time duration."""
+
     value: timedelta = field(metadata=duration_conversion)
 
 
 @dataclass
 class ControllerStatus:
+    """Current status of a controller."""
+
     summary: str
     online: bool
     actual_water_time: WaterTime
@@ -273,6 +343,8 @@ class ControllerStatus:
 
 @dataclass
 class Controller:
+    """A Hydrawise controller."""
+
     id: int
     name: str
     software_version: str
@@ -288,6 +360,8 @@ class Controller:
 
 @dataclass
 class User:
+    """A Hydrawise user account."""
+
     id: int
     name: str
     email: str
@@ -297,44 +371,75 @@ class User:
 
 
 class Query(ABC):
+    """GraphQL schema for queries.
+
+    :meta private:
+    """
+
     @staticmethod
     @abstractmethod
     def me() -> User:
-        ...
+        """Returns the current user.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def controller(controller_id: int) -> Controller:
-        ...
+        """Returns a controller by its unique identifier.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def zone(zone_id: int) -> Zone:
-        ...
+        """Returns a zone by its unique identifier.
+
+        :meta private:
+        """
 
 
 class Mutation(ABC):
+    """GraphQL schema for mutations.
+
+    :meta private:
+    """
+
     @staticmethod
     @abstractmethod
     def start_zone(
         zone_id: int, mark_run_as_scheduled: bool = False, custom_run_duration: int = 0
     ) -> StatusCodeAndSummary:
-        ...
+        """Starts a zone.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def stop_zone(zone_id: int) -> StatusCodeAndSummary:
-        ...
+        """Stops a zone.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def suspend_zone(zone_id: int, until: str) -> StatusCodeAndSummary:
-        ...
+        """Suspends a zone.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def resume_zone(zone_id: int) -> StatusCodeAndSummary:
-        ...
+        """Resumes a zone.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
@@ -343,24 +448,39 @@ class Mutation(ABC):
         mark_run_as_scheduled: bool = False,
         custom_run_duration: int = 0,
     ) -> StatusCodeAndSummary:
-        ...
+        """Starts all zones.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def stop_all_zones(controller_id: int) -> StatusCodeAndSummary:
-        ...
+        """Stops all zones.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def suspend_all_zones(controller_id: int, until: str) -> StatusCodeAndSummary:
-        ...
+        """Suspends all zones.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
     def resume_all_zones(controller_id: int) -> StatusCodeAndSummary:
-        ...
+        """Resumes all zones.
+
+        :meta private:
+        """
 
     @staticmethod
     @abstractmethod
-    def delete_zone_suspension(id: int) -> bool:
-        ...
+    def delete_zone_suspension(id: int) -> bool:  # pylint: disable=redefined-builtin
+        """Deletes a zone suspension.
+
+        :meta private:
+        """
