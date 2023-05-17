@@ -234,7 +234,7 @@ class ZoneStatus:
     """A zone's status."""
 
     relative_water_balance: int
-    suspended_until: datetime = field(metadata=DateTime.conversion())
+    suspended_until: Optional[datetime] = field(metadata=DateTime.conversion())
 
 
 @dataclass
