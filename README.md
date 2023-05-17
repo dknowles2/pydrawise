@@ -19,10 +19,10 @@ async def main():
     controllers = await h.get_controllers()
 
     # List the zones controlled by the first controller.
-    zones = await controllers[0].get_zones()
+    zones = await h.get_zones(controllers[0])
     
     # Start the first zone.
-    await zones[0].start()
+    await h.start_zone(zones[0])
 
 
 if __name__ == "__main__":
