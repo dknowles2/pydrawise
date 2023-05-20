@@ -84,10 +84,20 @@ class DateTime:
         )
 
 
-duration_conversion = conversion(
-    Conversion(lambda d: timedelta(minutes=d), source=int, target=timedelta),
-    Conversion(lambda d: d.minutes, source=timedelta, target=int),
-)
+def _duration_conversion(unit: str) -> conversion:
+    assert unit in (
+        "days",
+        "seconds",
+        "microseconds",
+        "milliseconds",
+        "minutes",
+        "hours",
+        "weeks",
+    )
+    return conversion(
+        Conversion(lambda d: timedelta(**{unit: d}), source=int, target=timedelta),
+        Conversion(lambda d: getattr(d, unit), source=timedelta, target=int),
+    )
 
 
 @dataclass
@@ -103,8 +113,8 @@ class BaseZone:
 class CycleAndSoakSettings:
     """Cycle and soak durations."""
 
-    cycle_duration: timedelta = field(metadata=duration_conversion)
-    soak_duration: timedelta = field(metadata=duration_conversion)
+    cycle_duration: timedelta = field(metadata=_duration_conversion("minutes"))
+    soak_duration: timedelta = field(metadata=_duration_conversion("minutes"))
 
 
 @dataclass
@@ -112,7 +122,7 @@ class RunTimeGroup:
     """The runtime of a watering program group."""
 
     id: int
-    duration: timedelta = field(metadata=duration_conversion)
+    duration: timedelta = field(metadata=_duration_conversion("minutes"))
 
 
 @dataclass
@@ -206,8 +216,9 @@ class ScheduledZoneRun:
     id: str
     start_time: datetime = field(metadata=DateTime.conversion())
     end_time: datetime = field(metadata=DateTime.conversion())
-    normal_duration: timedelta = field(metadata=duration_conversion)
-    duration: timedelta = field(metadata=duration_conversion)
+    normal_duration: timedelta = field(metadata=_duration_conversion("minutes"))
+    duration: timedelta = field(metadata=_duration_conversion("minutes"))
+    remaining_time: timedelta = field(metadata=_duration_conversion("seconds"))
     status: RunStatus
 
 
@@ -327,7 +338,7 @@ class Sensor:
 class WaterTime:
     """A water time duration."""
 
-    value: timedelta = field(metadata=duration_conversion)
+    value: timedelta = field(metadata=_duration_conversion("minutes"))
 
 
 @dataclass
