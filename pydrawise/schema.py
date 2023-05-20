@@ -363,6 +363,7 @@ class User:
     """A Hydrawise user account."""
 
     id: int
+    customer_id: int
     name: str
     email: str
     controllers: list[Controller] = field(
