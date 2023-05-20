@@ -114,6 +114,7 @@ async def test_get_user(api: Hydrawise, mock_session):
     mock_session.execute.return_value = {
         "me": {
             "id": 1234,
+            "customerId": 1,
             "name": "My Name",
             "email": "me@asdf.com",
         }
