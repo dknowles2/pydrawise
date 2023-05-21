@@ -17,7 +17,11 @@ class Auth:
     """Authentication support for the Hydrawise GraphQL API."""
 
     def __init__(self, username: str, password: str) -> None:
-        """Initializer."""
+        """Initializer.
+
+        :param username: The username to use for authenticating with the Hydrawise service.
+        :param password: The password to use for authenticating with the Hydrawise service.
+        """
         self.__username = username
         self.__password = password
         self._lock = Lock()

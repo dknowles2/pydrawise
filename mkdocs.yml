@@ -1,0 +1,24 @@
+site_name: Pydrawise
+repo_url: "https://github.com/dknowles2/pydrawise"
+edit_uri: "blob/main/docs/"
+
+theme:
+  name: readthedocs
+
+plugins:
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            docstring_section_style: list
+            docstring_style: sphinx
+            filters:
+              - "!^_"
+              - "^__init__$"
+            merge_init_into_class: true
+            separate_signature: true
+            show_if_no_docstring: true
+            show_root_heading: true
+            show_signature_annotations: true
+            show_source: false
