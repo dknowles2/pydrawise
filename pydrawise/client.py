@@ -49,7 +49,6 @@ class Hydrawise:
         """Initializes the client.
 
         :param auth: Handles authentication and transport.
-        :type auth: Auth
         """
         self._auth = auth
         self._schema = DSLSchema(_get_schema())
@@ -101,7 +100,6 @@ class Hydrawise:
         """Retrieves a single controller by its unique identifier.
 
         :param controller_id: Unique identifier for the controller to retrieve.
-        :type controller_id: int
         :rtype: Controller
         """
         selector = self._schema.Query.controller(controllerId=controller_id).select(
@@ -114,7 +112,6 @@ class Hydrawise:
         """Retrieves zones associated with the given controller.
 
         :param controller: Controller whose zones to fetch.
-        :type controller: Controller
         :rtype: list[Zone]
         """
         selector = self._schema.Query.controller(controllerId=controller.id).select(
@@ -127,7 +124,6 @@ class Hydrawise:
         """Retrieves a zone by its unique identifier.
 
         :param zone_id: The zone's unique identifier.
-        :type zone_id: int
         :rtype: Zone
         """
         selector = self._schema.Query.zone(zoneId=zone_id).select(
@@ -145,12 +141,9 @@ class Hydrawise:
         """Starts a zone's run cycle.
 
         :param zone: The zone to start.
-        :type zone: Zone
         :param mark_run_as_scheduled: Whether to mark the zone as having run as scheduled.
-        :type mark_run_as_scheduled: bool
         :param custom_run_duration: Duration (in seconds) to run the zone. If not
             specified (or zero), will run for its default configured time.
-        :type custom_run_duration: int
         """
         kwargs = {
             "zoneId": zone.id,
@@ -168,7 +161,6 @@ class Hydrawise:
         """Stops a zone.
 
         :param zone: The zone to stop.
-        :type zone: Zone
         """
         selector = self._schema.Mutation.stopZone.args(zoneId=zone.id).select(
             *get_selectors(self._schema, StatusCodeAndSummary),
@@ -184,12 +176,9 @@ class Hydrawise:
         """Starts all zones attached to a controller.
 
         :param controller: The controller whose zones to start.
-        :type controller: Controller
         :param mark_run_as_scheduled: Whether to mark the zones as having run as scheduled.
-        :type mark_run_as_scheduled: bool
         :param custom_run_duration: Duration (in seconds) to run the zones. If not
             specified (or zero), will run for each zone's default configured time.
-        :type custom_run_duration: int
         """
         kwargs = {
             "controllerId": controller.id,
@@ -207,7 +196,6 @@ class Hydrawise:
         """Stops all zones attached to a controller.
 
         :param controller: The controller whose zones to stop.
-        :type controller: Controller
         """
         selector = self._schema.Mutation.stopAllZones.args(
             controllerId=controller.id
@@ -220,9 +208,7 @@ class Hydrawise:
         """Suspends a zone's schedule.
 
         :param zone: The zone to suspend.
-        :type zone: Zone
         :param until: When the suspension should end.
-        :type until: datetime
         """
         selector = self._schema.Mutation.suspendZone.args(
             zoneId=zone.id,
@@ -236,7 +222,6 @@ class Hydrawise:
         """Resumes a zone's schedule.
 
         :param zone: The zone whose schedule to resume.
-        :type zone: Zone
         """
         selector = self._schema.Mutation.resumeZone.args(zoneId=zone.id).select(
             *get_selectors(self._schema, StatusCodeAndSummary),
@@ -247,9 +232,7 @@ class Hydrawise:
         """Suspends the schedule of all zones attached to a given controller.
 
         :param controller: The controller whose zones to suspend.
-        :type controller: Controller
         :param until: When the suspension should end.
-        :type until: datetime
         """
         selector = self._schema.Mutation.suspendAllZones.args(
             controllerId=controller.id,
@@ -263,7 +246,6 @@ class Hydrawise:
         """Resumes the schedule of all zones attached to the given controller.
 
         :param controller: The controller whose zones to resume.
-        :type controller: Controller
         """
         selector = self._schema.Mutation.resumeAllZones.args(
             controllerId=controller.id
@@ -278,7 +260,6 @@ class Hydrawise:
         Useful when there are multiple suspensions for a zone in effect.
 
         :param suspension: The suspension to delete.
-        :type suspension: ZoneSuspension
         """
         selector = self._schema.Mutation.deleteZoneSuspension.args(
             id=suspension.id
