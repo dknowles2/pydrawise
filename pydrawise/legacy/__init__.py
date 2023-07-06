@@ -9,7 +9,7 @@ import requests
 
 from ..exceptions import NotInitializedError, UnknownError
 
-_BASE_URL = "https://app.hydrawise.com/api/v1"
+_BASE_URL = "https://api.hydrawise.com/api/v1"
 _TIMEOUT = 10  # seconds
 
 
