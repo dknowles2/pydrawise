@@ -333,12 +333,12 @@ def test_update(mock_request, customer_details, status_schedule):
     mock_request.assert_has_calls(
         [
             mock.call(
-                "https://app.hydrawise.com/api/v1/customerdetails.php",
+                "https://api.hydrawise.com/api/v1/customerdetails.php",
                 params={"api_key": API_KEY, "type": "controllers"},
                 timeout=10,
             ),
             mock.call(
-                "https://app.hydrawise.com/api/v1/statusschedule.php",
+                "https://api.hydrawise.com/api/v1/statusschedule.php",
                 params={"api_key": API_KEY},
                 timeout=10,
             ),
@@ -399,12 +399,33 @@ def test_suspend_zone(mock_request, success_status):
     with freeze_time("1970-01-01 00:00:00") as t:
         assert client.suspend_zone(1, 1) == success_status
         mock_request.assert_called_once_with(
-            "https://app.hydrawise.com/api/v1/setzone.php",
+            "https://api.hydrawise.com/api/v1/setzone.php",
             params={
                 "api_key": API_KEY,
                 "action": "suspend",
                 "custom": 86400,
                 "period_id": 999,
+                "relay_id": 428639,
+            },
+            timeout=10,
+        )
+
+
+def test_suspend_zone_unsuspend(mock_request, success_status):
+    client = legacy.LegacyHydrawise(API_KEY)
+    mock_request.reset_mock(return_value=True, side_effect=True)
+
+    mock_request.return_value.status_code = 200
+    mock_request.return_value.json.return_value = success_status
+
+    with freeze_time("1970-01-01 00:00:00") as t:
+        assert client.suspend_zone(0, 1) == success_status
+        mock_request.assert_called_once_with(
+            "https://api.hydrawise.com/api/v1/setzone.php",
+            params={
+                "api_key": API_KEY,
+                "action": "suspend",
+                "period_id": 0,
                 "relay_id": 428639,
             },
             timeout=10,
@@ -421,7 +442,7 @@ def test_suspend_zone_all(mock_request, success_status):
     with freeze_time("1970-01-01 00:00:00") as t:
         assert client.suspend_zone(1) == success_status
         mock_request.assert_called_once_with(
-            "https://app.hydrawise.com/api/v1/setzone.php",
+            "https://api.hydrawise.com/api/v1/setzone.php",
             params={
                 "api_key": API_KEY,
                 "action": "suspendall",
@@ -442,7 +463,7 @@ def test_run_zone(mock_request, success_status):
     with freeze_time("1970-01-01 00:00:00") as t:
         assert client.run_zone(1, 1) == success_status
         mock_request.assert_called_once_with(
-            "https://app.hydrawise.com/api/v1/setzone.php",
+            "https://api.hydrawise.com/api/v1/setzone.php",
             params={
                 "api_key": API_KEY,
                 "action": "run",
@@ -464,7 +485,7 @@ def test_run_zone_all(mock_request, success_status):
     with freeze_time("1970-01-01 00:00:00") as t:
         assert client.run_zone(1) == success_status
         mock_request.assert_called_once_with(
-            "https://app.hydrawise.com/api/v1/setzone.php",
+            "https://api.hydrawise.com/api/v1/setzone.php",
             params={
                 "api_key": API_KEY,
                 "action": "runall",
@@ -485,10 +506,11 @@ def test_run_zone_stop(mock_request, success_status):
     with freeze_time("1970-01-01 00:00:00") as t:
         assert client.run_zone(0, 1) == success_status
         mock_request.assert_called_once_with(
-            "https://app.hydrawise.com/api/v1/setzone.php",
+            "https://api.hydrawise.com/api/v1/setzone.php",
             params={
                 "api_key": API_KEY,
                 "action": "stop",
+                "period_id": 0,
                 "relay_id": 428639,
             },
             timeout=10,
@@ -505,10 +527,11 @@ def test_run_zone_stop_all(mock_request, success_status):
     with freeze_time("1970-01-01 00:00:00") as t:
         assert client.run_zone(0) == success_status
         mock_request.assert_called_once_with(
-            "https://app.hydrawise.com/api/v1/setzone.php",
+            "https://api.hydrawise.com/api/v1/setzone.php",
             params={
                 "api_key": API_KEY,
                 "action": "stopall",
+                "period_id": 0,
             },
             timeout=10,
         )
