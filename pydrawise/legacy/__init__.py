@@ -105,6 +105,8 @@ class LegacyHydrawise:
         if days > 0:
             params["custom"] = time.time() + (days * 24 * 60 * 60)
             params["period_id"] = 999
+        else:
+            params["period_id"] = 0
 
         if zone is None:
             params["action"] = "suspendall"
@@ -131,5 +133,7 @@ class LegacyHydrawise:
         if minutes > 0:
             params["custom"] = time.time() + (minutes * 60)
             params["period_id"] = 999
+        else:
+            params["period_id"] = 0
 
         return self._get("setzone.php", **params)
