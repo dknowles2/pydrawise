@@ -13,6 +13,10 @@ class NotAuthorizedError(Error):
     """Raised when invalid credentials are used."""
 
 
+class NotInitializedError(Error):
+    """Raised when the legacy client is not initialized."""
+
+
 class MutationError(Error):
     """Raised when there is an error performing a mutation."""
 
