@@ -74,9 +74,10 @@ class LegacyHydrawise:
     def running(self) -> str | None:
         return self.controller_status.get("running")
 
-    def update_controller_info(self) -> None:
+    def update_controller_info(self) -> bool:
         self.controller_info = self._get_controller_info()
         self.controller_status = self._get_controller_status()
+        return True
 
     def _get(self, path: str, **kwargs) -> dict:
         url = f"{_BASE_URL}/{path}"
