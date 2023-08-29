@@ -104,7 +104,7 @@ class LegacyHydrawise:
         params = {}
 
         if days > 0:
-            params["custom"] = time.time() + (days * 24 * 60 * 60)
+            params["custom"] = int(time.time() + (days * 24 * 60 * 60))
             params["period_id"] = 999
         else:
             params["period_id"] = 0
@@ -132,7 +132,7 @@ class LegacyHydrawise:
             params["action"] = "runall" if minutes > 0 else "stopall"
 
         if minutes > 0:
-            params["custom"] = time.time() + (minutes * 60)
+            params["custom"] = minutes * 60
             params["period_id"] = 999
         else:
             params["period_id"] = 0
