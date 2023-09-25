@@ -138,7 +138,7 @@ class Hydrawise(HydrawiseBase):
         zone: Zone,
         mark_run_as_scheduled: bool = False,
         custom_run_duration: int = 0,
-    ):
+    ) -> None:
         """Starts a zone's run cycle.
 
         :param zone: The zone to start.
@@ -158,7 +158,7 @@ class Hydrawise(HydrawiseBase):
         )
         await self._mutation(selector)
 
-    async def stop_zone(self, zone: Zone):
+    async def stop_zone(self, zone: Zone) -> None:
         """Stops a zone.
 
         :param zone: The zone to stop.
@@ -173,7 +173,7 @@ class Hydrawise(HydrawiseBase):
         controller: Controller,
         mark_run_as_scheduled: bool = False,
         custom_run_duration: int = 0,
-    ):
+    ) -> None:
         """Starts all zones attached to a controller.
 
         :param controller: The controller whose zones to start.
@@ -193,7 +193,7 @@ class Hydrawise(HydrawiseBase):
         )
         await self._mutation(selector)
 
-    async def stop_all_zones(self, controller: Controller):
+    async def stop_all_zones(self, controller: Controller) -> None:
         """Stops all zones attached to a controller.
 
         :param controller: The controller whose zones to stop.
@@ -205,7 +205,7 @@ class Hydrawise(HydrawiseBase):
         )
         await self._mutation(selector)
 
-    async def suspend_zone(self, zone: Zone, until: datetime):
+    async def suspend_zone(self, zone: Zone, until: datetime) -> None:
         """Suspends a zone's schedule.
 
         :param zone: The zone to suspend.
@@ -219,7 +219,7 @@ class Hydrawise(HydrawiseBase):
         )
         await self._mutation(selector)
 
-    async def resume_zone(self, zone: Zone):
+    async def resume_zone(self, zone: Zone) -> None:
         """Resumes a zone's schedule.
 
         :param zone: The zone whose schedule to resume.
@@ -229,7 +229,7 @@ class Hydrawise(HydrawiseBase):
         )
         await self._mutation(selector)
 
-    async def suspend_all_zones(self, controller: Controller, until: datetime):
+    async def suspend_all_zones(self, controller: Controller, until: datetime) -> None:
         """Suspends the schedule of all zones attached to a given controller.
 
         :param controller: The controller whose zones to suspend.
@@ -243,7 +243,7 @@ class Hydrawise(HydrawiseBase):
         )
         await self._mutation(selector)
 
-    async def resume_all_zones(self, controller: Controller):
+    async def resume_all_zones(self, controller: Controller) -> None:
         """Resumes the schedule of all zones attached to the given controller.
 
         :param controller: The controller whose zones to resume.
@@ -255,7 +255,7 @@ class Hydrawise(HydrawiseBase):
         )
         await self._mutation(selector)
 
-    async def delete_zone_suspension(self, suspension: ZoneSuspension):
+    async def delete_zone_suspension(self, suspension: ZoneSuspension) -> None:
         """Removes a specific zone suspension.
 
         Useful when there are multiple suspensions for a zone in effect.
