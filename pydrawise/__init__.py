@@ -1,6 +1,7 @@
 """API for interacting with Hydrawise sprinkler controllers."""
 
 from .auth import Auth
+from .base import HydrawiseBase
 from .client import Hydrawise
 from .exceptions import (
     Error,
