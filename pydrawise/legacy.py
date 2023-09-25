@@ -52,7 +52,14 @@ class LegacyHydrawiseAsync(HydrawiseBase):
 
         :rtype: User
         """
-        raise NotImplementedError
+        resp_json = await self._get("customerdetails.php")
+        return User(
+            id=0,
+            customer_id=resp_json["customer_id"],
+            name="",
+            email="",
+            controllers=[],
+        )
 
     async def get_controllers(self) -> list[Controller]:
         """Retrieves all controllers associated with the currently authenticated user.

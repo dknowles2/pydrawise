@@ -186,6 +186,24 @@ def mock_request(customer_details, status_schedule):
 class TestLegacyHydrawiseAsync:
     """Test the LegacyHydrawiseAsync class."""
 
+    async def test_get_user(self, customer_details: dict) -> None:
+        """Test the get_user method."""
+        client = legacy.LegacyHydrawiseAsync(API_KEY)
+        with aioresponses() as m:
+            m.get(
+                re.compile("https://api.hydrawise.com/api/v1/customerdetails.php"),
+                status=200,
+                payload=customer_details,
+            )
+            user = await client.get_user()
+            m.assert_called_once_with(
+                "https://api.hydrawise.com/api/v1/customerdetails.php",
+                method="GET",
+                params={"api_key": API_KEY},
+                timeout=10,
+            )
+            assert user.customer_id == 47076
+
     async def test_get_controllers(self, customer_details: dict) -> None:
         """Test the get_controllers method."""
         client = legacy.LegacyHydrawiseAsync(API_KEY)
