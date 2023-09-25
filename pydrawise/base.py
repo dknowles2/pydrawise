@@ -10,9 +10,10 @@ class HydrawiseBase(ABC):
     """Base class for Hydrawise client APIs."""
 
     @abstractmethod
-    async def get_user(self) -> User:
+    async def get_user(self, fetch_zones: bool = True) -> User:
         """Retrieves the currently authenticated user.
 
+        :param fetch_zones: When True, also fetch zones.
         :rtype: User
         """
 
