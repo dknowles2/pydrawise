@@ -75,9 +75,10 @@ class Hydrawise(HydrawiseBase):
                 # Assume bool response
                 raise MutationError
 
-    async def get_user(self) -> User:
+    async def get_user(self, fetch_zones: bool = True) -> User:
         """Retrieves the currently authenticated user.
 
+        :param fetch_zones: Not used in this implementation.
         :rtype: User
         """
         selector = self._schema.Query.me.select(*get_selectors(self._schema, User))

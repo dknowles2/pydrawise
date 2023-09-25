@@ -47,9 +47,10 @@ class LegacyHydrawiseAsync(HydrawiseBase):
             async with session.get(url, params=params, timeout=_TIMEOUT) as resp:
                 return await resp.json()
 
-    async def get_user(self) -> User:
+    async def get_user(self, fetch_zones: bool = True) -> User:
         """Retrieves the currently authenticated user.
 
+        :param fetch_zones: When True, also fetch zones.
         :rtype: User
         """
         resp_json = await self._get("customerdetails.php")
@@ -60,8 +61,9 @@ class LegacyHydrawiseAsync(HydrawiseBase):
             email="",
             controllers=[_controller_from_json(c) for c in resp_json["controllers"]],
         )
-        for controller in user.controllers:
-            controller.zones = await self.get_zones(controller)
+        if fetch_zones:
+            for controller in user.controllers:
+                controller.zones = await self.get_zones(controller)
         return user
 
     async def get_controllers(self) -> list[Controller]:
