@@ -186,45 +186,72 @@ def mock_request(customer_details, status_schedule):
 class TestLegacyHydrawiseAsync:
     """Test the LegacyHydrawiseAsync class."""
 
-    async def test_get_user(self, customer_details: dict) -> None:
+    async def test_get_user(
+        self, customer_details: dict, status_schedule: dict
+    ) -> None:
         """Test the get_user method."""
         client = legacy.LegacyHydrawiseAsync(API_KEY)
-        with aioresponses() as m:
-            m.get(
-                re.compile("https://api.hydrawise.com/api/v1/customerdetails.php"),
-                status=200,
-                payload=customer_details,
-            )
-            user = await client.get_user()
-            m.assert_called_once_with(
-                "https://api.hydrawise.com/api/v1/customerdetails.php",
-                method="GET",
-                params={"api_key": API_KEY},
-                timeout=10,
-            )
-            assert user.customer_id == 47076
+        with freeze_time("2023-01-01 01:00:00") as t:
+            with aioresponses() as m:
+                m.get(
+                    re.compile("https://api.hydrawise.com/api/v1/customerdetails.php"),
+                    status=200,
+                    payload=customer_details,
+                )
+                m.get(
+                    re.compile("https://api.hydrawise.com/api/v1/statusschedule.php"),
+                    status=200,
+                    payload=status_schedule,
+                )
+                user = await client.get_user()
+                assert user.customer_id == 47076
+                assert [c.id for c in user.controllers] == [52496]
+                assert [z.id for z in user.controllers[0].zones] == [
+                    5965394,
+                    5965395,
+                    5965396,
+                    5965397,
+                    5965398,
+                    5965399,
+                    5965400,
+                    5965401,
+                    5965402,
+                ]
 
-    async def test_get_controllers(self, customer_details: dict) -> None:
+    async def test_get_controllers(
+        self, customer_details: dict, status_schedule: dict
+    ) -> None:
         """Test the get_controllers method."""
         client = legacy.LegacyHydrawiseAsync(API_KEY)
-        with aioresponses() as m:
-            m.get(
-                re.compile("https://api.hydrawise.com/api/v1/customerdetails.php"),
-                status=200,
-                payload=customer_details,
-            )
-            controllers = await client.get_controllers()
-            m.assert_called_once_with(
-                "https://api.hydrawise.com/api/v1/customerdetails.php",
-                method="GET",
-                params={"api_key": API_KEY, "type": "controllers"},
-                timeout=10,
-            )
-            [controller] = controllers
-            assert controller.id == 52496
-            assert controller.name == "Home Controller"
-            assert controller.hardware.serial_number == "0310b36090"
-            assert controller.last_contact_time == datetime(2023, 8, 29, 7, 0, 20)
+        with freeze_time("2023-01-01 01:00:00") as t:
+            with aioresponses() as m:
+                m.get(
+                    re.compile("https://api.hydrawise.com/api/v1/customerdetails.php"),
+                    status=200,
+                    payload=customer_details,
+                )
+                m.get(
+                    re.compile("https://api.hydrawise.com/api/v1/statusschedule.php"),
+                    status=200,
+                    payload=status_schedule,
+                )
+                controllers = await client.get_controllers()
+                [controller] = controllers
+                assert controller.id == 52496
+                assert controller.name == "Home Controller"
+                assert controller.hardware.serial_number == "0310b36090"
+                assert controller.last_contact_time == datetime(2023, 8, 29, 7, 0, 20)
+                assert [z.id for z in controller.zones] == [
+                    5965394,
+                    5965395,
+                    5965396,
+                    5965397,
+                    5965398,
+                    5965399,
+                    5965400,
+                    5965401,
+                    5965402,
+                ]
 
     async def test_get_zones(self, status_schedule: dict) -> None:
         """Test the get_zones method."""

@@ -53,13 +53,16 @@ class LegacyHydrawiseAsync(HydrawiseBase):
         :rtype: User
         """
         resp_json = await self._get("customerdetails.php")
-        return User(
+        user = User(
             id=0,
             customer_id=resp_json["customer_id"],
             name="",
             email="",
-            controllers=[],
+            controllers=[_controller_from_json(c) for c in resp_json["controllers"]],
         )
+        for controller in user.controllers:
+            controller.zones = await self.get_zones(controller)
+        return user
 
     async def get_controllers(self) -> list[Controller]:
         """Retrieves all controllers associated with the currently authenticated user.
@@ -67,34 +70,9 @@ class LegacyHydrawiseAsync(HydrawiseBase):
         :rtype: list[Controller]
         """
         resp_json = await self._get("customerdetails.php", type="controllers")
-        controllers = []
-        for controller_json in resp_json["controllers"]:
-            controllers.append(
-                Controller(
-                    id=controller_json["controller_id"],
-                    name=controller_json["name"],
-                    software_version="",
-                    hardware=ControllerHardware(
-                        serial_number=controller_json["serial_number"],
-                        version="",
-                        status="",
-                        model=ControllerModel(
-                            name="",
-                            description="",
-                        ),
-                        firmware=[],
-                    ),
-                    last_contact_time=datetime.fromtimestamp(
-                        controller_json["last_contact"]
-                    ),
-                    last_action="",
-                    online=True,
-                    sensors=[],
-                    zones=[],
-                    permitted_program_start_times=[],
-                    status=None,
-                )
-            )
+        controllers = [_controller_from_json(c) for c in resp_json["controllers"]]
+        for controller in controllers:
+            controller.zones = await self.get_zones(controller)
         return controllers
 
     async def get_controller(self, controller_id: int) -> Controller:
@@ -114,68 +92,7 @@ class LegacyHydrawiseAsync(HydrawiseBase):
         """
         _ = controller  # unused
         resp_json = await self._get("statusschedule.php")
-        zones = []
-        for zone_json in resp_json["relays"]:
-            current_run = None
-            next_run = None
-            if zone_json["time"] == 1:
-                # in progress
-                current_run = ScheduledZoneRun(
-                    id="",
-                    start_time=datetime.now(),
-                    end_time=datetime.now(),
-                    normal_duration=timedelta(minutes=0),
-                    duration=timedelta(minutes=0),
-                    remaining_time=timedelta(seconds=zone_json["run"]),
-                    status=RunStatus(value=0, label=""),
-                )
-            else:
-                start_time = datetime.now() + timedelta(seconds=zone_json["time"])
-                duration = timedelta(seconds=zone_json["run"])
-                next_run = ScheduledZoneRun(
-                    id="",
-                    start_time=start_time,
-                    end_time=start_time + duration,
-                    normal_duration=duration,
-                    duration=duration,
-                    remaining_time=timedelta(seconds=0),
-                    status=RunStatus(value=0, label=""),
-                )
-            suspended_until = None
-            if zone_json["time"] == 1576800000:
-                suspended_until = ZoneSuspension(
-                    id=0,
-                    start_time=datetime.now(),
-                    end_time=datetime.now() + timedelta(seconds=zone_json["time"]),
-                )
-            zones.append(
-                Zone(
-                    id=zone_json["relay_id"],
-                    number=zone_json["relay"],
-                    name=zone_json["name"],
-                    watering_settings=StandardWateringSettings(
-                        fixed_watering_adjustment=0,
-                        cycle_and_soak_settings=None,
-                        standard_program_applications=[],
-                    ),
-                    scheduled_runs=ScheduledZoneRuns(
-                        summary="",
-                        current_run=current_run,
-                        next_run=next_run,
-                        status="",
-                    ),
-                    past_runs=PastZoneRuns(
-                        last_run=None,
-                        runs=[],
-                    ),
-                    status=ZoneStatus(
-                        relative_water_balance=0,
-                        suspended_until=suspended_until,
-                    ),
-                    suspensions=[],
-                )
-            )
-        return zones
+        return [_zone_from_json(z) for z in resp_json["relays"]]
 
     async def get_zone(self, zone_id: int) -> Zone:
         """Retrieves a zone by its unique identifier.
@@ -299,6 +216,90 @@ class LegacyHydrawiseAsync(HydrawiseBase):
         """
         _ = suspension  # unused
         raise NotImplementedError
+
+
+def _controller_from_json(controller_json: dict) -> Controller:
+    return Controller(
+        id=controller_json["controller_id"],
+        name=controller_json["name"],
+        software_version="",
+        hardware=ControllerHardware(
+            serial_number=controller_json["serial_number"],
+            version="",
+            status="",
+            model=ControllerModel(
+                name="",
+                description="",
+            ),
+            firmware=[],
+        ),
+        last_contact_time=datetime.fromtimestamp(controller_json["last_contact"]),
+        last_action="",
+        online=True,
+        sensors=[],
+        zones=[],
+        permitted_program_start_times=[],
+        status=None,
+    )
+
+
+def _zone_from_json(zone_json: dict) -> Zone:
+    current_run = None
+    next_run = None
+    if zone_json["time"] == 1:
+        current_run = ScheduledZoneRun(
+            id="",
+            start_time=datetime.now(),
+            end_time=datetime.now(),
+            normal_duration=timedelta(minutes=0),
+            duration=timedelta(minutes=0),
+            remaining_time=timedelta(seconds=zone_json["run"]),
+            status=RunStatus(value=0, label=""),
+        )
+    else:
+        start_time = datetime.now() + timedelta(seconds=zone_json["time"])
+        duration = timedelta(seconds=zone_json["run"])
+        next_run = ScheduledZoneRun(
+            id="",
+            start_time=start_time,
+            end_time=start_time + duration,
+            normal_duration=duration,
+            duration=duration,
+            remaining_time=timedelta(seconds=0),
+            status=RunStatus(value=0, label=""),
+        )
+    suspended_until = None
+    if zone_json["time"] == 1576800000:
+        suspended_until = ZoneSuspension(
+            id=0,
+            start_time=datetime.now(),
+            end_time=datetime.now() + timedelta(seconds=zone_json["time"]),
+        )
+    return Zone(
+        id=zone_json["relay_id"],
+        number=zone_json["relay"],
+        name=zone_json["name"],
+        watering_settings=StandardWateringSettings(
+            fixed_watering_adjustment=0,
+            cycle_and_soak_settings=None,
+            standard_program_applications=[],
+        ),
+        scheduled_runs=ScheduledZoneRuns(
+            summary="",
+            current_run=current_run,
+            next_run=next_run,
+            status="",
+        ),
+        past_runs=PastZoneRuns(
+            last_run=None,
+            runs=[],
+        ),
+        status=ZoneStatus(
+            relative_water_balance=0,
+            suspended_until=suspended_until,
+        ),
+        suspensions=[],
+    )
 
 
 class LegacyHydrawise:
