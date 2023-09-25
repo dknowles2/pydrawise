@@ -12,6 +12,7 @@ from gql.transport.aiohttp import log as gql_log
 from graphql import GraphQLSchema
 
 from .auth import Auth
+from .base import HydrawiseBase
 from .exceptions import MutationError
 from .schema import (
     Controller,
@@ -39,7 +40,7 @@ def _get_schema() -> GraphQLSchema:
     )
 
 
-class Hydrawise:
+class Hydrawise(HydrawiseBase):
     """Client library for interacting with Hydrawise sprinkler controllers.
 
     Should be instantiated with an Auth object that handles authentication and low-level transport.
