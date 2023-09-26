@@ -45,6 +45,7 @@ class LegacyHydrawiseAsync(HydrawiseBase):
         params.update(kwargs)
         async with aiohttp.ClientSession() as session:
             async with session.get(url, params=params, timeout=_TIMEOUT) as resp:
+                resp.raise_for_status()
                 return await resp.json()
 
     async def get_user(self, fetch_zones: bool = True) -> User:
