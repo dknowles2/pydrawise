@@ -16,6 +16,16 @@ from apischema.metadata import conversion, skip
 # pylint: disable=invalid-name
 
 
+def default_datetime() -> datetime:
+    """Default datetime factory for fields in this module.
+
+    Abstracted so it can be mocked out.
+
+    :meta private:
+    """
+    return datetime.now()
+
+
 class StatusCodeEnum(Enum):
     """Response status codes."""
 
@@ -28,24 +38,24 @@ class StatusCodeEnum(Enum):
 class StatusCodeAndSummary:
     """A response status code and a human-readable summary."""
 
-    status: StatusCodeEnum
-    summary: str
+    status: StatusCodeEnum = StatusCodeEnum.OK
+    summary: str = ""
 
 
 @dataclass
 class LocalizedValueType:
     """A localized value."""
 
-    value: float
-    unit: str
+    value: float = 0.0
+    unit: str = ""
 
 
 @dataclass
 class Option:
     """A generic option."""
 
-    value: int
-    label: str
+    value: int = 0
+    label: str = ""
 
 
 @dataclass
@@ -55,8 +65,8 @@ class DateTime:
     This is only used for serialization and deserialization.
     """
 
-    value: str
-    timestamp: int
+    value: str = ""
+    timestamp: int = 0
 
     @staticmethod
     def from_json(dt: DateTime) -> datetime:
@@ -104,33 +114,39 @@ def _duration_conversion(unit: str) -> conversion:
 class BaseZone:
     """Basic zone information."""
 
-    id: int
-    number: Option
-    name: str
+    id: int = 0
+    number: Option = field(default_factory=Option)
+    name: str = ""
 
 
 @dataclass
 class CycleAndSoakSettings:
     """Cycle and soak durations."""
 
-    cycle_duration: timedelta = field(metadata=_duration_conversion("minutes"))
-    soak_duration: timedelta = field(metadata=_duration_conversion("minutes"))
+    cycle_duration: timedelta = field(
+        metadata=_duration_conversion("minutes"), default=timedelta()
+    )
+    soak_duration: timedelta = field(
+        metadata=_duration_conversion("minutes"), default=timedelta()
+    )
 
 
 @dataclass
 class RunTimeGroup:
     """The runtime of a watering program group."""
 
-    id: int
-    duration: timedelta = field(metadata=_duration_conversion("minutes"))
+    id: int = 0
+    duration: timedelta = field(
+        metadata=_duration_conversion("minutes"), default=timedelta()
+    )
 
 
 @dataclass
 class AdvancedProgram:
     """An advanced watering program."""
 
-    advanced_program_id: int
-    run_time_group: RunTimeGroup
+    advanced_program_id: int = 0
+    run_time_group: RunTimeGroup = field(default_factory=RunTimeGroup)
 
 
 class AdvancedProgramDayPatternEnum(Enum):
@@ -157,114 +173,134 @@ class AdvancedProgramDayPatternEnum(Enum):
 class ProgramStartTime:
     """Start time for a watering program."""
 
-    id: int
-    time: str  # e.g. "02:00"
-    watering_days: list[AdvancedProgramDayPatternEnum]
+    id: int = 0
+    time: str = ""  # e.g. "02:00"
+    watering_days: list[AdvancedProgramDayPatternEnum] = field(default_factory=list)
 
 
 @dataclass
 class WateringSettings:
     """Generic settings for a watering program."""
 
-    fixed_watering_adjustment: int
-    cycle_and_soak_settings: Optional[CycleAndSoakSettings]
+    fixed_watering_adjustment: int = 0
+    cycle_and_soak_settings: Optional[CycleAndSoakSettings] = None
 
 
 @dataclass
 class AdvancedWateringSettings(WateringSettings):
     """Advanced watering program settings."""
 
-    advanced_program: Optional[AdvancedProgram]
+    advanced_program: Optional[AdvancedProgram] = None
 
 
 @dataclass
 class StandardProgram:
     """A standard watering program."""
 
-    name: str
-    start_times: list[str]
+    name: str = ""
+    start_times: list[str] = field(default_factory=list)
 
 
 @dataclass
 class StandardProgramApplication:
     """A standard watering program."""
 
-    zone: BaseZone
-    standard_program: StandardProgram
-    run_time_group: RunTimeGroup
+    zone: BaseZone = field(default_factory=BaseZone)
+    standard_program: StandardProgram = field(default_factory=StandardProgram)
+    run_time_group: RunTimeGroup = field(default_factory=RunTimeGroup)
 
 
 @dataclass
 class StandardWateringSettings(WateringSettings):
     """Standard watering settings."""
 
-    standard_program_applications: list[StandardProgramApplication]
+    standard_program_applications: list[StandardProgramApplication] = field(
+        default_factory=list
+    )
 
 
 @dataclass
 class RunStatus:
     """Run status."""
 
-    value: int
-    label: str
+    value: int = 0
+    label: str = ""
 
 
 @dataclass
 class ScheduledZoneRun:
     """A scheduled zone run."""
 
-    id: str
-    start_time: datetime = field(metadata=DateTime.conversion())
-    end_time: datetime = field(metadata=DateTime.conversion())
-    normal_duration: timedelta = field(metadata=_duration_conversion("minutes"))
-    duration: timedelta = field(metadata=_duration_conversion("minutes"))
-    remaining_time: timedelta = field(metadata=_duration_conversion("seconds"))
-    status: RunStatus
+    id: str = 0
+    start_time: datetime = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    end_time: datetime = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    normal_duration: timedelta = field(
+        metadata=_duration_conversion("minutes"), default=timedelta()
+    )
+    duration: timedelta = field(
+        metadata=_duration_conversion("minutes"), default=timedelta()
+    )
+    remaining_time: timedelta = field(
+        metadata=_duration_conversion("seconds"), default=timedelta()
+    )
+    status: RunStatus = field(default_factory=RunStatus)
 
 
 @dataclass
 class ScheduledZoneRuns:
     """Scheduled runs for a zone."""
 
-    summary: str
-    current_run: Optional[ScheduledZoneRun]
-    next_run: Optional[ScheduledZoneRun]
-    status: Optional[str]
+    summary: str = ""
+    current_run: Optional[ScheduledZoneRun] = None
+    next_run: Optional[ScheduledZoneRun] = None
+    status: Optional[str] = None
 
 
 @dataclass
 class PastZoneRuns:
     """Previous zone runs."""
 
-    last_run: Optional[ScheduledZoneRun]
-    runs: list[ScheduledZoneRun]
+    last_run: Optional[ScheduledZoneRun] = None
+    runs: list[ScheduledZoneRun] = field(default_factory=list)
 
 
 @dataclass
 class ZoneStatus:
     """A zone's status."""
 
-    relative_water_balance: int
-    suspended_until: Optional[datetime] = field(metadata=DateTime.conversion())
+    relative_water_balance: int = 0
+    suspended_until: Optional[datetime] = field(
+        metadata=DateTime.conversion(), default=None
+    )
 
 
 @dataclass
 class ZoneSuspension:
     """A zone suspension."""
 
-    id: int
-    start_time: datetime = field(metadata=DateTime.conversion())
-    end_time: datetime = field(metadata=DateTime.conversion())
+    id: int = 0
+    start_time: datetime = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    end_time: datetime = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
 
 
 @dataclass
 class Zone(BaseZone):
     """A watering zone."""
 
-    watering_settings: Union[AdvancedWateringSettings, StandardWateringSettings]
-    scheduled_runs: ScheduledZoneRuns
-    past_runs: PastZoneRuns
-    status: ZoneStatus
+    watering_settings: Union[
+        AdvancedWateringSettings, StandardWateringSettings
+    ] = field(default_factory=StandardWateringSettings)
+    scheduled_runs: ScheduledZoneRuns = field(default_factory=ScheduledZoneRuns)
+    past_runs: PastZoneRuns = field(default_factory=PastZoneRuns)
+    status: ZoneStatus = field(default_factory=ZoneStatus)
     suspensions: list[ZoneSuspension] = field(default_factory=list)
 
 
@@ -272,83 +308,85 @@ class Zone(BaseZone):
 class ControllerFirmware:
     """Information about the controller's firmware."""
 
-    type: str
-    version: str
+    type: str = ""
+    version: str = ""
 
 
 @dataclass
 class ControllerModel:
     """Information about a controller model."""
 
-    name: str
-    description: str
+    name: str = ""
+    description: str = ""
 
 
 @dataclass
 class ControllerHardware:
     """Information about a controller's hardware."""
 
-    serial_number: str
-    version: str
-    status: str
-    model: ControllerModel
-    firmware: list[ControllerFirmware]
+    serial_number: str = ""
+    version: str = ""
+    status: str = ""
+    model: ControllerModel = field(default_factory=ControllerModel)
+    firmware: list[ControllerFirmware] = field(default_factory=list)
 
 
 @dataclass
 class SensorModel:
     """Information about a sensor model."""
 
-    id: int
-    name: str
-    active: bool
-    off_level: int
-    off_timer: int
-    delay: int
-    divisor: float
-    flow_rate: float
+    id: int = 0
+    name: str = ""
+    active: bool = False
+    off_level: int = 0
+    off_timer: int = 0
+    delay: int = 0
+    divisor: float = 0.0
+    flow_rate: float = 0.0
 
 
 @dataclass
 class SensorStatus:
     """Current status of a sensor."""
 
-    water_flow: Optional[LocalizedValueType]
-    active: bool
+    water_flow: Optional[LocalizedValueType] = None
+    active: bool = False
 
 
 @dataclass
 class SensorFlowSummary:
     """Summary of a sensor's water flow."""
 
-    total_water_volume: LocalizedValueType
+    total_water_volume: LocalizedValueType = field(default_factory=LocalizedValueType)
 
 
 @dataclass
 class Sensor:
     """A sensor connected to a controller."""
 
-    id: int
-    name: str
-    model: SensorModel
-    status: SensorStatus
+    id: int = 0
+    name: str = ""
+    model: SensorModel = field(default_factory=SensorModel)
+    status: SensorStatus = field(default_factory=SensorStatus)
 
 
 @dataclass
 class WaterTime:
     """A water time duration."""
 
-    value: timedelta = field(metadata=_duration_conversion("minutes"))
+    value: timedelta = field(
+        metadata=_duration_conversion("minutes"), default=timedelta()
+    )
 
 
 @dataclass
 class ControllerStatus:
     """Current status of a controller."""
 
-    summary: str
-    online: bool
-    actual_water_time: WaterTime
-    normal_water_time: WaterTime
+    summary: str = ""
+    online: bool = False
+    actual_water_time: WaterTime = field(default_factory=WaterTime)
+    normal_water_time: WaterTime = field(default_factory=WaterTime)
     last_contact: Optional[DateTime] = None
 
 
@@ -356,27 +394,31 @@ class ControllerStatus:
 class Controller:
     """A Hydrawise controller."""
 
-    id: int
-    name: str
-    software_version: str
-    hardware: ControllerHardware
-    last_contact_time: datetime = field(metadata=DateTime.conversion())
-    last_action: datetime = field(metadata=DateTime.conversion())
-    online: bool
-    sensors: list[Sensor]
+    id: int = 0
+    name: str = ""
+    software_version: str = ""
+    hardware: ControllerHardware = field(default_factory=ControllerHardware)
+    last_contact_time: datetime = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    last_action: datetime = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    online: bool = False
+    sensors: list[Sensor] = field(default_factory=list)
     zones: list[Zone] = field(default_factory=list, metadata=skip(deserialization=True))
     permitted_program_start_times: list[ProgramStartTime] = field(default_factory=list)
-    status: Optional[ControllerStatus] = field(default=None)
+    status: Optional[ControllerStatus] = None
 
 
 @dataclass
 class User:
     """A Hydrawise user account."""
 
-    id: int
-    customer_id: int
-    name: str
-    email: str
+    id: int = 0
+    customer_id: int = 0
+    name: str = ""
+    email: str = ""
     controllers: list[Controller] = field(
         default_factory=list, metadata=skip(deserialization=True)
     )
