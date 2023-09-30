@@ -225,24 +225,11 @@ def _controller_from_json(controller_json: dict) -> Controller:
     return Controller(
         id=controller_json["controller_id"],
         name=controller_json["name"],
-        software_version="",
         hardware=ControllerHardware(
             serial_number=controller_json["serial_number"],
-            version="",
-            status="",
-            model=ControllerModel(
-                name="",
-                description="",
-            ),
-            firmware=[],
         ),
         last_contact_time=datetime.fromtimestamp(controller_json["last_contact"]),
-        last_action="",
         online=True,
-        sensors=[],
-        zones=[],
-        permitted_program_start_times=[],
-        status=None,
     )
 
 
@@ -251,57 +238,35 @@ def _zone_from_json(zone_json: dict) -> Zone:
     next_run = None
     if zone_json["time"] == 1:
         current_run = ScheduledZoneRun(
-            id="",
-            start_time=datetime.now(),
-            end_time=datetime.now(),
-            normal_duration=timedelta(minutes=0),
-            duration=timedelta(minutes=0),
             remaining_time=timedelta(seconds=zone_json["run"]),
-            status=RunStatus(value=0, label=""),
         )
     else:
         start_time = datetime.now() + timedelta(seconds=zone_json["time"])
         duration = timedelta(seconds=zone_json["run"])
         next_run = ScheduledZoneRun(
-            id="",
             start_time=start_time,
             end_time=start_time + duration,
             normal_duration=duration,
             duration=duration,
-            remaining_time=timedelta(seconds=0),
-            status=RunStatus(value=0, label=""),
         )
     suspended_until = None
     if zone_json["time"] == 1576800000:
         suspended_until = ZoneSuspension(
-            id=0,
-            start_time=datetime.now(),
             end_time=datetime.now() + timedelta(seconds=zone_json["time"]),
         )
     return Zone(
         id=zone_json["relay_id"],
         number=zone_json["relay"],
         name=zone_json["name"],
-        watering_settings=StandardWateringSettings(
-            fixed_watering_adjustment=0,
-            cycle_and_soak_settings=None,
-            standard_program_applications=[],
-        ),
+        watering_settings=StandardWateringSettings(),
         scheduled_runs=ScheduledZoneRuns(
-            summary="",
             current_run=current_run,
             next_run=next_run,
-            status="",
         ),
-        past_runs=PastZoneRuns(
-            last_run=None,
-            runs=[],
-        ),
+        past_runs=PastZoneRuns(),
         status=ZoneStatus(
-            relative_water_balance=0,
             suspended_until=suspended_until,
         ),
-        suspensions=[],
     )
 
 
