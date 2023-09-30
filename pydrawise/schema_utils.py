@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import namedtuple
 from dataclasses import fields, is_dataclass
-from typing import Iterator, List, Type, Union, get_args, get_origin, get_type_hints
+from typing import Any, Iterator, List, Type, Union, get_args, get_origin, get_type_hints
 
 from apischema import deserialize as _deserialize
 from apischema.metadata.keys import CONVERSION_METADATA, SKIP_METADATA
@@ -27,19 +27,21 @@ def deserialize(*args, **kwargs):
 _Field = namedtuple("_Field", ["name", "types"])
 
 
-def _fields(cls) -> Iterator[_Field]:
+def _fields(cls, skip: list[str]) -> Iterator[_Field]:
     """Returns _Field objects for every field on the given dataclass.
 
     :meta private:
     """
     hints = get_type_hints(cls)
     for f in fields(cls):
-        skip_md = f.metadata.get(SKIP_METADATA, None)
-        if skip_md and (skip_md.serialization or skip_md.deserialization):
+        if f.name in skip:
             continue
 
-        conversion_md = f.metadata.get(CONVERSION_METADATA, None)
-        if conversion_md:
+        if ((skip_md := f.metadata.get(SKIP_METADATA, None)) and
+            (skip_md.serialization or skip_md.deserialization)):
+            continue
+
+        if conversion_md := f.metadata.get(CONVERSION_METADATA, None):
             yield _Field(f.name, [conversion_md.deserialization.source])
             continue
 
@@ -62,18 +64,20 @@ def _fields(cls) -> Iterator[_Field]:
         yield _Field(f.name, [field_type])
 
 
-def get_selectors(ds: DSLSchema, cls: Type) -> list[DSLField]:
+def get_selectors(ds: DSLSchema, cls: Type, skip: list[str] | None = None) -> list[DSLField]:
     """Constructs GraphQL selectors for the given dataclass.
 
     :meta private:
     """
     ret = []
-    for f in _fields(cls):
+    skip_now, skip_later = parse_skip(skip or [])
+    for f in _fields(cls, skip_now):
         dsl_field = getattr(getattr(ds, cls.__name__), f.name)
         if len(f.types) == 1:
             [f_type] = f.types
             if is_dataclass(f_type):
-                ret.append(getattr(dsl_field, "select")(*get_selectors(ds, f_type)))
+                f_skip = skip_later.get(f.name, [])
+                ret.append(getattr(dsl_field, "select")(*get_selectors(ds, f_type, f_skip)))
             else:
                 ret.append(dsl_field)
         else:
@@ -89,3 +93,14 @@ def get_selectors(ds: DSLSchema, cls: Type) -> list[DSLField]:
                 )
             ret.append(getattr(dsl_field, "select")(*sel_args))
     return ret
+
+
+def parse_skip(skip: list[str] | None = None) -> tuple[list[str], dict[str, list[str]]]:
+    now, later = [], {}
+    for item in skip:
+        field, _, ancestors = item.partition(".")
+        if ancestors:
+            later.setdefault(field, []).append(ancestors)
+        else:
+            now.append(field)
+    return now, later

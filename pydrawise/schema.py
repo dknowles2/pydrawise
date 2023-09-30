@@ -9,7 +9,7 @@ from enum import Enum, auto
 from typing import Optional, Union
 
 from apischema.conversions import Conversion
-from apischema.metadata import conversion, skip
+from apischema.metadata import conversion
 
 # The names in this file are from the GraphQL schema and don't always adhere to
 # the naming scheme that pylint expects.
@@ -406,7 +406,7 @@ class Controller:
     )
     online: bool = False
     sensors: list[Sensor] = field(default_factory=list)
-    zones: list[Zone] = field(default_factory=list, metadata=skip(deserialization=True))
+    zones: list[Zone] = field(default_factory=list)
     permitted_program_start_times: list[ProgramStartTime] = field(default_factory=list)
     status: Optional[ControllerStatus] = None
 
@@ -419,9 +419,7 @@ class User:
     customer_id: int = 0
     name: str = ""
     email: str = ""
-    controllers: list[Controller] = field(
-        default_factory=list, metadata=skip(deserialization=True)
-    )
+    controllers: list[Controller] = field(default_factory=list)
 
 
 class Query(ABC):

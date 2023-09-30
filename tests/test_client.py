@@ -110,24 +110,60 @@ def zone_json():
     }
 
 
-async def test_get_user(api: Hydrawise, mock_session):
+async def test_get_user(api: Hydrawise, mock_session, controller_json, zone_json):
+    controller_json["zones"] = [zone_json]
     mock_session.execute.return_value = {
         "me": {
             "id": 1234,
             "customerId": 1,
             "name": "My Name",
             "email": "me@asdf.com",
+            "controllers": [controller_json]
         }
     }
     user = await api.get_user()
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert "controllers {" in query
+    assert "zones {" in query
     assert user.id == 1234
     assert user.name == "My Name"
     assert user.email == "me@asdf.com"
+    assert len(user.controllers) == 1
+    assert len(user.controllers[0].zones) == 1
+
+
+async def test_get_user_no_zones(api: Hydrawise, mock_session, controller_json):
+    mock_session.execute.return_value = {
+        "me": {
+            "id": 1234,
+            "customerId": 1,
+            "name": "My Name",
+            "email": "me@asdf.com",
+            "controllers": [controller_json]
+        }
+    }
+    user = await api.get_user(fetch_zones=False)
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert "controllers {" in query
+    assert "zones {" not in query
+    assert user.id == 1234
+    assert user.name == "My Name"
+    assert user.email == "me@asdf.com"
+    assert len(user.controllers) == 1
+    assert len(user.controllers[0].zones) == 0
 
 
 async def test_get_controllers(api: Hydrawise, mock_session, controller_json):
     mock_session.execute.return_value = {"me": {"controllers": [controller_json]}}
     [controller] = await api.get_controllers()
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert "zones {" in query
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.status.actual_water_time.value == timedelta(minutes=10)
@@ -141,6 +177,7 @@ async def test_get_controller(api: Hydrawise, mock_session, controller_json):
     query = print_ast(selector)
     assert "controller(" in query
     assert "controllerId: 9876" in query
+    assert "zones {" in query
 
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
