@@ -13,6 +13,7 @@ from .base import HydrawiseBase
 from .exceptions import NotInitializedError, UnknownError
 from .schema import (
     Controller,
+    ControllerHardware,
     ScheduledZoneRun,
     ScheduledZoneRuns,
     User,
