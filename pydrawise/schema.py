@@ -115,7 +115,7 @@ class BaseZone:
     """Basic zone information."""
 
     id: int = 0
-    number: Option = Option()
+    number: Option = field(default_factory=Option)
     name: str = ""
 
 
@@ -146,7 +146,7 @@ class AdvancedProgram:
     """An advanced watering program."""
 
     advanced_program_id: int = 0
-    run_time_group: RunTimeGroup = RunTimeGroup()
+    run_time_group: RunTimeGroup = field(default_factory=RunTimeGroup)
 
 
 class AdvancedProgramDayPatternEnum(Enum):
@@ -206,8 +206,8 @@ class StandardProgramApplication:
     """A standard watering program."""
 
     zone: BaseZone = BaseZone()
-    standard_program: StandardProgram = StandardProgram()
-    run_time_group: RunTimeGroup = RunTimeGroup()
+    standard_program: StandardProgram = field(default_factory=StandardProgram)
+    run_time_group: RunTimeGroup = field(default_factory=RunTimeGroup)
 
 
 @dataclass
@@ -297,10 +297,10 @@ class Zone(BaseZone):
 
     watering_settings: Union[
         AdvancedWateringSettings, StandardWateringSettings
-    ] = StandardWateringSettings()
-    scheduled_runs: ScheduledZoneRuns = ScheduledZoneRuns()
-    past_runs: PastZoneRuns = PastZoneRuns()
-    status: ZoneStatus = ZoneStatus()
+    ] = field(default_factory=StandardWateringSettings)
+    scheduled_runs: ScheduledZoneRuns = field(default_factory=ScheduledZoneRuns)
+    past_runs: PastZoneRuns = field(default_factory=PastZoneRuns)
+    status: ZoneStatus = field(default_factory=ZoneStatus)
     suspensions: list[ZoneSuspension] = field(default_factory=list)
 
 
@@ -327,7 +327,7 @@ class ControllerHardware:
     serial_number: str = ""
     version: str = ""
     status: str = ""
-    model: ControllerModel = ControllerModel()
+    model: ControllerModel = field(default_factory=ControllerModel)
     firmware: list[ControllerFirmware] = field(default_factory=list)
 
 
@@ -357,7 +357,7 @@ class SensorStatus:
 class SensorFlowSummary:
     """Summary of a sensor's water flow."""
 
-    total_water_volume: LocalizedValueType = LocalizedValueType()
+    total_water_volume: LocalizedValueType = field(default_factory=LocalizedValueType)
 
 
 @dataclass
@@ -366,8 +366,8 @@ class Sensor:
 
     id: int = 0
     name: str = ""
-    model: SensorModel = SensorModel()
-    status: SensorStatus = SensorStatus()
+    model: SensorModel = field(default_factory=SensorModel)
+    status: SensorStatus = field(default_factory=SensorStatus)
 
 
 @dataclass
@@ -385,8 +385,8 @@ class ControllerStatus:
 
     summary: str = ""
     online: bool = False
-    actual_water_time: WaterTime = WaterTime()
-    normal_water_time: WaterTime = WaterTime()
+    actual_water_time: WaterTime = field(default_factory=WaterTime)
+    normal_water_time: WaterTime = field(default_factory=WaterTime)
     last_contact: Optional[DateTime] = None
 
 
@@ -397,7 +397,7 @@ class Controller:
     id: int = 0
     name: str = ""
     software_version: str = ""
-    hardware: ControllerHardware = ControllerHardware()
+    hardware: ControllerHardware = field(default_factory=ControllerHardware)
     last_contact_time: datetime = field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
