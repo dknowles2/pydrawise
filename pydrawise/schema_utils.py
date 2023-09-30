@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import namedtuple
 from dataclasses import fields, is_dataclass
-from typing import Any, Iterator, List, Type, Union, get_args, get_origin, get_type_hints
+from typing import Iterator, List, Type, Union, get_args, get_origin, get_type_hints
 
 from apischema import deserialize as _deserialize
 from apischema.metadata.keys import CONVERSION_METADATA, SKIP_METADATA
@@ -37,8 +37,9 @@ def _fields(cls, skip: list[str]) -> Iterator[_Field]:
         if f.name in skip:
             continue
 
-        if ((skip_md := f.metadata.get(SKIP_METADATA, None)) and
-            (skip_md.serialization or skip_md.deserialization)):
+        if (skip_md := f.metadata.get(SKIP_METADATA, None)) and (
+            skip_md.serialization or skip_md.deserialization
+        ):
             continue
 
         if conversion_md := f.metadata.get(CONVERSION_METADATA, None):
@@ -64,20 +65,24 @@ def _fields(cls, skip: list[str]) -> Iterator[_Field]:
         yield _Field(f.name, [field_type])
 
 
-def get_selectors(ds: DSLSchema, cls: Type, skip: list[str] | None = None) -> list[DSLField]:
+def get_selectors(
+    ds: DSLSchema, cls: Type, skip_fields: list[str] | None = None
+) -> list[DSLField]:
     """Constructs GraphQL selectors for the given dataclass.
 
     :meta private:
     """
     ret = []
-    skip_now, skip_later = parse_skip(skip or [])
+    skip_now, skip_later = parse_skip(skip_fields or [])
     for f in _fields(cls, skip_now):
         dsl_field = getattr(getattr(ds, cls.__name__), f.name)
         if len(f.types) == 1:
             [f_type] = f.types
             if is_dataclass(f_type):
                 f_skip = skip_later.get(f.name, [])
-                ret.append(getattr(dsl_field, "select")(*get_selectors(ds, f_type, f_skip)))
+                ret.append(
+                    getattr(dsl_field, "select")(*get_selectors(ds, f_type, f_skip))
+                )
             else:
                 ret.append(dsl_field)
         else:
@@ -96,11 +101,18 @@ def get_selectors(ds: DSLSchema, cls: Type, skip: list[str] | None = None) -> li
 
 
 def parse_skip(skip: list[str] | None = None) -> tuple[list[str], dict[str, list[str]]]:
+    """Converts a flat list of skip fields into (skip_now, skip_later).
+
+    skip_now is a list of fields in the current scope to skip.
+    skip_later is a list of descendant fields to skip.
+
+    :meta private:
+    """
     now, later = [], {}
     for item in skip:
-        field, _, ancestors = item.partition(".")
-        if ancestors:
-            later.setdefault(field, []).append(ancestors)
+        field, _, descendants = item.partition(".")
+        if descendants:
+            later.setdefault(field, []).append(descendants)
         else:
             now.append(field)
     return now, later
