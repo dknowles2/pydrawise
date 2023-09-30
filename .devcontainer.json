@@ -1,6 +1,6 @@
 {
     "name": "Python 3",
-    "image": "mcr.microsoft.com/devcontainers/python:0-3.10-bullseye",
+    "image": "mcr.microsoft.com/devcontainers/python:0-3.11-bullseye",
     "postCreateCommand": "pip3 install -r requirements.txt -r requirements-test.txt",
     "customizations": {
         "vscode": {
