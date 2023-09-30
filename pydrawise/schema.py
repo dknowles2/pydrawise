@@ -205,7 +205,7 @@ class StandardProgram:
 class StandardProgramApplication:
     """A standard watering program."""
 
-    zone: BaseZone = BaseZone()
+    zone: BaseZone = field(default_factory=BaseZone)
     standard_program: StandardProgram = field(default_factory=StandardProgram)
     run_time_group: RunTimeGroup = field(default_factory=RunTimeGroup)
 
@@ -247,7 +247,7 @@ class ScheduledZoneRun:
     remaining_time: timedelta = field(
         metadata=_duration_conversion("seconds"), default=timedelta()
     )
-    status: RunStatus = RunStatus()
+    status: RunStatus = field(default_factory=RunStatus)
 
 
 @dataclass

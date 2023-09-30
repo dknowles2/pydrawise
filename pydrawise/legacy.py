@@ -13,13 +13,8 @@ from .base import HydrawiseBase
 from .exceptions import NotInitializedError, UnknownError
 from .schema import (
     Controller,
-    ControllerHardware,
-    ControllerModel,
-    PastZoneRuns,
-    RunStatus,
     ScheduledZoneRun,
     ScheduledZoneRuns,
-    StandardWateringSettings,
     User,
     Zone,
     ZoneStatus,
@@ -258,12 +253,10 @@ def _zone_from_json(zone_json: dict) -> Zone:
         id=zone_json["relay_id"],
         number=zone_json["relay"],
         name=zone_json["name"],
-        watering_settings=StandardWateringSettings(),
         scheduled_runs=ScheduledZoneRuns(
             current_run=current_run,
             next_run=next_run,
         ),
-        past_runs=PastZoneRuns(),
         status=ZoneStatus(
             suspended_until=suspended_until,
         ),
