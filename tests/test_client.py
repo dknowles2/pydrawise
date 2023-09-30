@@ -118,7 +118,7 @@ async def test_get_user(api: Hydrawise, mock_session, controller_json, zone_json
             "customerId": 1,
             "name": "My Name",
             "email": "me@asdf.com",
-            "controllers": [controller_json]
+            "controllers": [controller_json],
         }
     }
     user = await api.get_user()
@@ -141,7 +141,7 @@ async def test_get_user_no_zones(api: Hydrawise, mock_session, controller_json):
             "customerId": 1,
             "name": "My Name",
             "email": "me@asdf.com",
-            "controllers": [controller_json]
+            "controllers": [controller_json],
         }
     }
     user = await api.get_user(fetch_zones=False)

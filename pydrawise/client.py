@@ -82,7 +82,9 @@ class Hydrawise(HydrawiseBase):
         :rtype: User
         """
         skip = [] if fetch_zones else ["controllers.zones"]
-        selector = self._schema.Query.me.select(*get_selectors(self._schema, User, skip))
+        selector = self._schema.Query.me.select(
+            *get_selectors(self._schema, User, skip)
+        )
         result = await self._query(selector)
         return deserialize(User, result["me"])
 
