@@ -8,7 +8,7 @@ description     = "Python API for interacting with Hydrawise sprinkler controlle
 authors         = [
     {name = "David Knowles", email = "dknowles2@gmail.com"},
 ]
-dependencies    = ["aiohttp ", "apischema", "gql[aiohttp]", "graphql-core", "requests"]
+dependencies    = ["aiohttp ", "apischema", "gql", "graphql-core", "requests"]
 requires-python = ">=3.10"
 dynamic         = ["readme", "version"]
 license         = {text = "Apache License 2.0"}
