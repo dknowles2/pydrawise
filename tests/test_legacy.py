@@ -25,7 +25,14 @@ def customer_details():
                 "serial_number": "0310b36090",
                 "controller_id": 52496,
                 "status": "Unknown",
-            }
+            },
+            {
+                "name": "Other Controller",
+                "last_contact": 1693292420,
+                "serial_number": "1310b36091",
+                "controller_id": 63507,
+                "status": "Unknown",
+            },
         ],
     }
 
@@ -194,19 +201,24 @@ class TestLegacyHydrawiseAsync:
         with freeze_time("2023-01-01 01:00:00") as t:
             with aioresponses() as m:
                 m.get(
-                    re.compile("https://api.hydrawise.com/api/v1/customerdetails.php"),
+                    f"https://api.hydrawise.com/api/v1/customerdetails.php?api_key={API_KEY}",
                     status=200,
                     payload=customer_details,
                 )
                 m.get(
-                    re.compile("https://api.hydrawise.com/api/v1/statusschedule.php"),
+                    f"https://api.hydrawise.com/api/v1/statusschedule.php?api_key={API_KEY}&controller_id=52496",
+                    status=200,
+                    payload=status_schedule,
+                )
+                m.get(
+                    f"https://api.hydrawise.com/api/v1/statusschedule.php?api_key={API_KEY}&controller_id=63507",
                     status=200,
                     payload=status_schedule,
                 )
                 user = await client.get_user()
                 assert user.customer_id == 47076
-                assert [c.id for c in user.controllers] == [52496]
-                assert [z.id for z in user.controllers[0].zones] == [
+                assert [c.id for c in user.controllers] == [52496, 63507]
+                want_zones = [
                     5965394,
                     5965395,
                     5965396,
@@ -217,6 +229,8 @@ class TestLegacyHydrawiseAsync:
                     5965401,
                     5965402,
                 ]
+                assert [z.id for z in user.controllers[0].zones] == want_zones
+                assert [z.id for z in user.controllers[1].zones] == want_zones
 
     async def test_get_controllers(
         self, customer_details: dict, status_schedule: dict
@@ -226,22 +240,30 @@ class TestLegacyHydrawiseAsync:
         with freeze_time("2023-01-01 01:00:00") as t:
             with aioresponses() as m:
                 m.get(
-                    re.compile("https://api.hydrawise.com/api/v1/customerdetails.php"),
+                    f"https://api.hydrawise.com/api/v1/customerdetails.php?api_key={API_KEY}&type=controllers",
                     status=200,
                     payload=customer_details,
                 )
                 m.get(
-                    re.compile("https://api.hydrawise.com/api/v1/statusschedule.php"),
+                    f"https://api.hydrawise.com/api/v1/statusschedule.php?api_key={API_KEY}&controller_id=52496",
+                    status=200,
+                    payload=status_schedule,
+                )
+                m.get(
+                    f"https://api.hydrawise.com/api/v1/statusschedule.php?api_key={API_KEY}&controller_id=63507",
                     status=200,
                     payload=status_schedule,
                 )
                 controllers = await client.get_controllers()
-                [controller] = controllers
-                assert controller.id == 52496
-                assert controller.name == "Home Controller"
-                assert controller.hardware.serial_number == "0310b36090"
-                assert controller.last_contact_time == datetime(2023, 8, 29, 7, 0, 20)
-                assert [z.id for z in controller.zones] == [
+                assert [c.id for c in controllers] == [52496, 63507]
+                assert controllers[0].name == "Home Controller"
+                assert controllers[1].name == "Other Controller"
+                assert controllers[0].hardware.serial_number == "0310b36090"
+                assert controllers[1].hardware.serial_number == "1310b36091"
+                want_last_contact_time = datetime(2023, 8, 29, 7, 0, 20)
+                assert controllers[0].last_contact_time == want_last_contact_time
+                assert controllers[1].last_contact_time == want_last_contact_time
+                want_zones = [
                     5965394,
                     5965395,
                     5965396,
@@ -252,6 +274,8 @@ class TestLegacyHydrawiseAsync:
                     5965401,
                     5965402,
                 ]
+                assert [z.id for z in controllers[0].zones] == want_zones
+                assert [z.id for z in controllers[1].zones] == want_zones
 
     async def test_get_zones(self, status_schedule: dict) -> None:
         """Test the get_zones method."""
@@ -259,11 +283,11 @@ class TestLegacyHydrawiseAsync:
         with freeze_time("2023-01-01 01:00:00") as t:
             with aioresponses() as m:
                 m.get(
-                    re.compile("https://api.hydrawise.com/api/v1/statusschedule.php"),
+                    f"https://api.hydrawise.com/api/v1/statusschedule.php?api_key={API_KEY}&controller_id=12345",
                     status=200,
                     payload=status_schedule,
                 )
-                zones = await client.get_zones(None)
+                zones = await client.get_zones(Controller(id=12345))
                 assert [z.id for z in zones] == [
                     5965394,
                     5965395,
@@ -350,12 +374,15 @@ class TestLegacyHydrawiseAsync:
                 status=200,
                 payload=success_status,
             )
-            controller = mock.create_autospec(Controller)
-            controller.id = 1111
-            await client.start_all_zones(controller)
+            await client.start_all_zones(Controller(id=1111))
             m.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
-                params={"api_key": API_KEY, "action": "runall", "period_id": 999},
+                params={
+                    "api_key": API_KEY,
+                    "action": "runall",
+                    "period_id": 999,
+                    "controller_id": 1111,
+                },
                 timeout=10,
             )
 
@@ -368,12 +395,10 @@ class TestLegacyHydrawiseAsync:
                 status=200,
                 payload=success_status,
             )
-            controller = mock.create_autospec(Controller)
-            controller.id = 1111
-            await client.stop_all_zones(controller)
+            await client.stop_all_zones(Controller(id=1111))
             m.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
-                params={"api_key": API_KEY, "action": "stopall"},
+                params={"api_key": API_KEY, "action": "stopall", "controller_id": 1111},
                 timeout=10,
             )
 
@@ -433,9 +458,9 @@ class TestLegacyHydrawiseAsync:
                 status=200,
                 payload=success_status,
             )
-            controller = mock.create_autospec(Controller)
-            controller.id = 1111
-            await client.suspend_all_zones(controller, datetime(2023, 1, 2, 1, 0))
+            await client.suspend_all_zones(
+                Controller(id=1111), datetime(2023, 1, 2, 1, 0)
+            )
             m.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
                 params={
@@ -443,6 +468,7 @@ class TestLegacyHydrawiseAsync:
                     "action": "suspendall",
                     "period_id": 999,
                     "custom": 1672621200,
+                    "controller_id": 1111,
                 },
                 timeout=10,
             )
@@ -456,15 +482,14 @@ class TestLegacyHydrawiseAsync:
                 status=200,
                 payload=success_status,
             )
-            controller = mock.create_autospec(Controller)
-            controller.id = 1111
-            await client.resume_all_zones(controller)
+            await client.resume_all_zones(Controller(id=1111))
             m.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
                 params={
                     "api_key": API_KEY,
                     "action": "suspendall",
                     "period_id": 0,
+                    "controller_id": 1111,
                 },
                 timeout=10,
             )

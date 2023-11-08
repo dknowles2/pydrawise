@@ -89,8 +89,7 @@ class LegacyHydrawiseAsync(HydrawiseBase):
         :param controller: Controller whose zones to fetch.
         :rtype: list[Zone]
         """
-        _ = controller  # unused
-        resp_json = await self._get("statusschedule.php")
+        resp_json = await self._get("statusschedule.php", controller_id=controller.id)
         return [_zone_from_json(z) for z in resp_json["relays"]]
 
     async def get_zone(self, zone_id: int) -> Zone:
@@ -145,10 +144,10 @@ class LegacyHydrawiseAsync(HydrawiseBase):
         :param custom_run_duration: Duration (in seconds) to run the zones. If not
             specified (or zero), will run for each zone's default configured time.
         """
-        _ = controller  # unused
         _ = mark_run_as_scheduled  # unused
         params = {
             "action": "runall",
+            "controller_id": controller.id,
             "period_id": 999,
         }
         if custom_run_duration > 0:
@@ -160,8 +159,7 @@ class LegacyHydrawiseAsync(HydrawiseBase):
 
         :param controller: The controller whose zones to stop.
         """
-        _ = controller  # unused
-        await self._get("setzone.php", action="stopall")
+        await self._get("setzone.php", action="stopall", controller_id=controller.id)
 
     async def suspend_zone(self, zone: Zone, until: datetime) -> None:
         """Suspends a zone's schedule.
@@ -190,10 +188,10 @@ class LegacyHydrawiseAsync(HydrawiseBase):
         :param controller: The controller whose zones to suspend.
         :param until: When the suspension should end.
         """
-        _ = controller  # unused
         await self._get(
             "setzone.php",
             action="suspendall",
+            controller_id=controller.id,
             period_id=999,
             custom=int(until.timestamp()),
         )
@@ -203,8 +201,9 @@ class LegacyHydrawiseAsync(HydrawiseBase):
 
         :param controller: The controller whose zones to resume.
         """
-        _ = controller  # unused
-        await self._get("setzone.php", action="suspendall", period_id=0)
+        await self._get(
+            "setzone.php", action="suspendall", period_id=0, controller_id=controller.id
+        )
 
     async def delete_zone_suspension(self, suspension: ZoneSuspension) -> None:
         """Removes a specific zone suspension.
