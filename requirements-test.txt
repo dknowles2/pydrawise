@@ -1,5 +1,5 @@
 aiohttp==3.8.6
-aioresponses==0.7.5
+aioresponses==0.7.4
 apischema==0.18.1
 freezegun==1.2.2
 gql==3.4.1
