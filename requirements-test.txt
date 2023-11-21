@@ -1,4 +1,4 @@
-aiohttp==3.8.6
+aiohttp==3.9.0
 aioresponses==0.7.6
 apischema==0.18.1
 freezegun==1.2.2
