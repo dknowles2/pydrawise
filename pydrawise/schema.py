@@ -350,7 +350,7 @@ class SensorStatus:
     """Current status of a sensor."""
 
     water_flow: Optional[LocalizedValueType] = None
-    active: bool | None = False
+    active: Optional[bool] = False
 
 
 @dataclass
