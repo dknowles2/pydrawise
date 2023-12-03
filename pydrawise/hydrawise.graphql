@@ -36,6 +36,7 @@ type User {
   units: UnitsSummary!
   messageApp: MessageApp!
   dashboardNotifications(timeZoneId: String!): [DashboardNotification!]!
+  nativeApp(appType: Int!): NativeApp
 }
 
 enum UserTypeEnum {
@@ -75,8 +76,12 @@ type Contractor {
   business: String
   coordinates: GeoCoordinates
   location: String
-  contact: String
+  contact: String @deprecated(reason: "Use name, phone, phoneCountryCode, email instead")
   description: String
+  name: String
+  email: String
+  phoneLocalNumber: String
+  phoneCountryCode: String
   online: Boolean
   website: String
   statistic: [ContractorStatistic]
@@ -100,8 +105,8 @@ type GeoCoordinates {
 
 type ContractorStatistic {
   id: Int!
-  controllersOnline: Int!
-  controllersOffline: Int!
+  controllersOnline: Int! @deprecated
+  controllersOffline: Int! @deprecated
   actualWateringWeek: Int!
   normalWateringWeek: Int!
   customers: Int!
@@ -120,7 +125,7 @@ type CustomerPlan {
 }
 
 type Event {
-  id: Int!
+  id: String!
   customerId: Int!
   controllerId: Int
   eventTime: String!
@@ -173,7 +178,7 @@ type BocGateway {
   serialNumber: String
   status: String
   lastContactTime: DateTime
-  inSync: Boolean
+  inSync: Boolean @deprecated(reason: "Use online status")
   online: Boolean
   location: Location
   timeZone: TimeZone!
@@ -382,6 +387,7 @@ type Zone {
   scheduledRuns: ScheduledZoneRuns!
   pastRuns: PastZoneRuns!
   runsBetween(from: Int!, until: Int!): [ScheduledZoneRun]!
+  runEvents(from: Int!, until: Int!): [RunEventType!]!
   status: ZoneStatus!
   sensors: [Sensor]
 
@@ -576,6 +582,151 @@ type PastZoneRuns {
   runs: [ScheduledZoneRun]
 }
 
+type RunEventType {
+  """A synthetic run even ID"""
+  id: String!
+  zone: Zone!
+  standardProgram: StandardProgram
+  advancedProgram: AdvancedProgram
+  programStartTime: ProgramStartTime
+
+  """Normal start time for the zone to run"""
+  normalStartTime: DateTime
+
+  """Scheduled start time, i.e. normal start time offset by the scheduler"""
+  scheduledStartTime: DateTime
+
+  """Actual run start time as reported by controller"""
+  reportedStartTime: DateTime
+
+  """Normal end time for the zone to run"""
+  normalEndTime: DateTime
+
+  """Scheduled end time, i.e. normal end time offset by the scheduler"""
+  scheduledEndTime: DateTime
+
+  """Actual run end time as reported by controller"""
+  reportedEndTime: DateTime
+
+  """Normal run duration in seconds"""
+  normalDuration: Int
+
+  """Scheduled run duration in seconds"""
+  scheduledDuration: Int
+
+  """Reported run duration in seconds"""
+  reportedDuration: Int
+
+  """Run status as determined by scheduler"""
+  scheduledStatus: RunStatusType
+
+  """Run status as reported by controller"""
+  reportedStatus: RunStatusType
+  reportedWaterUsage: LocalizedValueType
+  reportedStopReason: RunStopReasonType
+  reportedCurrent: LocalizedValueType
+}
+
+type StandardProgram implements Program {
+  id: Int!
+  name: String!
+  schedulingMethod(hideProgramName: Boolean = false): SelectedOption!
+  monthlyWateringAdjustments: [Int!]!
+  appliesToZones: [Zone!]!
+  conditionalWateringAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment!]!
+  applications: [StandardProgramApplication!]!
+  startTimes: [Time!]!
+  timeRange: Unit!
+  ignoreRainSensor: Boolean!
+  wateringDays: [String]! @deprecated(reason: "Use daysRun")
+  daysRun: [DaysOfWeekEnum]!
+  standardProgramDayPattern: String!
+  periodicity: StandardProgramPeriodicity
+}
+
+interface Program {
+  id: Int!
+  name: String!
+  schedulingMethod(hideProgramName: Boolean = false): SelectedOption!
+  monthlyWateringAdjustments: [Int!]!
+  appliesToZones: [Zone!]!
+  conditionalWateringAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment!]!
+}
+
+type StandardProgramApplication {
+  zone: Zone!
+  standardProgram: StandardProgram!
+  runTimeGroup: RunTimeGroup!
+}
+
+type RunTimeGroup {
+  id: Int!
+  name: String
+  duration: Int!
+}
+
+type Unit {
+  validFrom: Int
+  validTo: Int
+}
+
+enum DaysOfWeekEnum {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+type StandardProgramPeriodicity {
+  period: Int!
+  seriesStart: DateTime!
+}
+
+type AdvancedProgram implements Program {
+  id: Int!
+  name: String!
+  schedulingMethod(hideProgramName: Boolean = false): SelectedOption!
+  monthlyWateringAdjustments: [Int!]!
+  zoneSpecific: Boolean!
+  appliesToZones: [Zone!]!
+  conditionalWateringAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment!]!
+  advancedProgramId: Int!
+
+  """Defines if the program applies to customer or contractor"""
+  scope: AdvancedProgramScopeEnum!
+  wateringFrequency: ProgramWateringFrequency!
+  runTimeGroup: RunTimeGroup
+}
+
+enum AdvancedProgramScopeEnum {
+  CUSTOMER
+  CONTRACTOR
+}
+
+type ProgramWateringFrequency {
+  label: String!
+  period: WateringPeriodicity!
+  description: String!
+}
+
+type WateringPeriodicity {
+  value: Int
+  label: String
+}
+
+type RunStatusType {
+  value: Int!
+  label: String!
+}
+
+type RunStopReasonType {
+  finishedNormally: Boolean!
+  description: [String!]!
+}
+
 type ZoneStatus {
   relativeWaterBalance: Int!
   suspendedUntil: DateTime
@@ -613,6 +764,9 @@ type ZoneRunSummary {
 
   """Annual zone run summary. Data is accumulated on daily basis"""
   annual(startYear: Int!, endYear: Int!): ZoneRunSummaryDetails
+
+  """Zone run summary from the start of the week, excluding the current run"""
+  currentWeek: ZoneRunSummaryDetails
 }
 
 type ZoneRunSummaryDetails {
@@ -649,7 +803,7 @@ type Controller {
   bocStatistic: BocStatistic
   lastContactTime: DateTime
   lastAction: DateTime
-  inSync: Boolean
+  inSync: Boolean @deprecated(reason: "Use online status")
   online: Boolean
   settings: ControllerSettings
   location: Location
@@ -666,12 +820,13 @@ type Controller {
   weatherStations: [WeatherStation]
   customer: Customer
   events(length: Int = 1500, page: Int = 0): [Event]
-  alerts(after: Int! = 0): [Event!]!
+  alerts(after: String! = "0"): [Event!]!
   zoneNumbers: [ZoneNumber]
   status: ControllerStatus!
   observationsSummary: ObservationsSummary!
-  reporting(option: Int!, startTime: Int, endTime: Int): Reporting!
-  reportTypeGroups: [ReportTypeGroup]!
+  reporting(option: Int!, startTime: Int, endTime: Int): Reporting! @deprecated(reason: "Will be deprecated in future releases.")
+  reportTypeGroups: [ReportTypeGroup]! @deprecated(reason: "Will be deprecated in future releases.")
+  reports: Reports!
   runSummary: ControllerRunSummary!
   dashboardNotifications(timeZoneId: String!): [DashboardNotification!]!
 }
@@ -815,21 +970,6 @@ type ExpanderStatus {
 enum ControllerProgramModeEnum {
   ADVANCED
   STANDARD
-}
-
-interface Program {
-  id: Int!
-  name: String!
-  schedulingMethod(hideProgramName: Boolean = false): SelectedOption!
-  monthlyWateringAdjustments: [Int!]!
-  appliesToZones: [Zone!]!
-  conditionalWateringAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment!]!
-}
-
-type RunTimeGroup {
-  id: Int!
-  name: String
-  duration: Int!
 }
 
 type ZoneNumber {
@@ -986,6 +1126,110 @@ enum ReportFormatEnum {
   TABLE_FORMAT
 }
 
+type Reports {
+  overviews: ReportOverview
+  watering(from: Int!, until: Int!): [WateringReportEntry!]!
+}
+
+type ReportOverview {
+  periodSummary(year: Int!, period: ReportingPeriodEnum!, periodNumber: Int): ReportPeriodSummary
+  comparison: WaterUsageComparison!
+}
+
+enum ReportingPeriodEnum {
+  WEEK
+  MONTH
+  QUARTER
+  YEAR
+}
+
+type ReportPeriodSummary {
+  summary: String!
+  sections: [Section]
+  details: Details
+}
+
+type Section {
+  key: String!
+  header: String!
+  subHeader: String!
+  deprecationReason: String
+}
+
+type Details {
+  waterSavingSummary: WaterSavingSummary!
+  topWateringZones: TopWateringZonesOverview!
+  waterSchedulePerformance: WaterSchedulePerformance
+}
+
+type WaterSavingSummary {
+  normalDuration: Int!
+  scheduledDuration: Int!
+}
+
+type TopWateringZonesOverview {
+  zones: [WateringZone] @deprecated
+  byVolume: TopWateringZones!
+  byDuration: TopWateringZones!
+}
+
+type WateringZone {
+  zone: Zone!
+  facet: String!
+  scheduledDuration: Int!
+  reportedDuration: Int!
+  reportedWaterUsage: LocalizedValueType
+}
+
+type TopWateringZones {
+  zones: [WateringZone]
+}
+
+type WaterSchedulePerformance {
+  topTriggerSummary: String!
+  triggers: [Trigger]
+}
+
+type Trigger {
+  status: RunStatusType!
+  count: Int!
+  normalDuration: Int!
+  scheduledDuration: Int!
+}
+
+type WaterUsageComparison {
+  annualWaterUsageComparison(year: Int!): DatasetsReportOverview
+  monthlyWaterUsageComparison(year: Int!, month: Int!): DatasetsReportOverview
+}
+
+type DatasetsReportOverview {
+  summary: String! @deprecated
+  datasets: [Datasets] @deprecated
+  byDuration: DatasetsReport!
+  byVolume: DatasetsReport
+}
+
+type Datasets {
+  title: String!
+  facet: String!
+  summary: String!
+  categories: [String]
+  values: [DataArray]
+}
+
+type DataArray {
+  title: String!
+  values: [Float]
+}
+
+type DatasetsReport {
+  datasets: [Datasets]
+}
+
+type WateringReportEntry {
+  runEvent: RunEventType
+}
+
 type ControllerRunSummary {
   """Weekly controller run summary. Data is accumulated on daily basis"""
   weekly(startWeek: Int!, endWeek: Int!, year: Int!): ControllerRunSummaryDetails
@@ -1029,11 +1273,9 @@ enum DashboardNotificationKeyEnum {
   RAIN_SENSOR_STOPPED_IRRIGATION
   PLANNED_MAINTENANCE
   MANUAL_RUN
-  CONTROLLER_IN_STANDBY_MODE
   ALL_ZONES_SUSPENDED
   SERVER_ERROR
   ALERTS_COUNT
-  CUSTOMERS_WITHOUT_VALID_EMAIL
 }
 
 enum DashboardNotificationPolicyEnum {
@@ -1050,7 +1292,7 @@ type BocRepeater {
   serialNumber: String
   status: String
   lastContactTime: DateTime
-  inSync: Boolean
+  inSync: Boolean @deprecated(reason: "Use online status")
   online: Boolean
   firmware: BocRepeaterStatistics
   location: Location
@@ -1181,6 +1423,10 @@ type PublicContractorProfile {
   coordinates: GeoCoordinates
   location: String
   contact: String
+  email: String
+  name: String
+  phoneLocalNumber: String
+  phoneCountryCode: String
   description: String
   website: String
   highestPlan: PublicCustomerPlan!
@@ -1253,6 +1499,10 @@ type Message {
   read: Boolean!
   authorDetails: User!
   conversationId: Int!
+}
+
+type NativeApp {
+  url: String
 }
 
 type Configuration {
@@ -1333,7 +1583,7 @@ type ConfigurationUploadStatus {
 }
 
 type Mutation {
-  acknowledgeEvent(eventId: Int!, controllerId: Int!): Boolean
+  acknowledgeEvent(eventId: String!, controllerId: Int!): Boolean
   acknowledgeAllEvents(controllerId: Int!): Boolean
   updateLocation(deviceId: Int!, address: String!): Location
   updateLocationCoordinates(deviceId: Int!, latitude: Float!, longitude: Float!): Location
@@ -1362,10 +1612,10 @@ type Mutation {
   createCustomerReport(customerId: Int!, name: String!, instruction: String, typeId: Int!, frequencyId: Int!, applyToAllCustomer: Boolean!, customers: [Int], sendEmail: Boolean!, sendAppNotification: Boolean!): CustomerReport
   updateCustomerReport(customerReportId: Int!, customerId: Int!, name: String!, instruction: String, typeId: Int!, frequencyId: Int!, applyToAllCustomer: Boolean!, customers: [Int], sendEmail: Boolean!, sendAppNotification: Boolean!): CustomerReport
   deleteCustomerReport(customerReportId: Int!): Int!
-  createZone(controllerId: Int!, icon: Int, name: String!, number: Int!, wateringMode: Int!, globalMasterValve: Int!, scheduleAdjustmentIds: [Int]!, wateringAdjustment: Int!, wateringType: Int!, runTime: Int, wateringFrequencyMode: Int!, fixedWateringFrequency: Int, smartWateringFrequency: Int, virtualSolarSyncWateringFrequency: Int, runNextAvailableStartTime: Int, preConfiguredWateringScheduleId: Int, cycleSoakEnable: Int, cycleCustomTime: Int, soakCustomTime: Int, factors: [Int], reusableSchedule: Boolean, reusableScheduleName: String): Zone
-  updateZone(zoneId: Int!, icon: Int, iconFileId: Int, name: String!, number: Int!, wateringMode: Int!, globalMasterValve: Int!, scheduleAdjustmentIds: [Int]!, wateringAdjustment: Int!, wateringType: Int!, runTime: Int, wateringFrequencyMode: Int!, fixedWateringFrequency: Int, smartWateringFrequency: Int, virtualSolarSyncWateringFrequency: Int, runNextAvailableStartTime: Int, preConfiguredWateringScheduleId: Int, cycleSoakEnable: Int, cycleCustomTime: Int, soakCustomTime: Int, factors: [Int], reusableSchedule: Boolean, reusableScheduleName: String): Zone
-  createZoneStandard(controllerId: Int!, icon: Int, name: String!, number: Int!, globalMasterValve: Int!, wateringAdjustment: Int!, cycleSoakEnable: Boolean!, cycleCustomTime: Int, soakCustomTime: Int): Zone
-  updateZoneStandard(zoneId: Int!, icon: Int, iconFileId: Int, name: String!, number: Int!, globalMasterValve: Int!, wateringAdjustment: Int!, cycleSoakEnable: Boolean!, cycleCustomTime: Int, soakCustomTime: Int): Zone
+  createZone(controllerId: Int!, icon: Int, name: String!, number: Int!, wateringMode: Int!, globalMasterValve: Int!, scheduleAdjustmentIds: [Int]!, wateringAdjustment: Int!, wateringType: Int!, runTime: Int, wateringFrequencyMode: Int!, fixedWateringFrequency: Int, smartWateringFrequency: Int, virtualSolarSyncWateringFrequency: Int, runNextAvailableStartTime: Int, preConfiguredWateringScheduleId: Int, cycleSoakEnable: Int, cycleCustomTime: Int, soakCustomTime: Int, factors: [Int], sensorIds: [Int], reusableSchedule: Boolean, reusableScheduleName: String): Zone
+  updateZone(zoneId: Int!, icon: Int, iconFileId: Int, name: String!, number: Int!, wateringMode: Int!, globalMasterValve: Int!, scheduleAdjustmentIds: [Int]!, wateringAdjustment: Int!, wateringType: Int!, runTime: Int, wateringFrequencyMode: Int!, fixedWateringFrequency: Int, smartWateringFrequency: Int, virtualSolarSyncWateringFrequency: Int, runNextAvailableStartTime: Int, preConfiguredWateringScheduleId: Int, cycleSoakEnable: Int, cycleCustomTime: Int, soakCustomTime: Int, factors: [Int], sensorIds: [Int], reusableSchedule: Boolean, reusableScheduleName: String): Zone
+  createZoneStandard(controllerId: Int!, icon: Int, name: String!, number: Int!, globalMasterValve: Int!, wateringAdjustment: Int!, cycleSoakEnable: Boolean!, cycleCustomTime: Int, soakCustomTime: Int, sensorIds: [Int]): Zone
+  updateZoneStandard(zoneId: Int!, icon: Int, iconFileId: Int, name: String!, number: Int!, globalMasterValve: Int!, wateringAdjustment: Int!, cycleSoakEnable: Boolean!, cycleCustomTime: Int, soakCustomTime: Int, sensorIds: [Int]): Zone
   deleteZone(zoneId: Int!): Boolean
   updateMasterValve(zoneNumber: Int!, controllerId: Int): MasterValve @deprecated(reason: "Use UpdateControllerMasterValve")
   updateControllerMasterValve(zoneNumber: Int!, controllerId: Int!): MasterValve
@@ -1374,7 +1624,8 @@ type Mutation {
   cancelAllZoneRuns: String
   cancelRunsForZone(zoneId: Int!): StatusCodeAndSummary!
   startAllZones(controllerId: Int!, markRunAsScheduled: Boolean = false, customRunDuration: Int): StatusCodeAndSummary!
-  startSelectedZones(zoneIds: [Int!]!, runDurations: [Int!]!, markRunAsScheduled: Boolean = false): StatusCodeAndSummary!
+  startSelectedZones(zoneIds: [Int!]!, runDurations: [Int!]!, markRunAsScheduled: Boolean = false, stackRuns: Boolean = false): StatusCodeAndSummary!
+  deleteAccount(password: String): DeleteAccountResult!
   startZones(zoneIds: [Int]!, markRunAsScheduled: Boolean = false, customRunDuration: Int): StatusCodeAndSummary!
   startZone(zoneId: Int!, markRunAsScheduled: Boolean = false, stackRuns: Boolean, customRunDuration: Int): StatusCodeAndSummary!
   stopAllZones(controllerId: Int!): StatusCodeAndSummary!
@@ -1386,6 +1637,8 @@ type Mutation {
   assignPlanCodeToCustomer(customerId: Int!, upgradeKey: String!): StatusCodeAndSummary!
   hibernateController(controllerId: Int!): Boolean
   wakeController(controllerId: Int!): Boolean
+  updateSerialNumber(serialNumber: String!, deviceId: Int!, deviceType: DeviceTypeEnum!): StatusCodeAndSummary!
+  contractorAddCustomer(organizationName: String, userName: String, userEmail: String, userType: ContractorCustomerUserTypeEnum!, notifyUserId: Int!, sendEmail: Boolean!, controllerAddMethod: ControllerAddMethodEnum!, targetControllerId: Int, contractorCustomerId: Int!): Customer!
   setCurrentController(controllerId: Int!): Controller
   assignSerialNumber(controllerId: Int, serialNumber: String!, deviceId: Int, deviceType: DeviceTypeEnum): StatusCodeAndSummary!
   removeSerialNumber(controllerId: Int, deviceId: Int, deviceType: DeviceTypeEnum): StatusCodeAndSummary!
@@ -1470,7 +1723,7 @@ type Mutation {
   createJobSheet(controllerId: Int!, number: String!, action: String!, emails: [String]!, instruction: String!, includeZoneDetails: Boolean!, includeZonePictures: Boolean!, includeAlerts: Boolean!, attachFiles: Boolean!): JobSheet
   assignAvailablePlan(planId: Int!, planLength: Int!, customerId: Int!, contractorCustomerId: Int!): CustomerPlan
   linkCustomerToContractor(contractorCustomerId: Int!, customerId: Int!): Boolean
-  addOrUpdateContractorDetails(customerId: Int!, business: String!, website: String!, description: String!, contact: String!, location: String!, online: Boolean!): Boolean
+  addOrUpdateContractorDetails(customerId: Int!, business: String!, website: String!, description: String!, contact: String, location: String!, name: String, email: String, phoneLocalNumber: String, phoneCountryCode: String, online: Boolean!): Boolean
   updateControllerModel(controllerId: Int!, value: String!): Boolean
   updateControllerName(controllerId: Int!, value: String!): Boolean
   updateControllerOffline(controllerId: Int!, value: Int!): Boolean
@@ -1499,8 +1752,29 @@ enum StatusCodeEnum {
   ERROR
 }
 
+type DeleteAccountResult {
+  result: DeleteAccountResultEnum!
+  message: String!
+}
+
+enum DeleteAccountResultEnum {
+  deleted
+  deletion_pending
+}
+
 enum DeviceTypeEnum {
   controller
+}
+
+enum ContractorCustomerUserTypeEnum {
+  READ_WRITE
+  READ_ONLY
+}
+
+enum ControllerAddMethodEnum {
+  NO_CONFIGURATION
+  COPY_FROM_OTHER_CONTROLLER
+  MOVE_FROM_MY_ACCOUNT
 }
 
 type StatusCodeWithEmailAndSerialNumber {
@@ -1523,56 +1797,13 @@ input ZoneRunTime {
   runDuration: Int
 }
 
-type StandardProgram implements Program {
-  id: Int!
-  name: String!
-  schedulingMethod(hideProgramName: Boolean = false): SelectedOption!
-  monthlyWateringAdjustments: [Int!]!
-  appliesToZones: [Zone!]!
-  conditionalWateringAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment!]!
-  applications: [StandardProgramApplication!]!
-  startTimes: [Time!]!
-  timeRange: Unit!
-  ignoreRainSensor: Boolean!
-  wateringDays: [String]! @deprecated(reason: "Use daysRun")
-  daysRun: [DaysOfWeekEnum]!
-  standardProgramDayPattern: String!
-  periodicity: StandardProgramPeriodicity
-}
-
-type StandardProgramApplication {
-  zone: Zone!
-  standardProgram: StandardProgram!
-  runTimeGroup: RunTimeGroup!
-}
-
-type Unit {
-  validFrom: Int
-  validTo: Int
-}
-
-enum DaysOfWeekEnum {
-  SUNDAY
-  MONDAY
-  TUESDAY
-  WEDNESDAY
-  THURSDAY
-  FRIDAY
-  SATURDAY
-}
-
-type StandardProgramPeriodicity {
-  period: Int!
-  seriesStart: DateTime!
-}
-
 type UserDevice {
   id: Int!
   nativeVersion: String
   codePushVersion: String
 
   """
-  Device token is from cordova PushNotification plugin. We can only get the token if
+  Device token is from cordova PushNotification plugin. We can only get the token if 
                           and only if the user allow to receive notification in their device
   """
   deviceToken: String
@@ -1581,38 +1812,6 @@ type UserDevice {
 type JobSheet {
   fileName: String!
   downloadUrl: String!
-}
-
-type AdvancedProgram implements Program {
-  id: Int!
-  name: String!
-  schedulingMethod(hideProgramName: Boolean = false): SelectedOption!
-  monthlyWateringAdjustments: [Int!]!
-  zoneSpecific: Boolean!
-  appliesToZones: [Zone!]!
-  conditionalWateringAdjustments(controllerId: Int!, isContractor: Boolean = false): [WateringProgramAdjustment!]!
-  advancedProgramId: Int!
-
-  """Defines if the program applies to customer or contractor"""
-  scope: AdvancedProgramScopeEnum!
-  wateringFrequency: ProgramWateringFrequency!
-  runTimeGroup: RunTimeGroup
-}
-
-enum AdvancedProgramScopeEnum {
-  CUSTOMER
-  CONTRACTOR
-}
-
-type ProgramWateringFrequency {
-  label: String!
-  period: WateringPeriodicity!
-  description: String!
-}
-
-type WateringPeriodicity {
-  value: Int
-  label: String
 }
 
 type AdvancedWateringSettings implements WateringSettings {
