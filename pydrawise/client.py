@@ -1,15 +1,15 @@
 """Client library for interacting with Hydrawise's cloud API."""
 
-import logging
 from datetime import datetime
 from functools import cache
+from importlib import resources
+import logging
 
 from apischema.graphql import graphql_schema
 from gql import Client
 from gql.dsl import DSLField, DSLMutation, DSLQuery, DSLSchema, DSLSelectable, dsl_gql
-from gql.transport.aiohttp import AIOHTTPTransport
-from gql.transport.aiohttp import log as gql_log
-from graphql import GraphQLSchema
+from gql.transport.aiohttp import AIOHTTPTransport, log as gql_log
+from graphql import GraphQLSchema, build_ast_schema, parse
 
 from .auth import Auth
 from .base import HydrawiseBase
@@ -17,9 +17,7 @@ from .exceptions import MutationError
 from .schema import (
     Controller,
     DateTime,
-    Mutation,
     StatusCodeAndSummary,
-    Query,
     User,
     Zone,
     ZoneSuspension,
@@ -34,10 +32,8 @@ API_URL = "https://app.hydrawise.com/api/v2/graph"
 
 @cache
 def _get_schema() -> GraphQLSchema:
-    return graphql_schema(
-        query=[getattr(Query, m) for m in Query.__abstractmethods__],
-        mutation=[getattr(Mutation, m) for m in Mutation.__abstractmethods__],
-    )
+    schema_text = resources.files(__package__).joinpath("hydrawise.graphql").read_text()
+    return build_ast_schema(parse(schema_text))
 
 
 class Hydrawise(HydrawiseBase):

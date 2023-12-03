@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
 from typing import Optional, Union
 
+from apischema import type_name
 from apischema.conversions import Conversion
 from apischema.metadata import conversion
 
@@ -51,11 +52,11 @@ class LocalizedValueType:
 
 
 @dataclass
-class Option:
+class SelectedOption:
     """A generic option."""
 
     value: int = 0
-    label: str = ""
+    label: Optional[str] = ""
 
 
 @dataclass
@@ -110,12 +111,13 @@ def _duration_conversion(unit: str) -> conversion:
     )
 
 
+@type_name("Zone")
 @dataclass
 class BaseZone:
     """Basic zone information."""
 
     id: int = 0
-    number: Option = field(default_factory=Option)
+    number: SelectedOption = field(default_factory=SelectedOption)
     name: str = ""
 
 
@@ -380,13 +382,23 @@ class WaterTime:
 
 
 @dataclass
+class ActualWaterTime(WaterTime):
+    """An actual water time duration."""
+
+
+@dataclass
+class NormalWaterTime(WaterTime):
+    """A normal water time duration."""
+
+
+@dataclass
 class ControllerStatus:
     """Current status of a controller."""
 
     summary: str = ""
     online: bool = False
-    actual_water_time: WaterTime = field(default_factory=WaterTime)
-    normal_water_time: WaterTime = field(default_factory=WaterTime)
+    actual_water_time: ActualWaterTime = field(default_factory=ActualWaterTime)
+    normal_water_time: NormalWaterTime = field(default_factory=NormalWaterTime)
     last_contact: Optional[DateTime] = None
 
 
