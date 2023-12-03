@@ -8,6 +8,7 @@ from typing import Iterator, List, Type, Union, get_args, get_origin, get_type_h
 
 from apischema import deserialize as _deserialize
 from apischema.metadata.keys import CONVERSION_METADATA, SKIP_METADATA
+from apischema.type_names import get_type_name
 from apischema.utils import to_camel_case
 from gql.dsl import DSLField, DSLInlineFragment, DSLSchema
 
@@ -75,7 +76,7 @@ def get_selectors(
     ret = []
     skip_now, skip_later = parse_skip(skip_fields or [])
     for f in _fields(cls, skip_now):
-        dsl_field = getattr(getattr(ds, cls.__name__), f.name)
+        dsl_field = getattr(getattr(ds, get_type_name(cls).graphql), f.name)
         if len(f.types) == 1:
             [f_type] = f.types
             if is_dataclass(f_type):
@@ -93,7 +94,7 @@ def get_selectors(
                     raise NotImplementedError
                 sel_args.append(
                     DSLInlineFragment()
-                    .on(getattr(ds, f_type.__name__))
+                    .on(getattr(ds, get_type_name(f_type).graphql))
                     .select(*get_selectors(ds, f_type))
                 )
             ret.append(getattr(dsl_field, "select")(*sel_args))

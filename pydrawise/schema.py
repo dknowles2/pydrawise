@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
 from typing import Optional, Union
 
+from apischema import type_name
 from apischema.conversions import Conversion
 from apischema.metadata import conversion
 
@@ -51,11 +51,11 @@ class LocalizedValueType:
 
 
 @dataclass
-class Option:
+class SelectedOption:
     """A generic option."""
 
     value: int = 0
-    label: str = ""
+    label: Optional[str] = ""
 
 
 @dataclass
@@ -110,12 +110,13 @@ def _duration_conversion(unit: str) -> conversion:
     )
 
 
+@type_name("Zone")
 @dataclass
 class BaseZone:
     """Basic zone information."""
 
     id: int = 0
-    number: Option = field(default_factory=Option)
+    number: SelectedOption = field(default_factory=SelectedOption)
     name: str = ""
 
 
@@ -380,13 +381,23 @@ class WaterTime:
 
 
 @dataclass
+class ActualWaterTime(WaterTime):
+    """An actual water time duration."""
+
+
+@dataclass
+class NormalWaterTime(WaterTime):
+    """A normal water time duration."""
+
+
+@dataclass
 class ControllerStatus:
     """Current status of a controller."""
 
     summary: str = ""
     online: bool = False
-    actual_water_time: WaterTime = field(default_factory=WaterTime)
-    normal_water_time: WaterTime = field(default_factory=WaterTime)
+    actual_water_time: ActualWaterTime = field(default_factory=ActualWaterTime)
+    normal_water_time: NormalWaterTime = field(default_factory=NormalWaterTime)
     last_contact: Optional[DateTime] = None
 
 
@@ -420,119 +431,3 @@ class User:
     name: str = ""
     email: str = ""
     controllers: list[Controller] = field(default_factory=list)
-
-
-class Query(ABC):
-    """GraphQL schema for queries.
-
-    :meta private:
-    """
-
-    @staticmethod
-    @abstractmethod
-    def me() -> User:
-        """Returns the current user.
-
-        :meta private:
-        """
-
-    @staticmethod
-    @abstractmethod
-    def controller(controller_id: int) -> Controller:
-        """Returns a controller by its unique identifier.
-
-        :meta private:
-        """
-
-    @staticmethod
-    @abstractmethod
-    def zone(zone_id: int) -> Zone:
-        """Returns a zone by its unique identifier.
-
-        :meta private:
-        """
-
-
-class Mutation(ABC):
-    """GraphQL schema for mutations.
-
-    :meta private:
-    """
-
-    @staticmethod
-    @abstractmethod
-    def start_zone(
-        zone_id: int, mark_run_as_scheduled: bool = False, custom_run_duration: int = 0
-    ) -> StatusCodeAndSummary:
-        """Starts a zone.
-
-        :meta private:
-        """
-
-    @staticmethod
-    @abstractmethod
-    def stop_zone(zone_id: int) -> StatusCodeAndSummary:
-        """Stops a zone.
-
-        :meta private:
-        """
-
-    @staticmethod
-    @abstractmethod
-    def suspend_zone(zone_id: int, until: str) -> StatusCodeAndSummary:
-        """Suspends a zone.
-
-        :meta private:
-        """
-
-    @staticmethod
-    @abstractmethod
-    def resume_zone(zone_id: int) -> StatusCodeAndSummary:
-        """Resumes a zone.
-
-        :meta private:
-        """
-
-    @staticmethod
-    @abstractmethod
-    def start_all_zones(
-        controller_id: int,
-        mark_run_as_scheduled: bool = False,
-        custom_run_duration: int = 0,
-    ) -> StatusCodeAndSummary:
-        """Starts all zones.
-
-        :meta private:
-        """
-
-    @staticmethod
-    @abstractmethod
-    def stop_all_zones(controller_id: int) -> StatusCodeAndSummary:
-        """Stops all zones.
-
-        :meta private:
-        """
-
-    @staticmethod
-    @abstractmethod
-    def suspend_all_zones(controller_id: int, until: str) -> StatusCodeAndSummary:
-        """Suspends all zones.
-
-        :meta private:
-        """
-
-    @staticmethod
-    @abstractmethod
-    def resume_all_zones(controller_id: int) -> StatusCodeAndSummary:
-        """Resumes all zones.
-
-        :meta private:
-        """
-
-    @staticmethod
-    @abstractmethod
-    def delete_zone_suspension(id: int) -> bool:  # pylint: disable=redefined-builtin
-        """Deletes a zone suspension.
-
-        :meta private:
-        """
