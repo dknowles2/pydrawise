@@ -21,6 +21,7 @@ from .schema import (
     SensorFlowSummary,
     StatusCodeAndSummary,
     User,
+    WateringReportEntry,
     Zone,
     ZoneSuspension,
 )
@@ -321,3 +322,26 @@ class Hydrawise(HydrawiseBase):
                 f"Sensor with id={sensor.id} does not have any flow information"
             )
         return deserialize(SensorFlowSummary, sensors[0]["flowSummary"])
+
+    async def get_watering_report(
+        self, controller: Controller, start: datetime, end: datetime
+    ) -> list[WateringReportEntry]:
+        """Retrieves a watering report for the given controller and time period.
+
+        :param controller: The controller whose watering report to generate.
+        :param start: Start time.
+        :param end: End time."""
+        selector = self._schema.Query.controller(controllerId=controller.id).select(
+            self._schema.Controller.reports.select(
+                self._schema.Reports.watering(
+                    **{
+                        "from": DateTime.to_json(start).timestamp,
+                        "until": DateTime.to_json(end).timestamp,
+                    }
+                ).select(*get_selectors(self._schema, WateringReportEntry)),
+            ),
+        )
+        result = await self._query(selector)
+        return deserialize(
+            list[WateringReportEntry], result["controller"]["reports"]["watering"]
+        )

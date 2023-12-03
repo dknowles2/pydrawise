@@ -140,9 +140,76 @@ def zone_json():
         },
         "name": "Zone A",
         "wateringSettings": {
-            "fixedWateringAdjustment": 0,
+            "fixedWateringAdjustment": 100,
             "cycleAndSoakSettings": None,
-            "advancedProgram": None,
+            "advancedProgram": {
+                "id": 4729361,
+                "name": "",
+                "schedulingMethod": {
+                    "value": 0,
+                    "label": "Time Based",
+                    "options": [
+                        {"value": 2, "label": "Smart Watering"},
+                        {"value": 0, "label": "Time Based"},
+                        {"value": 3, "label": "Virtual Solar Sync"},
+                    ],
+                },
+                "monthlyWateringAdjustments": [
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                ],
+                "appliesToZones": [
+                    {
+                        "id": 5955343,
+                        "number": {
+                            "value": 1,
+                            "label": "Zone 1",
+                            "options": [
+                                {"value": 1, "label": "Zone 1"},
+                                {"value": 2, "label": "Zone 2"},
+                                {"value": 3, "label": "Zone 3"},
+                                {"value": 4, "label": "Zone 4"},
+                                {"value": 5, "label": "Zone 5"},
+                                {"value": 6, "label": "Zone 6"},
+                                {"value": 7, "label": "Zone 7"},
+                                {"value": 8, "label": "Zone 8"},
+                                {"value": 9, "label": "Zone 9"},
+                                {"value": 10, "label": "Zone 10"},
+                                {"value": 11, "label": "Zone 11"},
+                                {"value": 12, "label": "Zone 12"},
+                                {"value": 99, "label": "Not assigned"},
+                            ],
+                        },
+                        "name": "Front Lawn",
+                    }
+                ],
+                "zoneSpecific": True,
+                "advancedProgramId": 5655942,
+                "scope": "CUSTOMER",
+                "wateringFrequency": {
+                    "label": "Frequency",
+                    "period": {
+                        "value": None,
+                        "label": "Every Program Start Time",
+                    },
+                    "description": "Every Program Start Time unless modified by your Watering Triggers",
+                },
+                "runTimeGroup": {
+                    "id": 49923604,
+                    "name": None,
+                    "duration": 20,
+                },
+            },
         },
         "scheduledRuns": {
             "summary": "",
@@ -162,6 +229,219 @@ def zone_json():
     }
 
 
+@fixture
+def watering_report_json():
+    yield {
+        "watering": [
+            {
+                "runEvent": {
+                    "id": "35220026902",
+                    "zone": {
+                        "id": 5955343,
+                        "number": {"value": 1, "label": "Zone 1"},
+                        "name": "Front Lawn",
+                    },
+                    "standardProgram": {
+                        "id": 343434,
+                        "name": "",
+                    },
+                    "advancedProgram": {"id": 4729361, "name": ""},
+                    "programStartTime": {
+                        "id": 2060906,
+                        "time": "04:00",
+                        "wateringDays": ["TUESDAY", "FRIDAY"],
+                        "application": {
+                            "all": False,
+                            "zones": [
+                                {
+                                    "id": 5955343,
+                                    "number": {"value": 1, "label": "Zone 1"},
+                                    "name": "Front Lawn",
+                                },
+                                {
+                                    "id": 5955345,
+                                    "number": {"value": 2, "label": "Zone 2"},
+                                    "name": "Front Trees",
+                                },
+                                {
+                                    "id": 5955349,
+                                    "number": {"value": 3, "label": "Zone 3"},
+                                    "name": "Front House",
+                                },
+                                {
+                                    "id": 5955350,
+                                    "number": {"value": 4, "label": "Zone 4"},
+                                    "name": "Back Yard",
+                                },
+                                {
+                                    "id": 5955354,
+                                    "number": {"value": 5, "label": "Zone 5"},
+                                    "name": "Chickens",
+                                },
+                                {
+                                    "id": 5955355,
+                                    "number": {"value": 6, "label": "Zone 6"},
+                                    "name": "Passion Vine",
+                                },
+                                {
+                                    "id": 5955359,
+                                    "number": {"value": 8, "label": "Zone 8"},
+                                    "name": "Raised Beds",
+                                },
+                            ],
+                        },
+                    },
+                    "normalStartTime": {
+                        "value": "Fri, 01 Dec 23 04:00:00 -0800",
+                        "timestamp": 1701432000,
+                    },
+                    "scheduledStartTime": {
+                        "value": "Fri, 01 Dec 23 04:00:00 -0800",
+                        "timestamp": 1701432000,
+                    },
+                    "reportedStartTime": {
+                        "value": "Fri, 01 Dec 23 04:00:00 -0800",
+                        "timestamp": 1701432000,
+                    },
+                    "normalEndTime": {
+                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
+                        "timestamp": 1701433200,
+                    },
+                    "scheduledEndTime": {
+                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
+                        "timestamp": 1701433200,
+                    },
+                    "reportedEndTime": {
+                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
+                        "timestamp": 1701433200,
+                    },
+                    "normalDuration": 1200,
+                    "scheduledDuration": 1200,
+                    "reportedDuration": 1200,
+                    "scheduledStatus": {
+                        "value": 1,
+                        "label": "Normal watering cycle",
+                    },
+                    "reportedStatus": {
+                        "value": 1,
+                        "label": "Normal watering cycle",
+                    },
+                    "reportedWaterUsage": {
+                        "value": 34.000263855044786,
+                        "unit": "gal",
+                    },
+                    "reportedStopReason": {
+                        "finishedNormally": True,
+                        "description": ["Finished normally"],
+                    },
+                    "reportedCurrent": {"value": 280, "unit": "mA"},
+                }
+            },
+            {
+                "runEvent": {
+                    "id": "35220026903",
+                    "zone": {
+                        "id": 5955345,
+                        "number": {"value": 2, "label": "Zone 2"},
+                        "name": "Front Trees",
+                    },
+                    "standardProgram": None,
+                    "advancedProgram": {"id": 4729362, "name": ""},
+                    "programStartTime": {
+                        "id": 2060906,
+                        "time": "04:00",
+                        "wateringDays": ["TUESDAY", "FRIDAY"],
+                        "application": {
+                            "all": False,
+                            "zones": [
+                                {
+                                    "id": 5955343,
+                                    "number": {"value": 1, "label": "Zone 1"},
+                                    "name": "Front Lawn",
+                                },
+                                {
+                                    "id": 5955345,
+                                    "number": {"value": 2, "label": "Zone 2"},
+                                    "name": "Front Trees",
+                                },
+                                {
+                                    "id": 5955349,
+                                    "number": {"value": 3, "label": "Zone 3"},
+                                    "name": "Front House",
+                                },
+                                {
+                                    "id": 5955350,
+                                    "number": {"value": 4, "label": "Zone 4"},
+                                    "name": "Back Yard",
+                                },
+                                {
+                                    "id": 5955354,
+                                    "number": {"value": 5, "label": "Zone 5"},
+                                    "name": "Chickens",
+                                },
+                                {
+                                    "id": 5955355,
+                                    "number": {"value": 6, "label": "Zone 6"},
+                                    "name": "Passion Vine",
+                                },
+                                {
+                                    "id": 5955359,
+                                    "number": {"value": 8, "label": "Zone 8"},
+                                    "name": "Raised Beds",
+                                },
+                            ],
+                        },
+                    },
+                    "normalStartTime": {
+                        "value": "Fri, 01 Dec 23 04:00:00 -0800",
+                        "timestamp": 1701432000,
+                    },
+                    "scheduledStartTime": {
+                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
+                        "timestamp": 1701433200,
+                    },
+                    "reportedStartTime": {
+                        "value": "Fri, 01 Dec 23 04:19:59 -0800",
+                        "timestamp": 1701433199,
+                    },
+                    "normalEndTime": {
+                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
+                        "timestamp": 1701433200,
+                    },
+                    "scheduledEndTime": {
+                        "value": "Fri, 01 Dec 23 04:40:00 -0800",
+                        "timestamp": 1701434400,
+                    },
+                    "reportedEndTime": {
+                        "value": "Fri, 01 Dec 23 04:39:59 -0800",
+                        "timestamp": 1701434399,
+                    },
+                    "normalDuration": 1200,
+                    "scheduledDuration": 1200,
+                    "reportedDuration": 1200,
+                    "scheduledStatus": {
+                        "value": 1,
+                        "label": "Normal watering cycle",
+                    },
+                    "reportedStatus": {
+                        "value": 1,
+                        "label": "Normal watering cycle",
+                    },
+                    "reportedWaterUsage": {
+                        "value": 49.00048126864295,
+                        "unit": "gal",
+                    },
+                    "reportedStopReason": {
+                        "finishedNormally": True,
+                        "description": ["Finished normally"],
+                    },
+                    "reportedCurrent": {"value": 280, "unit": "mA"},
+                }
+            },
+        ]
+    }
+
+
 async def test_get_user(api: Hydrawise, mock_session, controller_json, zone_json):
     controller_json["zones"] = [zone_json]
     mock_session.execute.return_value = {
@@ -178,7 +458,7 @@ async def test_get_user(api: Hydrawise, mock_session, controller_json, zone_json
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
     assert "controllers {" in query
-    assert "zones {" in query
+    assert query.count("zones {") == 2
     assert user.id == 1234
     assert user.name == "My Name"
     assert user.email == "me@asdf.com"
@@ -201,7 +481,7 @@ async def test_get_user_no_zones(api: Hydrawise, mock_session, controller_json):
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
     assert "controllers {" in query
-    assert "zones {" not in query
+    assert query.count("zones {") == 1
     assert user.id == 1234
     assert user.name == "My Name"
     assert user.email == "me@asdf.com"
@@ -215,7 +495,7 @@ async def test_get_controllers(api: Hydrawise, mock_session, controller_json):
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
-    assert "zones {" in query
+    assert query.count("zones {") == 2
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.status.actual_water_time.value == timedelta(minutes=10)
@@ -229,7 +509,7 @@ async def test_get_controller(api: Hydrawise, mock_session, controller_json):
     query = print_ast(selector)
     assert "controller(" in query
     assert "controllerId: 9876" in query
-    assert "zones {" in query
+    assert query.count("zones {") == 2
 
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
@@ -408,3 +688,20 @@ async def test_get_water_flow_summary(
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
     assert "flowSummary(" in query
+
+
+async def test_get_watering_report(
+    api: Hydrawise, mock_session, controller_json, watering_report_json
+):
+    mock_session.execute.return_value = {
+        "controller": {"reports": watering_report_json}
+    }
+    ctrl = deserialize(Controller, controller_json)
+    report = await api.get_watering_report(
+        ctrl, datetime(2023, 12, 1, 0, 0, 0), datetime(2023, 12, 4, 0, 0, 0)
+    )
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert "reports" in query
+    assert "watering" in query

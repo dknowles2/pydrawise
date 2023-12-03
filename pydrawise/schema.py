@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from enum import Enum, auto
 from typing import Optional, Union
 
@@ -26,7 +26,61 @@ def default_datetime() -> datetime:
     return datetime.now()
 
 
-class StatusCodeEnum(Enum):
+def _duration_conversion(unit: str) -> conversion:
+    assert unit in (
+        "days",
+        "seconds",
+        "microseconds",
+        "milliseconds",
+        "minutes",
+        "hours",
+        "weeks",
+    )
+    return conversion(
+        Conversion(lambda d: timedelta(**{unit: d}), source=int, target=timedelta),
+        Conversion(lambda d: getattr(d, unit), source=timedelta, target=int),
+    )
+
+
+def _timestamp_conversion() -> conversion:
+    return conversion(
+        Conversion(datetime.fromtimestamp, source=int, target=datetime),
+        Conversion(datetime.timestamp, source=datetime, target=int),
+    )
+
+
+def _time_conversion() -> conversion:
+    return conversion(
+        Conversion(
+            lambda s: datetime.strptime(s, "%H:%M").time(), source=str, target=time
+        ),
+        Conversion(lambda t: time.strftime("%H:%M"), source=time, target=str),
+    )
+
+
+def _list_conversion(element_conversion) -> conversion:
+    return conversion(
+        Conversion(
+            lambda l: list(map(element_conversion.deserialization.converter, l)),
+            source=list,
+            target=list,
+        ),
+        Conversion(
+            lambda l: list(map(element_conversion.serialization.converter, l)),
+            source=list,
+            target=list,
+        ),
+    )
+
+
+class AutoEnum(Enum):
+    @staticmethod
+    def _generate_next_value_(name, start, count, last_values):
+        """Determines the value for an auto() call."""
+        return name
+
+
+class StatusCodeEnum(AutoEnum):
     """Response status codes."""
 
     OK = auto()
@@ -51,11 +105,20 @@ class LocalizedValueType:
 
 
 @dataclass
+class Option:
+    """An option."""
+
+    value: int = 0
+    label: str = ""
+
+
+@dataclass
 class SelectedOption:
     """A generic option."""
 
     value: int = 0
     label: Optional[str] = ""
+    options: list[Option] = field(default_factory=list)
 
 
 @dataclass
@@ -94,22 +157,6 @@ class DateTime:
         )
 
 
-def _duration_conversion(unit: str) -> conversion:
-    assert unit in (
-        "days",
-        "seconds",
-        "microseconds",
-        "milliseconds",
-        "minutes",
-        "hours",
-        "weeks",
-    )
-    return conversion(
-        Conversion(lambda d: timedelta(**{unit: d}), source=int, target=timedelta),
-        Conversion(lambda d: getattr(d, unit), source=timedelta, target=int),
-    )
-
-
 @type_name("Zone")
 @dataclass
 class BaseZone:
@@ -137,26 +184,83 @@ class RunTimeGroup:
     """The runtime of a watering program group."""
 
     id: int = 0
+    name: Optional[str] = ""
     duration: timedelta = field(
         metadata=_duration_conversion("minutes"), default=timedelta()
     )
 
 
+class AdvancedProgramScopeEnum(AutoEnum):
+    """A watering program scope."""
+
+    CUSTOMER = auto()
+    CONTRACTOR = auto()
+
+
 @dataclass
-class AdvancedProgram:
+class WateringPeriodicity:
+    """Watering frequency description (e.g., "Every Program Start Time")."""
+
+    value: Optional[int] = 0
+    label: Optional[str] = ""
+
+
+@dataclass
+class ProgramWateringFrequency:
+    """Watering frequency information."""
+
+    label: str = ""
+    period: WateringPeriodicity = field(default_factory=WateringPeriodicity)
+    description: str = ""
+
+
+@dataclass
+@type_name("StandardProgram")
+class StandardProgramRef:
+    """Super small base class to reference a watering program without having
+    to pull in all the voluminous sub-fields."""
+
+    id: int = 0
+    name: str = ""
+
+
+@dataclass
+@type_name("AdvancedProgram")
+class AdvancedProgramRef:
+    """Super small base class to reference a watering program without having
+    to pull in all the voluminous sub-fields."""
+
+    id: int = 0
+    name: str = ""
+
+
+@dataclass
+class Program:
+    """Base class for a watering program."""
+
+    id: int = 0
+    name: str = ""
+
+    scheduling_method: SelectedOption = field(default_factory=SelectedOption)
+    monthly_watering_adjustments: list[int] = field(default_factory=list)
+    applies_to_zones: list[BaseZone] = field(default_factory=list)
+
+
+@dataclass
+class AdvancedProgram(Program):
     """An advanced watering program."""
 
+    zone_specific: bool = False
     advanced_program_id: int = 0
-    run_time_group: RunTimeGroup = field(default_factory=RunTimeGroup)
+    scope: AdvancedProgramScopeEnum = field(default_factory=AdvancedProgramScopeEnum)
+    watering_frequency: Optional[ProgramWateringFrequency] = field(
+        default_factory=ProgramWateringFrequency
+    )
+    run_time_group: Optional[RunTimeGroup] = field(default_factory=RunTimeGroup)
 
 
-class AdvancedProgramDayPatternEnum(Enum):
+class AdvancedProgramDayPatternEnum(AutoEnum):
     """A value for an advanced watering program day pattern."""
-
-    @staticmethod
-    def _generate_next_value_(name, start, count, last_values):
-        """Determines the value for an auto() call."""
-        return name
 
     EVEN = auto()
     ODD = auto()
@@ -171,15 +275,6 @@ class AdvancedProgramDayPatternEnum(Enum):
 
 
 @dataclass
-class ProgramStartTime:
-    """Start time for a watering program."""
-
-    id: int = 0
-    time: str = ""  # e.g. "02:00"
-    watering_days: list[AdvancedProgramDayPatternEnum] = field(default_factory=list)
-
-
-@dataclass
 class WateringSettings:
     """Generic settings for a watering program."""
 
@@ -191,20 +286,51 @@ class WateringSettings:
 class AdvancedWateringSettings(WateringSettings):
     """Advanced watering program settings."""
 
-    advanced_program: Optional[AdvancedProgram] = None
+    advanced_program: AdvancedProgram = None
 
 
 @dataclass
-class StandardProgram:
+@type_name("Unit")
+class TimeRange:
+    """Time range units."""
+
+    valid_from: Optional[datetime] = field(
+        metadata=_timestamp_conversion(), default_factory=datetime
+    )
+    valid_to: Optional[datetime] = field(
+        metadata=_timestamp_conversion(), default_factory=datetime
+    )
+
+
+@dataclass
+class StandardProgramPeriodicity:
+    """Program frequency for a standard program."""
+
+    period: int = 0
+    series_start: datetime = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+
+
+@dataclass
+class StandardProgram(Program):
     """A standard watering program."""
 
-    name: str = ""
-    start_times: list[str] = field(default_factory=list)
+    start_times: Optional[list[time]] = field(
+        metadata=_list_conversion(_time_conversion()), default_factory=list
+    )
+    time_range: TimeRange = field(default_factory=TimeRange)
+    ignore_rain_sensor: bool = False
+    days_run: list[DaysOfWeekEnum] = field(default_factory=list)
+    standard_program_day_pattern: str = ""
+    periodicity: Optional[StandardProgramPeriodicity] = field(
+        default_factory=StandardProgramPeriodicity
+    )
 
 
 @dataclass
 class StandardProgramApplication:
-    """A standard watering program."""
+    """A standard watering program application."""
 
     zone: BaseZone = field(default_factory=BaseZone)
     standard_program: StandardProgram = field(default_factory=StandardProgram)
@@ -275,7 +401,7 @@ class ZoneStatus:
 
     relative_water_balance: int = 0
     suspended_until: Optional[datetime] = field(
-        metadata=DateTime.conversion(), default=None
+        metadata=DateTime.conversion(), default_factory=default_datetime
     )
 
 
@@ -303,6 +429,28 @@ class Zone(BaseZone):
     past_runs: PastZoneRuns = field(default_factory=PastZoneRuns)
     status: ZoneStatus = field(default_factory=ZoneStatus)
     suspensions: list[ZoneSuspension] = field(default_factory=list)
+
+
+@dataclass
+class ProgramStartTimeApplication:
+    """Application of a start time to a program."""
+
+    all: bool = False
+    zones: list[BaseZone] = field(default_factory=list)
+
+
+@dataclass
+class ProgramStartTime:
+    """Start time for a watering program."""
+
+    id: int = 0
+    time: time = field(metadata=_time_conversion(), default_factory=time)
+    watering_days: Optional[list[AdvancedProgramDayPatternEnum]] = field(
+        default_factory=list
+    )
+    application: ProgramStartTimeApplication = field(
+        default_factory=ProgramStartTimeApplication
+    )
 
 
 @dataclass
@@ -341,7 +489,9 @@ class SensorModel:
     active: bool = False
     off_level: int = 0
     off_timer: int = 0
-    delay: int = 0
+    delay: timedelta = field(
+        metadata=_duration_conversion("minutes"), default=timedelta()
+    )
     divisor: float = 0.0
     flow_rate: float = 0.0
 
@@ -402,6 +552,81 @@ class ControllerStatus:
 
 
 @dataclass
+class RunStatusType:
+    value: int = 0
+    label: str = ""
+
+
+@dataclass
+class RunStopReasonType:
+    finished_normally: bool = False
+    description: list[str] = field(default_factory=list)
+
+
+@dataclass
+@type_name("RunEventType")
+class RunEvent:
+    """A Hydrawise run event type."""
+
+    id: str = ""
+    zone: BaseZone = field(default_factory=BaseZone)
+    standard_program: Optional[StandardProgramRef] = field(
+        default_factory=StandardProgramRef
+    )
+    advanced_program: Optional[AdvancedProgramRef] = field(
+        default_factory=AdvancedProgramRef
+    )
+    program_start_time: Optional[ProgramStartTime] = field(
+        default_factory=ProgramStartTime
+    )
+    normal_start_time: Optional[datetime] = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    scheduled_start_time: Optional[datetime] = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    reported_start_time: Optional[datetime] = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    normal_end_time: Optional[datetime] = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    scheduled_end_time: Optional[datetime] = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    reported_end_time: Optional[datetime] = field(
+        metadata=DateTime.conversion(), default_factory=default_datetime
+    )
+    normal_duration: Optional[int] = field(
+        metadata=_duration_conversion("seconds"), default=timedelta()
+    )
+    scheduled_duration: Optional[int] = field(
+        metadata=_duration_conversion("seconds"), default=timedelta()
+    )
+    reported_duration: Optional[int] = field(
+        metadata=_duration_conversion("seconds"), default=timedelta()
+    )
+    scheduled_status: Optional[RunStatusType] = field(default_factory=RunStatusType)
+    reported_status: Optional[RunStatusType] = field(default_factory=RunStatusType)
+    reported_water_usage: Optional[LocalizedValueType] = field(
+        default_factory=LocalizedValueType
+    )
+    reported_stop_reason: Optional[RunStopReasonType] = field(
+        default_factory=RunStopReasonType
+    )
+    reported_current: Optional[LocalizedValueType] = field(
+        default_factory=LocalizedValueType
+    )
+
+
+@dataclass
+class WateringReportEntry:
+    """A Hydrawise watering report entry."""
+
+    run_event: Optional[RunEvent] = field(default_factory=RunEvent)
+
+
+@dataclass
 class Controller:
     """A Hydrawise controller."""
 
@@ -419,7 +644,7 @@ class Controller:
     sensors: list[Sensor] = field(default_factory=list)
     zones: list[Zone] = field(default_factory=list)
     permitted_program_start_times: list[ProgramStartTime] = field(default_factory=list)
-    status: Optional[ControllerStatus] = None
+    status: ControllerStatus = None
 
 
 @dataclass
@@ -431,3 +656,15 @@ class User:
     name: str = ""
     email: str = ""
     controllers: list[Controller] = field(default_factory=list)
+
+
+class DaysOfWeekEnum(AutoEnum):
+    """All days of the week."""
+
+    SUNDAY = auto()
+    MONDAY = auto()
+    TUESDAY = auto()
+    WEDNESDAY = auto()
+    THURSDAY = auto()
+    FRIDAY = auto()
+    SATURDAY = auto()
