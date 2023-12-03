@@ -63,7 +63,41 @@ def controller_json():
             "value": "Sun, 01 Jan 23 00:12:00",
         },
         "online": True,
-        "sensors": [],
+        "sensors": [
+            {
+                "id": 337844,
+                "name": "Rain sensor ",
+                "model": {
+                    "id": 3318,
+                    "name": "Rain Sensor (normally closed wire)",
+                    "active": True,
+                    "offLevel": 1,
+                    "offTimer": 0,
+                    "delay": 0,
+                    "divisor": 0,
+                    "flowRate": 0,
+                },
+                "status": {"waterFlow": None, "active": False},
+            },
+            {
+                "id": 337845,
+                "name": "Flow meter",
+                "model": {
+                    "id": 3324,
+                    "name": "1, 1½ or 2 inch NPT Flow Meter",
+                    "active": True,
+                    "offLevel": 0,
+                    "offTimer": 0,
+                    "delay": 0,
+                    "divisor": 0.52834,
+                    "flowRate": 3.7854,
+                },
+                "status": {
+                    "waterFlow": {"value": 542.0042035155608, "unit": "gal"},
+                    "active": None,
+                },
+            },
+        ],
         "permittedProgramStartTimes": [],
         "status": {
             "summary": "All good!",
