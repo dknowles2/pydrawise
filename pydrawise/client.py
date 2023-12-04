@@ -17,6 +17,8 @@ from .exceptions import MutationError
 from .schema import (
     Controller,
     DateTime,
+    Sensor,
+    SensorFlowSummary,
     StatusCodeAndSummary,
     User,
     Zone,
@@ -266,3 +268,56 @@ class Hydrawise(HydrawiseBase):
             id=suspension.id
         ).select()
         await self._mutation(selector)
+
+    async def get_sensors(self, controller: Controller) -> list[Sensor]:
+        """Retrieves sensors associated with the given controller.
+
+        :param controller: Controller whose sensors to fetch.
+        :rtype: list[Sensor]
+        """
+        selector = self._schema.Query.controller(controllerId=controller.id).select(
+            self._schema.Controller.sensors.select(
+                *get_selectors(self._schema, Sensor)
+            ),
+        )
+
+        result = await self._query(selector)
+        return deserialize(list[Sensor], result["controller"]["sensors"])
+
+    async def get_water_flow_summary(
+        self, controller: Controller, sensor: Sensor, start: datetime, end: datetime
+    ) -> SensorFlowSummary:
+        """Retrieves the water flow summary for a given sensor.
+
+        :param controller: Controller that controls the sensor.
+        :param sensor: Sensor for which a water flow summary is fetched.
+        :param start:
+        :param end:
+        :rtype: list[Sensor]
+        """
+        selector = self._schema.Query.controller(controllerId=controller.id).select(
+            self._schema.Controller.sensors.select(
+                *get_selectors(self._schema, Sensor),
+                self._schema.Sensor.flowSummary(
+                    start=DateTime.to_json(start).timestamp,
+                    end=DateTime.to_json(end).timestamp,
+                ).select(*get_selectors(self._schema, SensorFlowSummary)),
+            ),
+        )
+
+        result = await self._query(selector)
+
+        # There is no way to query for one particular sensor through GraphQL. We need
+        # to filter here instead. This should not really be a performance problem in
+        # practice since it is unlikely for a controller to have more than one water
+        # sensor.
+        sensors = list(
+            filter(lambda s: s["id"] == sensor.id, result["controller"]["sensors"])
+        )
+        if len(sensors) == 0:
+            raise ValueError(f"Sensor with id={sensor.id} not found")
+        if "flowSummary" not in sensors[0]:
+            raise ValueError(
+                f"Sensor with id={sensor.id} does not have any flow information"
+            )
+        return deserialize(SensorFlowSummary, sensors[0]["flowSummary"])

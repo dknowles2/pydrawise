@@ -8,7 +8,7 @@ from pytest import fixture
 
 from pydrawise.auth import Auth
 from pydrawise.client import Hydrawise
-from pydrawise.schema import Controller, Zone, ZoneSuspension
+from pydrawise.schema import Controller, Sensor, Zone, ZoneSuspension
 from pydrawise.schema_utils import deserialize
 
 
@@ -39,7 +39,59 @@ def api(mock_auth, mock_client):
 
 
 @fixture
-def controller_json():
+def rain_sensor_json():
+    yield {
+        "id": 337844,
+        "name": "Rain sensor ",
+        "model": {
+            "id": 3318,
+            "name": "Rain Sensor (normally closed wire)",
+            "active": True,
+            "offLevel": 1,
+            "offTimer": 0,
+            "delay": 0,
+            "divisor": 0,
+            "flowRate": 0,
+        },
+        "status": {
+            "waterFlow": None,
+            "active": False,
+        },
+    }
+
+
+@fixture
+def flow_sensor_json():
+    yield {
+        "id": 337845,
+        "name": "Flow meter",
+        "model": {
+            "id": 3324,
+            "name": "1, 1½ or 2 inch NPT Flow Meter",
+            "active": True,
+            "offLevel": 0,
+            "offTimer": 0,
+            "delay": 0,
+            "divisor": 0.52834,
+            "flowRate": 3.7854,
+        },
+        "status": {
+            "waterFlow": {
+                "value": 542.0042035155608,
+                "unit": "gal",
+            },
+            "active": None,
+        },
+    }
+
+
+@fixture
+def flow_summary_json():
+    yield {"totalWaterVolume": {"value": 23134.67952992029, "unit": "gal"}}
+
+
+@fixture
+def controller_json(rain_sensor_json, flow_sensor_json):
     yield {
         "id": 9876,
         "name": "Main Controller",
@@ -63,41 +115,7 @@ def controller_json():
             "value": "Sun, 01 Jan 23 00:12:00",
         },
         "online": True,
-        "sensors": [
-            {
-                "id": 337844,
-                "name": "Rain sensor ",
-                "model": {
-                    "id": 3318,
-                    "name": "Rain Sensor (normally closed wire)",
-                    "active": True,
-                    "offLevel": 1,
-                    "offTimer": 0,
-                    "delay": 0,
-                    "divisor": 0,
-                    "flowRate": 0,
-                },
-                "status": {"waterFlow": None, "active": False},
-            },
-            {
-                "id": 337845,
-                "name": "Flow meter",
-                "model": {
-                    "id": 3324,
-                    "name": "1, 1½ or 2 inch NPT Flow Meter",
-                    "active": True,
-                    "offLevel": 0,
-                    "offTimer": 0,
-                    "delay": 0,
-                    "divisor": 0.52834,
-                    "flowRate": 3.7854,
-                },
-                "status": {
-                    "waterFlow": {"value": 542.0042035155608, "unit": "gal"},
-                    "active": None,
-                },
-            },
-        ],
+        "sensors": [rain_sensor_json, flow_sensor_json],
         "permittedProgramStartTimes": [],
         "status": {
             "summary": "All good!",
@@ -346,3 +364,47 @@ async def test_delete_zone_suspension(api: Hydrawise, mock_session):
     query = print_ast(selector)
     assert "deleteZoneSuspension(" in query
     assert "id: 2222" in query
+
+
+async def test_get_sensors(
+    api: Hydrawise,
+    mock_session,
+    rain_sensor_json,
+    flow_sensor_json,
+    controller_json,
+):
+    mock_session.execute.return_value = {
+        "controller": {"sensors": [rain_sensor_json, flow_sensor_json]}
+    }
+    ctrl = deserialize(Controller, controller_json)
+    sensors = await api.get_sensors(ctrl)
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert "sensors {" in query
+
+
+async def test_get_water_flow_summary(
+    api: Hydrawise,
+    mock_session,
+    controller_json,
+    flow_sensor_json,
+    flow_summary_json,
+):
+    mock_session.execute.return_value = {
+        "controller": {
+            "sensors": [flow_sensor_json | {"flowSummary": flow_summary_json}]
+        }
+    }
+    ctrl = deserialize(Controller, controller_json)
+    sensor = deserialize(Sensor, flow_sensor_json)
+    water_flow_summary = await api.get_water_flow_summary(
+        ctrl,
+        sensor,
+        datetime(2023, 11, 1, 0, 0, 0),
+        datetime(2023, 11, 30, 0, 0, 0),
+    )
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert "flowSummary(" in query
