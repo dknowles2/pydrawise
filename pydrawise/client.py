@@ -285,7 +285,7 @@ class Hydrawise(HydrawiseBase):
         return deserialize(list[Sensor], result["controller"]["sensors"])
 
     async def get_water_flow_summary(
-        self, controller: Controller, sensor: Sensor, start: DateTime, end: DateTime
+        self, controller: Controller, sensor: Sensor, start: datetime, end: datetime
     ) -> SensorFlowSummary:
         """Retrieves the water flow summary for a given sensor.
 
