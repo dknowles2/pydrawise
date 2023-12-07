@@ -105,20 +105,11 @@ class LocalizedValueType:
 
 
 @dataclass
-class Option:
-    """An option."""
-
-    value: int = 0
-    label: str = ""
-
-
-@dataclass
 class SelectedOption:
     """A generic option."""
 
     value: int = 0
     label: Optional[str] = ""
-    options: list[Option] = field(default_factory=list)
 
 
 @dataclass
@@ -190,13 +181,6 @@ class RunTimeGroup:
     )
 
 
-class AdvancedProgramScopeEnum(AutoEnum):
-    """A watering program scope."""
-
-    CUSTOMER = auto()
-    CONTRACTOR = auto()
-
-
 @dataclass
 class WateringPeriodicity:
     """Watering frequency description (e.g., "Every Program Start Time")."""
@@ -252,7 +236,6 @@ class AdvancedProgram(Program):
 
     zone_specific: bool = False
     advanced_program_id: int = 0
-    scope: AdvancedProgramScopeEnum = field(default_factory=AdvancedProgramScopeEnum)
     watering_frequency: Optional[ProgramWateringFrequency] = field(
         default_factory=ProgramWateringFrequency
     )
@@ -576,37 +559,15 @@ class RunEvent:
     advanced_program: Optional[AdvancedProgramRef] = field(
         default_factory=AdvancedProgramRef
     )
-    program_start_time: Optional[ProgramStartTime] = field(
-        default_factory=ProgramStartTime
-    )
-    normal_start_time: Optional[datetime] = field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
-    scheduled_start_time: Optional[datetime] = field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
     reported_start_time: Optional[datetime] = field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
-    normal_end_time: Optional[datetime] = field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
-    scheduled_end_time: Optional[datetime] = field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
     reported_end_time: Optional[datetime] = field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
-    normal_duration: Optional[int] = field(
-        metadata=_duration_conversion("seconds"), default=timedelta()
-    )
-    scheduled_duration: Optional[int] = field(
-        metadata=_duration_conversion("seconds"), default=timedelta()
-    )
     reported_duration: Optional[int] = field(
         metadata=_duration_conversion("seconds"), default=timedelta()
     )
-    scheduled_status: Optional[RunStatusType] = field(default_factory=RunStatusType)
     reported_status: Optional[RunStatusType] = field(default_factory=RunStatusType)
     reported_water_usage: Optional[LocalizedValueType] = field(
         default_factory=LocalizedValueType

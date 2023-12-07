@@ -145,15 +145,7 @@ def zone_json():
             "advancedProgram": {
                 "id": 4729361,
                 "name": "",
-                "schedulingMethod": {
-                    "value": 0,
-                    "label": "Time Based",
-                    "options": [
-                        {"value": 2, "label": "Smart Watering"},
-                        {"value": 0, "label": "Time Based"},
-                        {"value": 3, "label": "Virtual Solar Sync"},
-                    ],
-                },
+                "schedulingMethod": {"value": 0, "label": "Time Based"},
                 "monthlyWateringAdjustments": [
                     100,
                     100,
@@ -171,31 +163,12 @@ def zone_json():
                 "appliesToZones": [
                     {
                         "id": 5955343,
-                        "number": {
-                            "value": 1,
-                            "label": "Zone 1",
-                            "options": [
-                                {"value": 1, "label": "Zone 1"},
-                                {"value": 2, "label": "Zone 2"},
-                                {"value": 3, "label": "Zone 3"},
-                                {"value": 4, "label": "Zone 4"},
-                                {"value": 5, "label": "Zone 5"},
-                                {"value": 6, "label": "Zone 6"},
-                                {"value": 7, "label": "Zone 7"},
-                                {"value": 8, "label": "Zone 8"},
-                                {"value": 9, "label": "Zone 9"},
-                                {"value": 10, "label": "Zone 10"},
-                                {"value": 11, "label": "Zone 11"},
-                                {"value": 12, "label": "Zone 12"},
-                                {"value": 99, "label": "Not assigned"},
-                            ],
-                        },
+                        "number": {"value": 1, "label": "Zone 1"},
                         "name": "Front Lawn",
                     }
                 ],
                 "zoneSpecific": True,
                 "advancedProgramId": 5655942,
-                "scope": "CUSTOMER",
                 "wateringFrequency": {
                     "label": "Frequency",
                     "period": {
@@ -246,82 +219,15 @@ def watering_report_json():
                         "name": "",
                     },
                     "advancedProgram": {"id": 4729361, "name": ""},
-                    "programStartTime": {
-                        "id": 2060906,
-                        "time": "04:00",
-                        "wateringDays": ["TUESDAY", "FRIDAY"],
-                        "application": {
-                            "all": False,
-                            "zones": [
-                                {
-                                    "id": 5955343,
-                                    "number": {"value": 1, "label": "Zone 1"},
-                                    "name": "Front Lawn",
-                                },
-                                {
-                                    "id": 5955345,
-                                    "number": {"value": 2, "label": "Zone 2"},
-                                    "name": "Front Trees",
-                                },
-                                {
-                                    "id": 5955349,
-                                    "number": {"value": 3, "label": "Zone 3"},
-                                    "name": "Front House",
-                                },
-                                {
-                                    "id": 5955350,
-                                    "number": {"value": 4, "label": "Zone 4"},
-                                    "name": "Back Yard",
-                                },
-                                {
-                                    "id": 5955354,
-                                    "number": {"value": 5, "label": "Zone 5"},
-                                    "name": "Chickens",
-                                },
-                                {
-                                    "id": 5955355,
-                                    "number": {"value": 6, "label": "Zone 6"},
-                                    "name": "Passion Vine",
-                                },
-                                {
-                                    "id": 5955359,
-                                    "number": {"value": 8, "label": "Zone 8"},
-                                    "name": "Raised Beds",
-                                },
-                            ],
-                        },
-                    },
-                    "normalStartTime": {
-                        "value": "Fri, 01 Dec 23 04:00:00 -0800",
-                        "timestamp": 1701432000,
-                    },
-                    "scheduledStartTime": {
-                        "value": "Fri, 01 Dec 23 04:00:00 -0800",
-                        "timestamp": 1701432000,
-                    },
                     "reportedStartTime": {
                         "value": "Fri, 01 Dec 23 04:00:00 -0800",
                         "timestamp": 1701432000,
-                    },
-                    "normalEndTime": {
-                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
-                        "timestamp": 1701433200,
-                    },
-                    "scheduledEndTime": {
-                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
-                        "timestamp": 1701433200,
                     },
                     "reportedEndTime": {
                         "value": "Fri, 01 Dec 23 04:20:00 -0800",
                         "timestamp": 1701433200,
                     },
-                    "normalDuration": 1200,
-                    "scheduledDuration": 1200,
                     "reportedDuration": 1200,
-                    "scheduledStatus": {
-                        "value": 1,
-                        "label": "Normal watering cycle",
-                    },
                     "reportedStatus": {
                         "value": 1,
                         "label": "Normal watering cycle",
@@ -347,82 +253,15 @@ def watering_report_json():
                     },
                     "standardProgram": None,
                     "advancedProgram": {"id": 4729362, "name": ""},
-                    "programStartTime": {
-                        "id": 2060906,
-                        "time": "04:00",
-                        "wateringDays": ["TUESDAY", "FRIDAY"],
-                        "application": {
-                            "all": False,
-                            "zones": [
-                                {
-                                    "id": 5955343,
-                                    "number": {"value": 1, "label": "Zone 1"},
-                                    "name": "Front Lawn",
-                                },
-                                {
-                                    "id": 5955345,
-                                    "number": {"value": 2, "label": "Zone 2"},
-                                    "name": "Front Trees",
-                                },
-                                {
-                                    "id": 5955349,
-                                    "number": {"value": 3, "label": "Zone 3"},
-                                    "name": "Front House",
-                                },
-                                {
-                                    "id": 5955350,
-                                    "number": {"value": 4, "label": "Zone 4"},
-                                    "name": "Back Yard",
-                                },
-                                {
-                                    "id": 5955354,
-                                    "number": {"value": 5, "label": "Zone 5"},
-                                    "name": "Chickens",
-                                },
-                                {
-                                    "id": 5955355,
-                                    "number": {"value": 6, "label": "Zone 6"},
-                                    "name": "Passion Vine",
-                                },
-                                {
-                                    "id": 5955359,
-                                    "number": {"value": 8, "label": "Zone 8"},
-                                    "name": "Raised Beds",
-                                },
-                            ],
-                        },
-                    },
-                    "normalStartTime": {
-                        "value": "Fri, 01 Dec 23 04:00:00 -0800",
-                        "timestamp": 1701432000,
-                    },
-                    "scheduledStartTime": {
-                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
-                        "timestamp": 1701433200,
-                    },
                     "reportedStartTime": {
                         "value": "Fri, 01 Dec 23 04:19:59 -0800",
                         "timestamp": 1701433199,
-                    },
-                    "normalEndTime": {
-                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
-                        "timestamp": 1701433200,
-                    },
-                    "scheduledEndTime": {
-                        "value": "Fri, 01 Dec 23 04:40:00 -0800",
-                        "timestamp": 1701434400,
                     },
                     "reportedEndTime": {
                         "value": "Fri, 01 Dec 23 04:39:59 -0800",
                         "timestamp": 1701434399,
                     },
-                    "normalDuration": 1200,
-                    "scheduledDuration": 1200,
                     "reportedDuration": 1200,
-                    "scheduledStatus": {
-                        "value": 1,
-                        "label": "Normal watering cycle",
-                    },
                     "reportedStatus": {
                         "value": 1,
                         "label": "Normal watering cycle",
