@@ -140,9 +140,49 @@ def zone_json():
         },
         "name": "Zone A",
         "wateringSettings": {
-            "fixedWateringAdjustment": 0,
+            "fixedWateringAdjustment": 100,
             "cycleAndSoakSettings": None,
-            "advancedProgram": None,
+            "advancedProgram": {
+                "id": 4729361,
+                "name": "",
+                "schedulingMethod": {"value": 0, "label": "Time Based"},
+                "monthlyWateringAdjustments": [
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                    100,
+                ],
+                "appliesToZones": [
+                    {
+                        "id": 5955343,
+                        "number": {"value": 1, "label": "Zone 1"},
+                        "name": "Front Lawn",
+                    }
+                ],
+                "zoneSpecific": True,
+                "advancedProgramId": 5655942,
+                "wateringFrequency": {
+                    "label": "Frequency",
+                    "period": {
+                        "value": None,
+                        "label": "Every Program Start Time",
+                    },
+                    "description": "Every Program Start Time unless modified by your Watering Triggers",
+                },
+                "runTimeGroup": {
+                    "id": 49923604,
+                    "name": None,
+                    "duration": 20,
+                },
+            },
         },
         "scheduledRuns": {
             "summary": "",
@@ -162,6 +202,85 @@ def zone_json():
     }
 
 
+@fixture
+def watering_report_json():
+    yield {
+        "watering": [
+            {
+                "runEvent": {
+                    "id": "35220026902",
+                    "zone": {
+                        "id": 5955343,
+                        "number": {"value": 1, "label": "Zone 1"},
+                        "name": "Front Lawn",
+                    },
+                    "standardProgram": {
+                        "id": 343434,
+                        "name": "",
+                    },
+                    "advancedProgram": {"id": 4729361, "name": ""},
+                    "reportedStartTime": {
+                        "value": "Fri, 01 Dec 23 04:00:00 -0800",
+                        "timestamp": 1701432000,
+                    },
+                    "reportedEndTime": {
+                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
+                        "timestamp": 1701433200,
+                    },
+                    "reportedDuration": 1200,
+                    "reportedStatus": {
+                        "value": 1,
+                        "label": "Normal watering cycle",
+                    },
+                    "reportedWaterUsage": {
+                        "value": 34.000263855044786,
+                        "unit": "gal",
+                    },
+                    "reportedStopReason": {
+                        "finishedNormally": True,
+                        "description": ["Finished normally"],
+                    },
+                    "reportedCurrent": {"value": 280, "unit": "mA"},
+                }
+            },
+            {
+                "runEvent": {
+                    "id": "35220026903",
+                    "zone": {
+                        "id": 5955345,
+                        "number": {"value": 2, "label": "Zone 2"},
+                        "name": "Front Trees",
+                    },
+                    "standardProgram": None,
+                    "advancedProgram": {"id": 4729362, "name": ""},
+                    "reportedStartTime": {
+                        "value": "Fri, 01 Dec 23 04:19:59 -0800",
+                        "timestamp": 1701433199,
+                    },
+                    "reportedEndTime": {
+                        "value": "Fri, 01 Dec 23 04:39:59 -0800",
+                        "timestamp": 1701434399,
+                    },
+                    "reportedDuration": 1200,
+                    "reportedStatus": {
+                        "value": 1,
+                        "label": "Normal watering cycle",
+                    },
+                    "reportedWaterUsage": {
+                        "value": 49.00048126864295,
+                        "unit": "gal",
+                    },
+                    "reportedStopReason": {
+                        "finishedNormally": True,
+                        "description": ["Finished normally"],
+                    },
+                    "reportedCurrent": {"value": 280, "unit": "mA"},
+                }
+            },
+        ]
+    }
+
+
 async def test_get_user(api: Hydrawise, mock_session, controller_json, zone_json):
     controller_json["zones"] = [zone_json]
     mock_session.execute.return_value = {
@@ -178,7 +297,7 @@ async def test_get_user(api: Hydrawise, mock_session, controller_json, zone_json
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
     assert "controllers {" in query
-    assert "zones {" in query
+    assert query.count("zones {") == 2
     assert user.id == 1234
     assert user.name == "My Name"
     assert user.email == "me@asdf.com"
@@ -201,7 +320,7 @@ async def test_get_user_no_zones(api: Hydrawise, mock_session, controller_json):
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
     assert "controllers {" in query
-    assert "zones {" not in query
+    assert query.count("zones {") == 1
     assert user.id == 1234
     assert user.name == "My Name"
     assert user.email == "me@asdf.com"
@@ -215,7 +334,7 @@ async def test_get_controllers(api: Hydrawise, mock_session, controller_json):
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
-    assert "zones {" in query
+    assert query.count("zones {") == 2
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.status.actual_water_time.value == timedelta(minutes=10)
@@ -229,7 +348,7 @@ async def test_get_controller(api: Hydrawise, mock_session, controller_json):
     query = print_ast(selector)
     assert "controller(" in query
     assert "controllerId: 9876" in query
-    assert "zones {" in query
+    assert query.count("zones {") == 2
 
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
@@ -408,3 +527,20 @@ async def test_get_water_flow_summary(
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
     assert "flowSummary(" in query
+
+
+async def test_get_watering_report(
+    api: Hydrawise, mock_session, controller_json, watering_report_json
+):
+    mock_session.execute.return_value = {
+        "controller": {"reports": watering_report_json}
+    }
+    ctrl = deserialize(Controller, controller_json)
+    report = await api.get_watering_report(
+        ctrl, datetime(2023, 12, 1, 0, 0, 0), datetime(2023, 12, 4, 0, 0, 0)
+    )
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert "reports" in query
+    assert "watering" in query
