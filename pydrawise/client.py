@@ -17,6 +17,7 @@ from .exceptions import MutationError
 from .schema import (
     Controller,
     DateTime,
+    LocalizedValueType,
     Sensor,
     SensorFlowSummary,
     StatusCodeAndSummary,
@@ -321,6 +322,8 @@ class Hydrawise(HydrawiseBase):
             raise ValueError(
                 f"Sensor with id={sensor.id} does not have any flow information"
             )
+        if sensors[0]["flowSummary"] is None:
+            return SensorFlowSummary(total_water_volume=LocalizedValueType(0.0, "gal"))
         return deserialize(SensorFlowSummary, sensors[0]["flowSummary"])
 
     async def get_watering_report(

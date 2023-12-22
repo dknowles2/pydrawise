@@ -4,6 +4,7 @@ from unittest.mock import create_autospec, patch
 from gql import Client
 from gql.client import AsyncClientSession
 from graphql import print_ast
+import pytest
 from pytest import fixture
 
 from pydrawise.auth import Auth
@@ -503,18 +504,26 @@ async def test_get_sensors(
     assert "sensors {" in query
 
 
+@pytest.mark.parametrize("scenario", [pytest.param("present"), pytest.param("missing")])
 async def test_get_water_flow_summary(
     api: Hydrawise,
     mock_session,
+    scenario,
     controller_json,
     flow_sensor_json,
     flow_summary_json,
 ):
-    mock_session.execute.return_value = {
-        "controller": {
-            "sensors": [flow_sensor_json | {"flowSummary": flow_summary_json}]
+    if scenario == "present":
+        mock_session.execute.return_value = {
+            "controller": {
+                "sensors": [flow_sensor_json | {"flowSummary": flow_summary_json}]
+            }
         }
-    }
+    else:
+        mock_session.execute.return_value = {
+            "controller": {"sensors": [flow_sensor_json | {"flowSummary": None}]}
+        }
+
     ctrl = deserialize(Controller, controller_json)
     sensor = deserialize(Sensor, flow_sensor_json)
     water_flow_summary = await api.get_water_flow_summary(
