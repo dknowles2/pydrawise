@@ -335,13 +335,35 @@ class Hydrawise(HydrawiseBase):
             self._schema.Controller.reports.select(
                 self._schema.Reports.watering(
                     **{
-                        "from": DateTime.to_json(start).timestamp,
-                        "until": DateTime.to_json(end).timestamp,
+                        "from": int(start.timestamp()),
+                        "until": int(end.timestamp()),
                     }
                 ).select(*get_selectors(self._schema, WateringReportEntry)),
             ),
         )
         result = await self._query(selector)
-        return deserialize(
+        entries = deserialize(
             list[WateringReportEntry], result["controller"]["reports"]["watering"]
+        )
+        # The call to watering() can return events outside of the provided time interval.
+        # Filter out events that happen before or after the provided time interval.
+        return list(
+            filter(
+                lambda entry: entry.run_event is not None
+                and entry.run_event.reported_start_time is not None
+                and entry.run_event.reported_end_time is not None
+                and (
+                    (
+                        start.timestamp()
+                        <= entry.run_event.reported_start_time.timestamp()
+                        <= end.timestamp()
+                    )
+                    or (
+                        start.timestamp()
+                        <= entry.run_event.reported_end_time.timestamp()
+                        <= end.timestamp()
+                    )
+                ),
+                entries,
+            )
         )
