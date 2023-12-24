@@ -87,8 +87,11 @@ def flow_sensor_json():
 
 
 @fixture
-def flow_summary_json():
-    yield {"totalWaterVolume": {"value": 23134.67952992029, "unit": "gal"}}
+def flow_summary_json(request):
+    if request.param:
+        yield {"totalWaterVolume": {"value": 23134.67952992029, "unit": "gal"}}
+    else:
+        yield None
 
 
 @fixture
@@ -504,25 +507,19 @@ async def test_get_sensors(
     assert "sensors {" in query
 
 
-@pytest.mark.parametrize("scenario", [pytest.param("present"), pytest.param("missing")])
+@pytest.mark.parametrize("flow_summary_json", (True, False), indirect=True)
 async def test_get_water_flow_summary(
     api: Hydrawise,
     mock_session,
-    scenario,
     controller_json,
     flow_sensor_json,
     flow_summary_json,
 ):
-    if scenario == "present":
-        mock_session.execute.return_value = {
-            "controller": {
-                "sensors": [flow_sensor_json | {"flowSummary": flow_summary_json}]
-            }
+    mock_session.execute.return_value = {
+        "controller": {
+            "sensors": [flow_sensor_json | {"flowSummary": flow_summary_json}]
         }
-    else:
-        mock_session.execute.return_value = {
-            "controller": {"sensors": [flow_sensor_json | {"flowSummary": None}]}
-        }
+    }
 
     ctrl = deserialize(Controller, controller_json)
     sensor = deserialize(Sensor, flow_sensor_json)
