@@ -4,6 +4,7 @@ from unittest.mock import create_autospec, patch
 from gql import Client
 from gql.client import AsyncClientSession
 from graphql import print_ast
+import pytest
 from pytest import fixture
 
 from pydrawise.auth import Auth
@@ -86,8 +87,11 @@ def flow_sensor_json():
 
 
 @fixture
-def flow_summary_json():
-    yield {"totalWaterVolume": {"value": 23134.67952992029, "unit": "gal"}}
+def flow_summary_json(request):
+    if request.param:
+        yield {"totalWaterVolume": {"value": 23134.67952992029, "unit": "gal"}}
+    else:
+        yield None
 
 
 @fixture
@@ -503,6 +507,7 @@ async def test_get_sensors(
     assert "sensors {" in query
 
 
+@pytest.mark.parametrize("flow_summary_json", (True, False), indirect=True)
 async def test_get_water_flow_summary(
     api: Hydrawise,
     mock_session,
@@ -515,6 +520,7 @@ async def test_get_water_flow_summary(
             "sensors": [flow_sensor_json | {"flowSummary": flow_summary_json}]
         }
     }
+
     ctrl = deserialize(Controller, controller_json)
     sensor = deserialize(Sensor, flow_sensor_json)
     water_flow_summary = await api.get_water_flow_summary(
