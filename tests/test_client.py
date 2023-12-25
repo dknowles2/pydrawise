@@ -258,12 +258,12 @@ def watering_report_json():
                     "standardProgram": None,
                     "advancedProgram": {"id": 4729362, "name": ""},
                     "reportedStartTime": {
-                        "value": "Fri, 01 Dec 23 04:19:59 -0800",
-                        "timestamp": 1701433199,
+                        "value": "Fri, 01 Nov 23 04:19:59 -0800",
+                        "timestamp": 1698797999,
                     },
                     "reportedEndTime": {
-                        "value": "Fri, 01 Dec 23 04:39:59 -0800",
-                        "timestamp": 1701434399,
+                        "value": "Fri, 01 Nov 23 04:39:59 -0800",
+                        "timestamp": 1698799199,
                     },
                     "reportedDuration": 1200,
                     "reportedStatus": {
@@ -550,3 +550,4 @@ async def test_get_watering_report(
     query = print_ast(selector)
     assert "reports" in query
     assert "watering" in query
+    assert len(report) == 1
