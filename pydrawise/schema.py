@@ -384,7 +384,7 @@ class ZoneStatus:
 
     relative_water_balance: int = 0
     suspended_until: Optional[datetime] = field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
+        metadata=DateTime.conversion(), default=None
     )
 
 
@@ -560,10 +560,10 @@ class RunEvent:
         default_factory=AdvancedProgramRef
     )
     reported_start_time: Optional[datetime] = field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
+        metadata=DateTime.conversion(), default=None
     )
     reported_end_time: Optional[datetime] = field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
+        metadata=DateTime.conversion(), default=None
     )
     reported_duration: Optional[int] = field(
         metadata=_duration_conversion("seconds"), default=timedelta()
