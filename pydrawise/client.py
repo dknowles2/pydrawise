@@ -16,6 +16,7 @@ from .base import HydrawiseBase
 from .exceptions import MutationError
 from .schema import (
     Controller,
+    ControllerWaterUseSummary,
     DateTime,
     LocalizedValueType,
     Sensor,
@@ -301,8 +302,8 @@ class Hydrawise(HydrawiseBase):
             self._schema.Controller.sensors.select(
                 *get_selectors(self._schema, Sensor),
                 self._schema.Sensor.flowSummary(
-                    start=DateTime.to_json(start).timestamp,
-                    end=DateTime.to_json(end).timestamp,
+                    start=int(start.timestamp()),
+                    end=int(end.timestamp()),
                 ).select(*get_selectors(self._schema, SensorFlowSummary)),
             ),
         )
@@ -326,30 +327,15 @@ class Hydrawise(HydrawiseBase):
             return SensorFlowSummary(total_water_volume=LocalizedValueType(0.0, "gal"))
         return deserialize(SensorFlowSummary, sensors[0]["flowSummary"])
 
-    async def get_watering_report(
-        self, controller: Controller, start: datetime, end: datetime
+    @staticmethod
+    def _prune_watering_report_entries(
+        entries: list[WateringReportEntry], start: datetime, end: datetime
     ) -> list[WateringReportEntry]:
-        """Retrieves a watering report for the given controller and time period.
+        """Prune watering report entries to make sure they all fall inside the [start, end] time interval.
 
-        :param controller: The controller whose watering report to generate.
-        :param start: Start time.
-        :param end: End time."""
-        selector = self._schema.Query.controller(controllerId=controller.id).select(
-            self._schema.Controller.reports.select(
-                self._schema.Reports.watering(
-                    **{
-                        "from": int(start.timestamp()),
-                        "until": int(end.timestamp()),
-                    }
-                ).select(*get_selectors(self._schema, WateringReportEntry)),
-            ),
-        )
-        result = await self._query(selector)
-        entries = deserialize(
-            list[WateringReportEntry], result["controller"]["reports"]["watering"]
-        )
-        # The call to watering() can return events outside of the provided time interval.
-        # Filter out events that happen before or after the provided time interval.
+        The call to watering() can return events outside of the provided time interval.
+        Filter out events that happen before or after the provided time interval.
+        """
         return list(
             filter(
                 lambda entry: entry.run_event is not None
@@ -370,3 +356,101 @@ class Hydrawise(HydrawiseBase):
                 entries,
             )
         )
+
+    async def get_watering_report(
+        self, controller: Controller, start: datetime, end: datetime
+    ) -> list[WateringReportEntry]:
+        """Retrieves a watering report for the given controller and time period.
+
+        :param controller: The controller whose watering report to generate.
+        :param start: Start time.
+        :param end: End time."""
+        selector = self._schema.Query.controller(controllerId=controller.id).select(
+            self._schema.Controller.reports.select(
+                self._schema.Reports.watering(
+                    **{
+                        "from": int(start.timestamp()),
+                        "until": int(end.timestamp()),
+                    }
+                ).select(*get_selectors(self._schema, WateringReportEntry)),
+            ),
+        )
+        result = await self._query(selector)
+        return Hydrawise._prune_watering_report_entries(
+            deserialize(
+                list[WateringReportEntry], result["controller"]["reports"]["watering"]
+            ),
+            start,
+            end,
+        )
+
+    async def get_water_use_summary(
+        self, controller: Controller, start: datetime, end: datetime
+    ) -> ControllerWaterUseSummary:
+        """Calculate the water use for the given controller and time period.
+
+        :param controller: The controller whose water use to report.
+        :param start: Start time
+        :param end: End time."""
+        selector = self._schema.Query.controller(controllerId=controller.id).select(
+            self._schema.Controller.sensors.select(
+                *get_selectors(self._schema, Sensor),
+                self._schema.Sensor.flowSummary(
+                    start=int(start.timestamp()),
+                    end=int(end.timestamp()),
+                ).select(*get_selectors(self._schema, SensorFlowSummary)),
+            ),
+            self._schema.Controller.reports.select(
+                self._schema.Reports.watering(
+                    **{
+                        "from": int(start.timestamp()),
+                        "until": int(end.timestamp()),
+                    }
+                ).select(*get_selectors(self._schema, WateringReportEntry)),
+            ),
+        )
+        result = await self._query(selector)
+        summary = ControllerWaterUseSummary()
+
+        # watering report entries
+        entries = Hydrawise._prune_watering_report_entries(
+            deserialize(
+                list[WateringReportEntry], result["controller"]["reports"]["watering"]
+            ),
+            start,
+            end,
+        )
+
+        # total active water use
+        for entry in entries:
+            if (
+                entry.run_event is not None
+                and entry.run_event.zone is not None
+                and entry.run_event.reported_water_usage is not None
+            ):
+                active_use = entry.run_event.reported_water_usage.value
+                if summary.unit == "":
+                    summary.unit = entry.run_event.reported_water_usage.unit
+                summary.total_active_use += active_use
+                summary.active_use_by_zone.setdefault(entry.run_event.zone.id, 0)
+                summary.active_use_by_zone[entry.run_event.zone.id] += active_use
+
+        # total active and inactive water use
+        for sensor in result["controller"]["sensors"]:
+            if (
+                "flow meter" in sensor["model"]["name"].lower()
+                and "flowSummary" in sensor
+                and (flow_summary := sensor["flowSummary"]) is not None
+            ):
+                summary.total_use += flow_summary["totalWaterVolume"]["value"]
+                if summary.unit == "":
+                    summary.unit = flow_summary["totalWaterVolume"]["unit"]
+
+        # Correct for inaccuracies. The watering report and flow summaries are not always
+        # updated with the same frequency.
+        if summary.total_use > summary.total_active_use:
+            summary.total_inactive_use = summary.total_use - summary.total_active_use
+        else:
+            summary.total_use = summary.total_active_use
+
+        return summary

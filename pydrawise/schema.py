@@ -629,3 +629,18 @@ class DaysOfWeekEnum(AutoEnum):
     THURSDAY = auto()
     FRIDAY = auto()
     SATURDAY = auto()
+
+
+@dataclass
+class ControllerWaterUseSummary:
+    """Water use summary for a controller.
+
+    Active use means water use during a scheduled or manual zone run.
+    Inactive use means water use when no zone was actively running. This can happen when
+    faucets (i.e., garden hoses) are installed downstream of the flow meter."""
+
+    total_use: float = 0.0
+    total_active_use: float = 0.0
+    total_inactive_use: float = 0.0
+    active_use_by_zone: dict[int, float] = field(default_factory=dict)
+    unit: str = ""
