@@ -41,6 +41,36 @@ def _get_schema() -> GraphQLSchema:
     return build_ast_schema(parse(schema_text))
 
 
+def _prune_watering_report_entries(
+    entries: list[WateringReportEntry], start: datetime, end: datetime
+) -> list[WateringReportEntry]:
+    """Prune watering report entries to make sure they all fall inside the [start, end] time interval.
+
+    The call to watering() can return events outside of the provided time interval.
+    Filter out events that happen before or after the provided time interval.
+    """
+    return list(
+        filter(
+            lambda entry: entry.run_event is not None
+            and entry.run_event.reported_start_time is not None
+            and entry.run_event.reported_end_time is not None
+            and (
+                (
+                    start.timestamp()
+                    <= entry.run_event.reported_start_time.timestamp()
+                    <= end.timestamp()
+                )
+                or (
+                    start.timestamp()
+                    <= entry.run_event.reported_end_time.timestamp()
+                    <= end.timestamp()
+                )
+            ),
+            entries,
+        )
+    )
+
+
 class Hydrawise(HydrawiseBase):
     """Client library for interacting with Hydrawise sprinkler controllers.
 
@@ -327,36 +357,6 @@ class Hydrawise(HydrawiseBase):
             return SensorFlowSummary(total_water_volume=LocalizedValueType(0.0, "gal"))
         return deserialize(SensorFlowSummary, sensors[0]["flowSummary"])
 
-    @staticmethod
-    def _prune_watering_report_entries(
-        entries: list[WateringReportEntry], start: datetime, end: datetime
-    ) -> list[WateringReportEntry]:
-        """Prune watering report entries to make sure they all fall inside the [start, end] time interval.
-
-        The call to watering() can return events outside of the provided time interval.
-        Filter out events that happen before or after the provided time interval.
-        """
-        return list(
-            filter(
-                lambda entry: entry.run_event is not None
-                and entry.run_event.reported_start_time is not None
-                and entry.run_event.reported_end_time is not None
-                and (
-                    (
-                        start.timestamp()
-                        <= entry.run_event.reported_start_time.timestamp()
-                        <= end.timestamp()
-                    )
-                    or (
-                        start.timestamp()
-                        <= entry.run_event.reported_end_time.timestamp()
-                        <= end.timestamp()
-                    )
-                ),
-                entries,
-            )
-        )
-
     async def get_watering_report(
         self, controller: Controller, start: datetime, end: datetime
     ) -> list[WateringReportEntry]:
@@ -376,7 +376,7 @@ class Hydrawise(HydrawiseBase):
             ),
         )
         result = await self._query(selector)
-        return Hydrawise._prune_watering_report_entries(
+        return _prune_watering_report_entries(
             deserialize(
                 list[WateringReportEntry], result["controller"]["reports"]["watering"]
             ),
@@ -413,7 +413,7 @@ class Hydrawise(HydrawiseBase):
         summary = ControllerWaterUseSummary()
 
         # watering report entries
-        entries = Hydrawise._prune_watering_report_entries(
+        entries = _prune_watering_report_entries(
             deserialize(
                 list[WateringReportEntry], result["controller"]["reports"]["watering"]
             ),
@@ -432,13 +432,13 @@ class Hydrawise(HydrawiseBase):
                 if summary.unit == "":
                     summary.unit = entry.run_event.reported_water_usage.unit
                 summary.total_active_use += active_use
-                summary.active_use_by_zone.setdefault(entry.run_event.zone.id, 0)
-                summary.active_use_by_zone[entry.run_event.zone.id] += active_use
+                summary.active_use_by_zone_id.setdefault(entry.run_event.zone.id, 0)
+                summary.active_use_by_zone_id[entry.run_event.zone.id] += active_use
 
         # total active and inactive water use
         for sensor in result["controller"]["sensors"]:
             if (
-                "flow meter" in sensor["model"]["name"].lower()
+                "FLOW" in sensor["model"]["sensorType"]
                 and "flowSummary" in sensor
                 and (flow_summary := sensor["flowSummary"]) is not None
             ):

@@ -53,6 +53,7 @@ def rain_sensor_json():
             "delay": 0,
             "divisor": 0,
             "flowRate": 0,
+            "sensorType": "LEVEL_CLOSED",
         },
         "status": {
             "waterFlow": None,
@@ -75,6 +76,7 @@ def flow_sensor_json():
             "delay": 0,
             "divisor": 0.52834,
             "flowRate": 3.7854,
+            "sensorType": "FLOW",
         },
         "status": {
             "waterFlow": {
@@ -578,6 +580,9 @@ async def test_get_water_use_summary(
     assert "reports" in query
     assert "watering" in query
     assert "flowSummary(" in query
-    assert summary.active_use_by_zone[5955343] == 34.000263855044786
+    assert summary.active_use_by_zone_id[5955343] == 34.000263855044786
     assert summary.total_active_use == 34.000263855044786
+    assert summary.total_inactive_use == (
+        23100.679266065246 if flow_summary_json else 0.0
+    )
     assert summary.unit == "gal"

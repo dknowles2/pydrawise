@@ -463,6 +463,15 @@ class ControllerHardware:
     firmware: list[ControllerFirmware] = field(default_factory=list)
 
 
+class CustomSensorTypeEnum(AutoEnum):
+    """A value for a sensor type."""
+
+    LEVEL_OPEN = auto()
+    LEVEL_CLOSED = auto()
+    FLOW = auto()
+    THRESHOLD = auto()
+
+
 @dataclass
 class SensorModel:
     """Information about a sensor model."""
@@ -477,6 +486,7 @@ class SensorModel:
     )
     divisor: float = 0.0
     flow_rate: float = 0.0
+    sensor_type: Optional[CustomSensorTypeEnum] = None
 
 
 @dataclass
@@ -642,5 +652,5 @@ class ControllerWaterUseSummary:
     total_use: float = 0.0
     total_active_use: float = 0.0
     total_inactive_use: float = 0.0
-    active_use_by_zone: dict[int, float] = field(default_factory=dict)
+    active_use_by_zone_id: dict[int, float] = field(default_factory=dict)
     unit: str = ""
