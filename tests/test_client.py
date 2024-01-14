@@ -53,6 +53,7 @@ def rain_sensor_json():
             "delay": 0,
             "divisor": 0,
             "flowRate": 0,
+            "sensorType": "LEVEL_CLOSED",
         },
         "status": {
             "waterFlow": None,
@@ -75,6 +76,7 @@ def flow_sensor_json():
             "delay": 0,
             "divisor": 0.52834,
             "flowRate": 3.7854,
+            "sensorType": "FLOW",
         },
         "status": {
             "waterFlow": {
@@ -551,3 +553,36 @@ async def test_get_watering_report(
     assert "reports" in query
     assert "watering" in query
     assert len(report) == 1
+
+
+@pytest.mark.parametrize("flow_summary_json", (True, False), indirect=True)
+async def test_get_water_use_summary(
+    api: Hydrawise,
+    mock_session,
+    controller_json,
+    watering_report_json,
+    flow_sensor_json,
+    flow_summary_json,
+):
+    mock_session.execute.return_value = {
+        "controller": {
+            "reports": watering_report_json,
+            "sensors": [flow_sensor_json | {"flowSummary": flow_summary_json}],
+        }
+    }
+    ctrl = deserialize(Controller, controller_json)
+    summary = await api.get_water_use_summary(
+        ctrl, datetime(2023, 12, 1, 0, 0, 0), datetime(2023, 12, 4, 0, 0, 0)
+    )
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert "reports" in query
+    assert "watering" in query
+    assert "flowSummary(" in query
+    assert summary.active_use_by_zone_id[5955343] == 34.000263855044786
+    assert summary.total_active_use == 34.000263855044786
+    assert summary.total_inactive_use == (
+        23100.679266065246 if flow_summary_json else 0.0
+    )
+    assert summary.unit == "gal"
