@@ -320,9 +320,8 @@ class TestLegacyHydrawiseAsync:
                 assert zones[2].name == "Rotary - Front"
                 assert zones[2].number == 3
                 assert zones[2].scheduled_runs.current_run is None
-                assert zones[2].status.suspended_until.end_time == datetime(
-                    2072, 12, 19, 1, 0
-                )
+                assert zones[2].scheduled_runs.next_run is None
+                assert zones[2].status.suspended_until.end_time == datetime.max
 
     async def test_start_zone(self, success_status: dict) -> None:
         """Test the start_zone method."""
