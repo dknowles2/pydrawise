@@ -231,23 +231,22 @@ def _controller_from_json(controller_json: dict) -> Controller:
 def _zone_from_json(zone_json: dict) -> Zone:
     current_run = None
     next_run = None
+    suspended_until = None
     if zone_json["time"] == 1:
         current_run = ScheduledZoneRun(
             remaining_time=timedelta(seconds=zone_json["run"]),
         )
+    elif zone_json["time"] == 1576800000:
+        suspended_until = ZoneSuspension(end_time=datetime.max)
     else:
-        start_time = datetime.now() + timedelta(seconds=zone_json["time"])
+        now = datetime.now().replace(microsecond=0)
+        start_time = now + timedelta(seconds=zone_json["time"])
         duration = timedelta(seconds=zone_json["run"])
         next_run = ScheduledZoneRun(
             start_time=start_time,
             end_time=start_time + duration,
             normal_duration=duration,
             duration=duration,
-        )
-    suspended_until = None
-    if zone_json["time"] == 1576800000:
-        suspended_until = ZoneSuspension(
-            end_time=datetime.now() + timedelta(seconds=zone_json["time"]),
         )
     return Zone(
         id=zone_json["relay_id"],
