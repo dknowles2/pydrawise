@@ -1,7 +1,7 @@
 aiohttp==3.9.5
 aioresponses==0.7.6
 apischema==0.18.1
-freezegun==1.4.0
+freezegun==1.5.0
 gql==3.5.0
 graphql-core==3.2.3
 pytest==8.1.0
