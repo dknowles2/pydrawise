@@ -6,4 +6,4 @@ gql==3.5.0
 graphql-core==3.2.3
 pytest==8.2.0
 pytest-asyncio==0.23.6
-requests==2.31.0
+requests==2.32.1
