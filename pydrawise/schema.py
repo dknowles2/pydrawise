@@ -73,14 +73,14 @@ def _list_conversion(element_conversion) -> conversion:
     )
 
 
-class AutoEnum(Enum):
+class _AutoEnum(Enum):
     @staticmethod
     def _generate_next_value_(name, start, count, last_values):
         """Determines the value for an auto() call."""
         return name
 
 
-class StatusCodeEnum(AutoEnum):
+class StatusCodeEnum(_AutoEnum):
     """Response status codes."""
 
     OK = auto()
@@ -100,8 +100,8 @@ class StatusCodeAndSummary:
 class LocalizedValueType:
     """A localized value."""
 
-    value: float = 0.0
-    unit: str = ""
+    value: Optional[float] = 0.0
+    unit: Optional[str] = ""
 
 
 @dataclass
@@ -242,7 +242,7 @@ class AdvancedProgram(Program):
     run_time_group: Optional[RunTimeGroup] = field(default_factory=RunTimeGroup)
 
 
-class AdvancedProgramDayPatternEnum(AutoEnum):
+class AdvancedProgramDayPatternEnum(_AutoEnum):
     """A value for an advanced watering program day pattern."""
 
     EVEN = auto()
@@ -333,8 +333,8 @@ class StandardWateringSettings(WateringSettings):
 class RunStatus:
     """Run status."""
 
-    value: int = 0
-    label: str = ""
+    value: Optional[int] = 0
+    label: Optional[str] = ""
 
 
 @dataclass
@@ -375,7 +375,7 @@ class PastZoneRuns:
     """Previous zone runs."""
 
     last_run: Optional[ScheduledZoneRun] = None
-    runs: list[ScheduledZoneRun] = field(default_factory=list)
+    runs: Optional[list[ScheduledZoneRun]] = field(default_factory=list)
 
 
 @dataclass
@@ -393,10 +393,10 @@ class ZoneSuspension:
     """A zone suspension."""
 
     id: int = 0
-    start_time: datetime = field(
+    start_time: Optional[datetime] = field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
-    end_time: datetime = field(
+    end_time: Optional[datetime] = field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
 
@@ -419,7 +419,7 @@ class ProgramStartTimeApplication:
     """Application of a start time to a program."""
 
     all: bool = False
-    zones: list[BaseZone] = field(default_factory=list)
+    zones: Optional[list[BaseZone]] = field(default_factory=list)
 
 
 @dataclass
@@ -441,7 +441,7 @@ class ControllerFirmware:
     """Information about the controller's firmware."""
 
     type: str = ""
-    version: str = ""
+    version: Optional[str] = ""
 
 
 @dataclass
@@ -456,14 +456,14 @@ class ControllerModel:
 class ControllerHardware:
     """Information about a controller's hardware."""
 
-    serial_number: str = ""
-    version: str = ""
-    status: str = ""
-    model: ControllerModel = field(default_factory=ControllerModel)
-    firmware: list[ControllerFirmware] = field(default_factory=list)
+    serial_number: Optional[str] = ""
+    version: Optional[str] = ""
+    status: Optional[str] = ""
+    model: Optional[ControllerModel] = field(default_factory=ControllerModel)
+    firmware: Optional[list[ControllerFirmware]] = field(default_factory=list)
 
 
-class CustomSensorTypeEnum(AutoEnum):
+class CustomSensorTypeEnum(_AutoEnum):
     """A value for a sensor type."""
 
     LEVEL_OPEN = auto()
@@ -477,15 +477,15 @@ class SensorModel:
     """Information about a sensor model."""
 
     id: int = 0
-    name: str = ""
-    active: bool = False
-    off_level: int = 0
-    off_timer: int = 0
-    delay: timedelta = field(
+    name: Optional[str] = ""
+    active: Optional[bool] = False
+    off_level: Optional[int] = 0
+    off_timer: Optional[int] = 0
+    delay: Optional[timedelta] = field(
         metadata=_duration_conversion("minutes"), default=timedelta()
     )
-    divisor: float = 0.0
-    flow_rate: float = 0.0
+    divisor: Optional[float] = 0.0
+    flow_rate: Optional[float] = 0.0
     sensor_type: Optional[CustomSensorTypeEnum] = None
 
 
@@ -501,7 +501,9 @@ class SensorStatus:
 class SensorFlowSummary:
     """Summary of a sensor's water flow."""
 
-    total_water_volume: LocalizedValueType = field(default_factory=LocalizedValueType)
+    total_water_volume: Optional[LocalizedValueType] = field(
+        default_factory=LocalizedValueType
+    )
 
 
 @dataclass
@@ -515,21 +517,21 @@ class Sensor:
 
 
 @dataclass
-class WaterTime:
+class _WaterTime:
     """A water time duration."""
 
-    value: timedelta = field(
+    value: Optional[timedelta] = field(
         metadata=_duration_conversion("minutes"), default=timedelta()
     )
 
 
 @dataclass
-class ActualWaterTime(WaterTime):
+class ActualWaterTime(_WaterTime):
     """An actual water time duration."""
 
 
 @dataclass
-class NormalWaterTime(WaterTime):
+class NormalWaterTime(_WaterTime):
     """A normal water time duration."""
 
 
@@ -539,8 +541,12 @@ class ControllerStatus:
 
     summary: str = ""
     online: bool = False
-    actual_water_time: ActualWaterTime = field(default_factory=ActualWaterTime)
-    normal_water_time: NormalWaterTime = field(default_factory=NormalWaterTime)
+    actual_water_time: Optional[ActualWaterTime] = field(
+        default_factory=ActualWaterTime
+    )
+    normal_water_time: Optional[NormalWaterTime] = field(
+        default_factory=NormalWaterTime
+    )
     last_contact: Optional[DateTime] = None
 
 
@@ -602,19 +608,21 @@ class Controller:
     """A Hydrawise controller."""
 
     id: int = 0
-    name: str = ""
-    software_version: str = ""
+    name: Optional[str] = ""
+    software_version: Optional[str] = ""
     hardware: ControllerHardware = field(default_factory=ControllerHardware)
-    last_contact_time: datetime = field(
+    last_contact_time: Optional[datetime] = field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
-    last_action: datetime = field(
+    last_action: Optional[datetime] = field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
-    online: bool = False
-    sensors: list[Sensor] = field(default_factory=list)
-    zones: list[Zone] = field(default_factory=list)
-    permitted_program_start_times: list[ProgramStartTime] = field(default_factory=list)
+    online: Optional[bool] = False
+    sensors: Optional[list[Sensor]] = field(default_factory=list)
+    zones: Optional[list[Zone]] = field(default_factory=list)
+    permitted_program_start_times: Optional[list[ProgramStartTime]] = field(
+        default_factory=list
+    )
     status: ControllerStatus = None
 
 
@@ -625,11 +633,11 @@ class User:
     id: int = 0
     customer_id: int = 0
     name: str = ""
-    email: str = ""
-    controllers: list[Controller] = field(default_factory=list)
+    email: Optional[str] = ""
+    controllers: Optional[list[Controller]] = field(default_factory=list)
 
 
-class DaysOfWeekEnum(AutoEnum):
+class DaysOfWeekEnum(_AutoEnum):
     """All days of the week."""
 
     SUNDAY = auto()
@@ -647,7 +655,10 @@ class ControllerWaterUseSummary:
 
     Active use means water use during a scheduled or manual zone run.
     Inactive use means water use when no zone was actively running. This can happen when
-    faucets (i.e., garden hoses) are installed downstream of the flow meter."""
+    faucets (i.e., garden hoses) are installed downstream of the flow meter.
+    """
+
+    _pydrawise_type = True
 
     total_use: float = 0.0
     total_active_use: float = 0.0
