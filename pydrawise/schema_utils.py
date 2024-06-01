@@ -53,12 +53,18 @@ def _fields(cls, skip: list[str]) -> Iterator[_Field]:
         if origin == Union:
             # Drop None from Optional fields.
             field_types = set(get_args(field_type)) - {NoneType}
-            if len(field_types) == 1:
-                [field_type] = field_types
-            else:
+
+            # Actual unions just yield the union.
+            if len(field_types) > 1:
                 yield _Field(f.name, list(field_types))
                 continue
-        elif origin in (List, list):
+
+            # If we have only one type left after dropping None, this could
+            # still be a list. Perform the normal extraction routine.
+            [field_type] = field_types
+            origin = get_origin(field_type)
+
+        if origin in (List, list):
             # Extract the contained type.
             # We assume all list types are uniform.
             [field_type] = get_args(field_type)
