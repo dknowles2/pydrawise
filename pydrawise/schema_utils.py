@@ -82,7 +82,7 @@ def get_selectors(
     ret = []
     skip_now, skip_later = parse_skip(skip_fields or [])
     for f in _fields(cls, skip_now):
-        dsl_field = getattr(getattr(ds, get_type_name(cls).graphql), f.name)
+        dsl_field = getattr(getattr(ds, get_type_name(cls).graphql), f.name)  # type: ignore[arg-type]
         if len(f.types) == 1:
             [f_type] = f.types
             if is_dataclass(f_type):
@@ -100,7 +100,7 @@ def get_selectors(
                     raise NotImplementedError
                 sel_args.append(
                     DSLInlineFragment()
-                    .on(getattr(ds, get_type_name(f_type).graphql))
+                    .on(getattr(ds, get_type_name(f_type).graphql))  # type: ignore[arg-type]
                     .select(*get_selectors(ds, f_type))
                 )
             ret.append(getattr(dsl_field, "select")(*sel_args))
@@ -115,8 +115,9 @@ def parse_skip(skip: list[str] | None = None) -> tuple[list[str], dict[str, list
 
     :meta private:
     """
-    now, later = [], {}
-    for item in skip:
+    now: list[str] = []
+    later: dict[str, list[str]] = {}
+    for item in skip or []:
         field, _, descendants = item.partition(".")
         if descendants:
             later.setdefault(field, []).append(descendants)

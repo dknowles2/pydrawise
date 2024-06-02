@@ -5,6 +5,7 @@ This library should remain compatible with https://github.com/ptcryan/hydrawiser
 
 from datetime import datetime, timedelta
 import time
+from typing import Any
 
 import aiohttp
 import requests
@@ -237,7 +238,7 @@ def _zone_from_json(zone_json: dict) -> Zone:
             remaining_time=timedelta(seconds=zone_json["run"]),
         )
     elif zone_json["time"] == 1576800000:
-        suspended_until = ZoneSuspension(end_time=datetime.max)
+        suspended_until = datetime.max
     else:
         now = datetime.now().replace(microsecond=0)
         start_time = now + timedelta(seconds=zone_json["time"])
@@ -270,8 +271,8 @@ class LegacyHydrawise:
 
     def __init__(self, user_token: str, load_on_init: bool = True) -> None:
         self._api_key = user_token
-        self.controller_info = {}
-        self.controller_status = {}
+        self.controller_info: dict[str, Any] = {}
+        self.controller_status: dict[str, Any] = {}
         if load_on_init:
             self.update_controller_info()
 
@@ -350,7 +351,7 @@ class LegacyHydrawise:
         return self._get("statusschedule.php")
 
     def suspend_zone(self, days: int, zone: int | None = None) -> dict:
-        params = {}
+        params: dict[str, Any] = {}
 
         if days > 0:
             params["custom"] = int(time.time() + (days * 24 * 60 * 60))
@@ -370,7 +371,7 @@ class LegacyHydrawise:
         return self._get("setzone.php", **params)
 
     def run_zone(self, minutes: int, zone: int | None = None) -> dict:
-        params = {}
+        params: dict[str, Any] = {}
 
         if zone is not None:
             if not self.relays:
