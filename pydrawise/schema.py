@@ -9,11 +9,19 @@ from typing import Optional, Union
 
 from apischema import type_name
 from apischema.conversions import Conversion
-from apischema.metadata import conversion
+from apischema.metadata import conversion, fall_back_on_default
 
 # The names in this file are from the GraphQL schema and don't always adhere to
 # the naming scheme that pylint expects.
 # pylint: disable=invalid-name
+
+
+def _optional_field(*args, **kwargs):
+    if "metadata" in kwargs:
+        kwargs["metadata"] |= fall_back_on_default
+    else:
+        kwargs["metadata"] = fall_back_on_default
+    return field(*args, **kwargs)
 
 
 def default_datetime() -> datetime:
@@ -54,7 +62,7 @@ def _time_conversion() -> conversion:
         Conversion(
             lambda s: datetime.strptime(s, "%H:%M").time(), source=str, target=time
         ),
-        Conversion(lambda t: time.strftime("%H:%M"), source=time, target=str),
+        Conversion(lambda t: t.strftime("%H:%M"), source=time, target=str),
     )
 
 
@@ -100,8 +108,8 @@ class StatusCodeAndSummary:
 class LocalizedValueType:
     """A localized value."""
 
-    value: Optional[float] = 0.0
-    unit: Optional[str] = ""
+    value: float = _optional_field(default=0.0)
+    unit: str = _optional_field(default="")
 
 
 @dataclass
@@ -109,7 +117,7 @@ class SelectedOption:
     """A generic option."""
 
     value: int = 0
-    label: Optional[str] = ""
+    label: str = _optional_field(default="")
 
 
 @dataclass
@@ -175,7 +183,7 @@ class RunTimeGroup:
     """The runtime of a watering program group."""
 
     id: int = 0
-    name: Optional[str] = ""
+    name: str = _optional_field(default="")
     duration: timedelta = field(
         metadata=_duration_conversion("minutes"), default=timedelta()
     )
@@ -185,8 +193,8 @@ class RunTimeGroup:
 class WateringPeriodicity:
     """Watering frequency description (e.g., "Every Program Start Time")."""
 
-    value: Optional[int] = 0
-    label: Optional[str] = ""
+    value: int = _optional_field(default=0)
+    label: str = _optional_field(default="")
 
 
 @dataclass
@@ -236,10 +244,10 @@ class AdvancedProgram(Program):
 
     zone_specific: bool = False
     advanced_program_id: int = 0
-    watering_frequency: Optional[ProgramWateringFrequency] = field(
+    watering_frequency: ProgramWateringFrequency = _optional_field(
         default_factory=ProgramWateringFrequency
     )
-    run_time_group: Optional[RunTimeGroup] = field(default_factory=RunTimeGroup)
+    run_time_group: RunTimeGroup = _optional_field(default_factory=RunTimeGroup)
 
 
 class AdvancedProgramDayPatternEnum(_AutoEnum):
@@ -269,7 +277,7 @@ class WateringSettings:
 class AdvancedWateringSettings(WateringSettings):
     """Advanced watering program settings."""
 
-    advanced_program: AdvancedProgram = None
+    advanced_program: Optional[AdvancedProgram] = None
 
 
 @dataclass
@@ -277,10 +285,10 @@ class AdvancedWateringSettings(WateringSettings):
 class TimeRange:
     """Time range units."""
 
-    valid_from: Optional[datetime] = field(
+    valid_from: datetime = _optional_field(
         metadata=_timestamp_conversion(), default_factory=datetime
     )
-    valid_to: Optional[datetime] = field(
+    valid_to: datetime = _optional_field(
         metadata=_timestamp_conversion(), default_factory=datetime
     )
 
@@ -299,14 +307,14 @@ class StandardProgramPeriodicity:
 class StandardProgram(Program):
     """A standard watering program."""
 
-    start_times: Optional[list[time]] = field(
+    start_times: list[time] = _optional_field(
         metadata=_list_conversion(_time_conversion()), default_factory=list
     )
     time_range: TimeRange = field(default_factory=TimeRange)
     ignore_rain_sensor: bool = False
     days_run: list[DaysOfWeekEnum] = field(default_factory=list)
     standard_program_day_pattern: str = ""
-    periodicity: Optional[StandardProgramPeriodicity] = field(
+    periodicity: StandardProgramPeriodicity = _optional_field(
         default_factory=StandardProgramPeriodicity
     )
 
@@ -333,15 +341,15 @@ class StandardWateringSettings(WateringSettings):
 class RunStatus:
     """Run status."""
 
-    value: Optional[int] = 0
-    label: Optional[str] = ""
+    value: int = _optional_field(default=0)
+    label: str = _optional_field(default="")
 
 
 @dataclass
 class ScheduledZoneRun:
     """A scheduled zone run."""
 
-    id: str = 0
+    id: str = ""
     start_time: datetime = field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
@@ -375,7 +383,7 @@ class PastZoneRuns:
     """Previous zone runs."""
 
     last_run: Optional[ScheduledZoneRun] = None
-    runs: Optional[list[ScheduledZoneRun]] = field(default_factory=list)
+    runs: list[ScheduledZoneRun] = _optional_field(default_factory=list)
 
 
 @dataclass
@@ -393,10 +401,10 @@ class ZoneSuspension:
     """A zone suspension."""
 
     id: int = 0
-    start_time: Optional[datetime] = field(
+    start_time: datetime = _optional_field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
-    end_time: Optional[datetime] = field(
+    end_time: datetime = _optional_field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
 
@@ -419,7 +427,7 @@ class ProgramStartTimeApplication:
     """Application of a start time to a program."""
 
     all: bool = False
-    zones: Optional[list[BaseZone]] = field(default_factory=list)
+    zones: list[BaseZone] = _optional_field(default_factory=list)
 
 
 @dataclass
@@ -428,7 +436,7 @@ class ProgramStartTime:
 
     id: int = 0
     time: time = field(metadata=_time_conversion(), default_factory=time)
-    watering_days: Optional[list[AdvancedProgramDayPatternEnum]] = field(
+    watering_days: list[AdvancedProgramDayPatternEnum] = _optional_field(
         default_factory=list
     )
     application: ProgramStartTimeApplication = field(
@@ -441,7 +449,7 @@ class ControllerFirmware:
     """Information about the controller's firmware."""
 
     type: str = ""
-    version: Optional[str] = ""
+    version: str = _optional_field(default="")
 
 
 @dataclass
@@ -456,11 +464,11 @@ class ControllerModel:
 class ControllerHardware:
     """Information about a controller's hardware."""
 
-    serial_number: Optional[str] = ""
-    version: Optional[str] = ""
-    status: Optional[str] = ""
-    model: Optional[ControllerModel] = field(default_factory=ControllerModel)
-    firmware: Optional[list[ControllerFirmware]] = field(default_factory=list)
+    serial_number: str = _optional_field(default="")
+    version: str = _optional_field(default="")
+    status: str = _optional_field(default="")
+    model: ControllerModel = _optional_field(default_factory=ControllerModel)
+    firmware: list[ControllerFirmware] = _optional_field(default_factory=list)
 
 
 class CustomSensorTypeEnum(_AutoEnum):
@@ -477,15 +485,15 @@ class SensorModel:
     """Information about a sensor model."""
 
     id: int = 0
-    name: Optional[str] = ""
-    active: Optional[bool] = False
-    off_level: Optional[int] = 0
-    off_timer: Optional[int] = 0
-    delay: Optional[timedelta] = field(
+    name: str = _optional_field(default="")
+    active: bool = _optional_field(default=False)
+    off_level: int = _optional_field(default=0)
+    off_timer: int = _optional_field(default=0)
+    delay: timedelta = _optional_field(
         metadata=_duration_conversion("minutes"), default=timedelta()
     )
-    divisor: Optional[float] = 0.0
-    flow_rate: Optional[float] = 0.0
+    divisor: float = _optional_field(default=0.0)
+    flow_rate: float = _optional_field(default=0.0)
     sensor_type: Optional[CustomSensorTypeEnum] = None
 
 
@@ -494,14 +502,14 @@ class SensorStatus:
     """Current status of a sensor."""
 
     water_flow: Optional[LocalizedValueType] = None
-    active: Optional[bool] = False
+    active: bool = _optional_field(default=False)
 
 
 @dataclass
 class SensorFlowSummary:
     """Summary of a sensor's water flow."""
 
-    total_water_volume: Optional[LocalizedValueType] = field(
+    total_water_volume: LocalizedValueType = _optional_field(
         default_factory=LocalizedValueType
     )
 
@@ -520,7 +528,7 @@ class Sensor:
 class _WaterTime:
     """A water time duration."""
 
-    value: Optional[timedelta] = field(
+    value: timedelta = _optional_field(
         metadata=_duration_conversion("minutes"), default=timedelta()
     )
 
@@ -541,10 +549,10 @@ class ControllerStatus:
 
     summary: str = ""
     online: bool = False
-    actual_water_time: Optional[ActualWaterTime] = field(
+    actual_water_time: ActualWaterTime = _optional_field(
         default_factory=ActualWaterTime
     )
-    normal_water_time: Optional[NormalWaterTime] = field(
+    normal_water_time: NormalWaterTime = _optional_field(
         default_factory=NormalWaterTime
     )
     last_contact: Optional[DateTime] = None
@@ -569,10 +577,10 @@ class RunEvent:
 
     id: str = ""
     zone: BaseZone = field(default_factory=BaseZone)
-    standard_program: Optional[StandardProgramRef] = field(
+    standard_program: StandardProgramRef = _optional_field(
         default_factory=StandardProgramRef
     )
-    advanced_program: Optional[AdvancedProgramRef] = field(
+    advanced_program: AdvancedProgramRef = _optional_field(
         default_factory=AdvancedProgramRef
     )
     reported_start_time: Optional[datetime] = field(
@@ -581,17 +589,17 @@ class RunEvent:
     reported_end_time: Optional[datetime] = field(
         metadata=DateTime.conversion(), default=None
     )
-    reported_duration: Optional[int] = field(
+    reported_duration: timedelta = _optional_field(
         metadata=_duration_conversion("seconds"), default=timedelta()
     )
-    reported_status: Optional[RunStatusType] = field(default_factory=RunStatusType)
-    reported_water_usage: Optional[LocalizedValueType] = field(
+    reported_status: RunStatusType = _optional_field(default_factory=RunStatusType)
+    reported_water_usage: LocalizedValueType = _optional_field(
         default_factory=LocalizedValueType
     )
-    reported_stop_reason: Optional[RunStopReasonType] = field(
+    reported_stop_reason: RunStopReasonType = _optional_field(
         default_factory=RunStopReasonType
     )
-    reported_current: Optional[LocalizedValueType] = field(
+    reported_current: LocalizedValueType = _optional_field(
         default_factory=LocalizedValueType
     )
 
@@ -600,7 +608,9 @@ class RunEvent:
 class WateringReportEntry:
     """A Hydrawise watering report entry."""
 
-    run_event: Optional[RunEvent] = field(default_factory=RunEvent)
+    run_event: RunEvent = _optional_field(
+        default_factory=RunEvent, metadata=fall_back_on_default
+    )
 
 
 @dataclass
@@ -608,22 +618,22 @@ class Controller:
     """A Hydrawise controller."""
 
     id: int = 0
-    name: Optional[str] = ""
-    software_version: Optional[str] = ""
+    name: str = _optional_field(default="")
+    software_version: str = _optional_field(default="")
     hardware: ControllerHardware = field(default_factory=ControllerHardware)
-    last_contact_time: Optional[datetime] = field(
+    last_contact_time: datetime = _optional_field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
-    last_action: Optional[datetime] = field(
+    last_action: datetime = _optional_field(
         metadata=DateTime.conversion(), default_factory=default_datetime
     )
-    online: Optional[bool] = False
-    sensors: Optional[list[Sensor]] = field(default_factory=list)
-    zones: Optional[list[Zone]] = field(default_factory=list)
-    permitted_program_start_times: Optional[list[ProgramStartTime]] = field(
+    online: bool = _optional_field(default=False)
+    sensors: list[Sensor] = _optional_field(default_factory=list)
+    zones: list[Zone] = _optional_field(default_factory=list)
+    permitted_program_start_times: list[ProgramStartTime] = _optional_field(
         default_factory=list
     )
-    status: ControllerStatus = None
+    status: Optional[ControllerStatus] = None
 
 
 @dataclass
@@ -633,8 +643,8 @@ class User:
     id: int = 0
     customer_id: int = 0
     name: str = ""
-    email: Optional[str] = ""
-    controllers: Optional[list[Controller]] = field(default_factory=list)
+    email: str = _optional_field(default="")
+    controllers: list[Controller] = _optional_field(default_factory=list)
 
 
 class DaysOfWeekEnum(_AutoEnum):
