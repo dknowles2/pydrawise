@@ -286,10 +286,10 @@ class TimeRange:
     """Time range units."""
 
     valid_from: datetime = _optional_field(
-        metadata=_timestamp_conversion(), default_factory=datetime
+        metadata=_timestamp_conversion(), default_factory=default_datetime
     )
     valid_to: datetime = _optional_field(
-        metadata=_timestamp_conversion(), default_factory=datetime
+        metadata=_timestamp_conversion(), default_factory=default_datetime
     )
 
 
