@@ -11,7 +11,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -27,7 +26,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install flake8 pytest
+        python -m pip install flake8 pytest mypy
         pip install -r requirements-test.txt
     - name: Lint with flake8
       run: |
@@ -38,3 +37,9 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+    - name: Run mypy
+      uses: sasanquaneuf/mypy-github-action@releases/v1
+      with:
+        checkName: 'build'   # NOTE: this needs to be the same as the job name
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
