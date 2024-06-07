@@ -249,32 +249,39 @@ def watering_report_json():
                     "reportedCurrent": {"value": 280, "unit": "mA"},
                 }
             },
+        ]
+    }
+
+
+@fixture
+def watering_report_without_sensor_json():
+    yield {
+        "watering": [
             {
                 "runEvent": {
-                    "id": "35220026903",
+                    "id": "35220026902",
                     "zone": {
-                        "id": 5955345,
-                        "number": {"value": 2, "label": "Zone 2"},
-                        "name": "Front Trees",
+                        "id": 5955343,
+                        "number": {"value": 1, "label": "Zone 1"},
+                        "name": "Front Lawn",
                     },
-                    "standardProgram": None,
-                    "advancedProgram": {"id": 4729362, "name": ""},
+                    "standardProgram": {
+                        "id": 343434,
+                        "name": "",
+                    },
+                    "advancedProgram": {"id": 4729361, "name": ""},
                     "reportedStartTime": {
-                        "value": "Fri, 01 Nov 23 04:19:59 -0800",
-                        "timestamp": 1698797999,
+                        "value": "Fri, 01 Dec 23 04:00:00 -0800",
+                        "timestamp": 1701432000,
                     },
                     "reportedEndTime": {
-                        "value": "Fri, 01 Nov 23 04:39:59 -0800",
-                        "timestamp": 1698799199,
+                        "value": "Fri, 01 Dec 23 04:20:00 -0800",
+                        "timestamp": 1701433200,
                     },
                     "reportedDuration": 1200,
                     "reportedStatus": {
                         "value": 1,
                         "label": "Normal watering cycle",
-                    },
-                    "reportedWaterUsage": {
-                        "value": 49.00048126864295,
-                        "unit": "gal",
                     },
                     "reportedStopReason": {
                         "finishedNormally": True,
@@ -588,3 +595,31 @@ async def test_get_water_use_summary(
     )
     assert summary.total_active_time == timedelta(seconds=1200)
     assert summary.unit == "gal"
+
+
+async def test_get_water_use_summary_without_sensor(
+    api: Hydrawise,
+    mock_session,
+    controller_json,
+    watering_report_without_sensor_json,
+):
+    mock_session.execute.return_value = {
+        "controller": {
+            "reports": watering_report_without_sensor_json,
+        }
+    }
+    ctrl = deserialize(Controller, controller_json)
+    ctrl.sensors = None
+    summary = await api.get_water_use_summary(
+        ctrl, datetime(2023, 12, 1, 0, 0, 0), datetime(2023, 12, 4, 0, 0, 0)
+    )
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert "reports" in query
+    assert "watering" in query
+    assert 5955343 not in summary.active_use_by_zone_id
+    assert summary.active_time_by_zone_id[5955343] == timedelta(seconds=1200)
+    assert summary.total_active_use == 0.0
+    assert summary.total_inactive_use == 0.0
+    assert summary.total_active_time == timedelta(seconds=1200)

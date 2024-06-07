@@ -665,7 +665,9 @@ class ControllerWaterUseSummary:
 
     Active use means water use during a scheduled or manual zone run.
     Inactive use means water use when no zone was actively running. This can happen when
-    faucets (i.e., garden hoses) are installed downstream of the flow meter.
+    faucets (i.e., garden hoses) are installed downstream of the flow meter. Water use
+    is only reported in the presence of a flow sensor. Active watering time is always
+    reported.
     """
 
     _pydrawise_type = True
