@@ -673,5 +673,9 @@ class ControllerWaterUseSummary:
     total_use: float = 0.0
     total_active_use: float = 0.0
     total_inactive_use: float = 0.0
+    total_active_time: timedelta = field(
+        metadata=_duration_conversion("seconds"), default=timedelta()
+    )
     active_use_by_zone_id: dict[int, float] = field(default_factory=dict)
+    active_time_by_zone_id: dict[int, timedelta] = field(default_factory=dict)
     unit: str = ""

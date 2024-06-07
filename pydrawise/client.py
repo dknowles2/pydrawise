@@ -1,6 +1,6 @@
 """Client library for interacting with Hydrawise's cloud API."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import cache
 from importlib import resources
 import logging
@@ -428,11 +428,17 @@ class Hydrawise(HydrawiseBase):
                 and entry.run_event.reported_water_usage is not None
             ):
                 active_use = entry.run_event.reported_water_usage.value
+                active_time = entry.run_event.reported_duration
                 if summary.unit == "":
                     summary.unit = entry.run_event.reported_water_usage.unit
                 summary.total_active_use += active_use
+                summary.total_active_time += active_time
                 summary.active_use_by_zone_id.setdefault(entry.run_event.zone.id, 0)
                 summary.active_use_by_zone_id[entry.run_event.zone.id] += active_use
+                summary.active_time_by_zone_id.setdefault(
+                    entry.run_event.zone.id, timedelta()
+                )
+                summary.active_time_by_zone_id[entry.run_event.zone.id] += active_time
 
         # total active and inactive water use
         for sensor in result["controller"]["sensors"]:

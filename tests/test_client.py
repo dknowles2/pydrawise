@@ -581,8 +581,10 @@ async def test_get_water_use_summary(
     assert "watering" in query
     assert "flowSummary(" in query
     assert summary.active_use_by_zone_id[5955343] == 34.000263855044786
+    assert summary.active_time_by_zone_id[5955343] == timedelta(seconds=1200)
     assert summary.total_active_use == 34.000263855044786
     assert summary.total_inactive_use == (
         23100.679266065246 if flow_summary_json else 0.0
     )
+    assert summary.total_active_time == timedelta(seconds=1200)
     assert summary.unit == "gal"
