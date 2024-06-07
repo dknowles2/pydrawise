@@ -436,10 +436,7 @@ class Hydrawise(HydrawiseBase):
 
         # total active water use and time
         summary = ControllerWaterUseSummary()
-        if has_flow_sensors:
-            summary.total_use = 0.0
-            summary.total_active_use = 0.0
-            summary.total_inactive_use = 0.0
+        total_active_use = 0.0
         for entry in entries:
             if entry.run_event is None or entry.run_event.zone is None:
                 continue
@@ -448,9 +445,7 @@ class Hydrawise(HydrawiseBase):
                 active_use = entry.run_event.reported_water_usage.value
                 if summary.unit is None:
                     summary.unit = entry.run_event.reported_water_usage.unit
-                summary.total_active_use = (
-                    cast(float, summary.total_active_use) + active_use
-                )
+                total_active_use += active_use
                 summary.active_use_by_zone_id.setdefault(entry.run_event.zone.id, 0)
                 summary.active_use_by_zone_id[entry.run_event.zone.id] += active_use
 
@@ -465,23 +460,26 @@ class Hydrawise(HydrawiseBase):
             return summary
 
         # total inactive water use
+        total_use = 0.0
+        total_inactive_use = 0.0
         for sensor_json in result["controller"]["sensors"]:
             sensor = deserialize(SensorWithFlowSummary, sensor_json)
             if (
                 sensor.flow_summary
                 and sensor.model.sensor_type == CustomSensorTypeEnum.FLOW
             ):
-                summary.total_use += sensor.flow_summary.total_water_volume.value
+                total_use += sensor.flow_summary.total_water_volume.value
                 if summary.unit is None:
                     summary.unit = sensor.flow_summary.total_water_volume.unit
 
         # Correct for inaccuracies. The watering report and flow summaries are not always
         # updated with the same frequency.
-        if cast(float, summary.total_use) > cast(float, summary.total_active_use):
-            summary.total_inactive_use = cast(float, summary.total_use) - cast(
-                float, summary.total_active_use
-            )
+        if total_use > total_active_use:
+            total_inactive_use = total_use - total_active_use
         else:
-            summary.total_use = summary.total_active_use
+            total_use = total_active_use
 
+        summary.total_use = total_use
+        summary.total_active_use = total_active_use
+        summary.total_inactive_use = total_inactive_use
         return summary
