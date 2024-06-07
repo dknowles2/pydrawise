@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from functools import cache
 from importlib import resources
 import logging
-from typing import cast
 
 from gql import Client
 from gql.dsl import DSLField, DSLMutation, DSLQuery, DSLSchema, DSLSelectable, dsl_gql
