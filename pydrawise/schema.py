@@ -525,6 +525,16 @@ class Sensor:
 
 
 @dataclass
+@type_name("Sensor")
+class SensorWithFlowSummary(Sensor):
+    """A Sensor, as returned by its `flowSummary` method."""
+
+    flow_summary: Optional[SensorFlowSummary] = _optional_field(
+        default_factory=SensorFlowSummary
+    )
+
+
+@dataclass
 class _WaterTime:
     """A water time duration."""
 
@@ -672,12 +682,12 @@ class ControllerWaterUseSummary:
 
     _pydrawise_type = True
 
-    total_use: float = 0.0
-    total_active_use: float = 0.0
-    total_inactive_use: float = 0.0
     total_active_time: timedelta = field(
         metadata=_duration_conversion("seconds"), default=timedelta()
     )
-    active_use_by_zone_id: dict[int, float] = field(default_factory=dict)
     active_time_by_zone_id: dict[int, timedelta] = field(default_factory=dict)
-    unit: str = ""
+    total_use: Optional[float] = None
+    total_active_use: Optional[float] = None
+    total_inactive_use: Optional[float] = None
+    active_use_by_zone_id: dict[int, float] = field(default_factory=dict)
+    unit: Optional[str] = None

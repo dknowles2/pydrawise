@@ -620,6 +620,6 @@ async def test_get_water_use_summary_without_sensor(
     assert "watering" in query
     assert 5955343 not in summary.active_use_by_zone_id
     assert summary.active_time_by_zone_id[5955343] == timedelta(seconds=1200)
-    assert summary.total_active_use == 0.0
-    assert summary.total_inactive_use == 0.0
+    assert summary.total_active_use == None
+    assert summary.total_inactive_use == None
     assert summary.total_active_time == timedelta(seconds=1200)
