@@ -437,6 +437,8 @@ class Hydrawise(HydrawiseBase):
         # total active water use and time
         summary = ControllerWaterUseSummary()
         total_active_use = 0.0
+        total_use = 0.0
+        total_inactive_use = 0.0
         for entry in entries:
             if entry.run_event is None or entry.run_event.zone is None:
                 continue
@@ -460,8 +462,6 @@ class Hydrawise(HydrawiseBase):
             return summary
 
         # total inactive water use
-        total_use = 0.0
-        total_inactive_use = 0.0
         for sensor_json in result["controller"]["sensors"]:
             sensor = deserialize(SensorWithFlowSummary, sensor_json)
             if (
