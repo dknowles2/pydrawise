@@ -525,6 +525,16 @@ class Sensor:
 
 
 @dataclass
+@type_name("Sensor")
+class SensorWithFlowSummary(Sensor):
+    """A Sensor, as returned by its `flowSummary` method."""
+
+    flow_summary: Optional[SensorFlowSummary] = _optional_field(
+        default_factory=SensorFlowSummary
+    )
+
+
+@dataclass
 class _WaterTime:
     """A water time duration."""
 
@@ -665,13 +675,19 @@ class ControllerWaterUseSummary:
 
     Active use means water use during a scheduled or manual zone run.
     Inactive use means water use when no zone was actively running. This can happen when
-    faucets (i.e., garden hoses) are installed downstream of the flow meter.
+    faucets (i.e., garden hoses) are installed downstream of the flow meter. Water use
+    is only reported in the presence of a flow sensor. Active watering time is always
+    reported.
     """
 
     _pydrawise_type = True
 
-    total_use: float = 0.0
-    total_active_use: float = 0.0
-    total_inactive_use: float = 0.0
+    total_active_time: timedelta = field(
+        metadata=_duration_conversion("seconds"), default=timedelta()
+    )
+    active_time_by_zone_id: dict[int, timedelta] = field(default_factory=dict)
+    total_use: Optional[float] = None
+    total_active_use: Optional[float] = None
+    total_inactive_use: Optional[float] = None
     active_use_by_zone_id: dict[int, float] = field(default_factory=dict)
-    unit: str = ""
+    unit: Optional[str] = None

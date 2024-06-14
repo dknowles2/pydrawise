@@ -1,6 +1,6 @@
 """Client library for interacting with Hydrawise's cloud API."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import cache
 from importlib import resources
 import logging
@@ -16,10 +16,12 @@ from .exceptions import MutationError
 from .schema import (
     Controller,
     ControllerWaterUseSummary,
+    CustomSensorTypeEnum,
     DateTime,
     LocalizedValueType,
     Sensor,
     SensorFlowSummary,
+    SensorWithFlowSummary,
     StatusCodeAndSummary,
     User,
     WateringReportEntry,
@@ -391,14 +393,12 @@ class Hydrawise(HydrawiseBase):
         :param controller: The controller whose water use to report.
         :param start: Start time
         :param end: End time."""
-        selector = self._schema.Query.controller(controllerId=controller.id).select(
-            self._schema.Controller.sensors.select(
-                *get_selectors(self._schema, Sensor),
-                self._schema.Sensor.flowSummary(
-                    start=int(start.timestamp()),
-                    end=int(end.timestamp()),
-                ).select(*get_selectors(self._schema, SensorFlowSummary)),
-            ),
+        has_flow_sensors = controller.sensors and any(
+            s.model.sensor_type == CustomSensorTypeEnum.FLOW for s in controller.sensors
+        )
+        selectors = [
+            # Request the watering report that contains both the
+            # amount of water used as well as the watering time.
             self._schema.Controller.reports.select(
                 self._schema.Reports.watering(
                     **{
@@ -406,10 +406,23 @@ class Hydrawise(HydrawiseBase):
                         "until": int(end.timestamp()),
                     }
                 ).select(*get_selectors(self._schema, WateringReportEntry)),
-            ),
+            )
+        ]
+        if has_flow_sensors:
+            # Only request the flow summary in the presence of flow sensors
+            selectors.append(
+                self._schema.Controller.sensors.select(
+                    *get_selectors(self._schema, Sensor),
+                    self._schema.Sensor.flowSummary(
+                        start=int(start.timestamp()),
+                        end=int(end.timestamp()),
+                    ).select(*get_selectors(self._schema, SensorFlowSummary)),
+                )
+            )
+        selector = self._schema.Query.controller(controllerId=controller.id).select(
+            *selectors
         )
         result = await self._query(selector)
-        summary = ControllerWaterUseSummary()
 
         # watering report entries
         entries = _prune_watering_report_entries(
@@ -420,36 +433,52 @@ class Hydrawise(HydrawiseBase):
             end,
         )
 
-        # total active water use
+        # total active water use and time
+        summary = ControllerWaterUseSummary()
+        total_active_use = 0.0
+        total_use = 0.0
+        total_inactive_use = 0.0
         for entry in entries:
-            if (
-                entry.run_event is not None
-                and entry.run_event.zone is not None
-                and entry.run_event.reported_water_usage is not None
-            ):
+            if entry.run_event is None or entry.run_event.zone is None:
+                continue
+
+            if entry.run_event.reported_water_usage is not None and has_flow_sensors:
                 active_use = entry.run_event.reported_water_usage.value
-                if summary.unit == "":
+                if summary.unit is None:
                     summary.unit = entry.run_event.reported_water_usage.unit
-                summary.total_active_use += active_use
+                total_active_use += active_use
                 summary.active_use_by_zone_id.setdefault(entry.run_event.zone.id, 0)
                 summary.active_use_by_zone_id[entry.run_event.zone.id] += active_use
 
-        # total active and inactive water use
-        for sensor in result["controller"]["sensors"]:
+            active_time = entry.run_event.reported_duration
+            summary.total_active_time += active_time
+            summary.active_time_by_zone_id.setdefault(
+                entry.run_event.zone.id, timedelta()
+            )
+            summary.active_time_by_zone_id[entry.run_event.zone.id] += active_time
+
+        if not has_flow_sensors:
+            return summary
+
+        # total inactive water use
+        for sensor_json in result["controller"]["sensors"]:
+            sensor = deserialize(SensorWithFlowSummary, sensor_json)
             if (
-                "FLOW" in sensor["model"]["sensorType"]
-                and "flowSummary" in sensor
-                and (flow_summary := sensor["flowSummary"]) is not None
+                sensor.flow_summary
+                and sensor.model.sensor_type == CustomSensorTypeEnum.FLOW
             ):
-                summary.total_use += flow_summary["totalWaterVolume"]["value"]
-                if summary.unit == "":
-                    summary.unit = flow_summary["totalWaterVolume"]["unit"]
+                total_use += sensor.flow_summary.total_water_volume.value
+                if summary.unit is None:
+                    summary.unit = sensor.flow_summary.total_water_volume.unit
 
         # Correct for inaccuracies. The watering report and flow summaries are not always
         # updated with the same frequency.
-        if summary.total_use > summary.total_active_use:
-            summary.total_inactive_use = summary.total_use - summary.total_active_use
+        if total_use > total_active_use:
+            total_inactive_use = total_use - total_active_use
         else:
-            summary.total_use = summary.total_active_use
+            total_use = total_active_use
 
+        summary.total_use = total_use
+        summary.total_active_use = total_active_use
+        summary.total_inactive_use = total_inactive_use
         return summary
