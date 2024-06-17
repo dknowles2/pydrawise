@@ -647,6 +647,13 @@ class Controller:
 
 
 @dataclass
+class UnitsSummary:
+    """Summary of user unit preferences."""
+
+    units_name: str = ""
+
+
+@dataclass
 class User:
     """A Hydrawise user account."""
 
@@ -655,6 +662,7 @@ class User:
     name: str = ""
     email: str = _optional_field(default="")
     controllers: list[Controller] = _optional_field(default_factory=list)
+    units: UnitsSummary = field(default_factory=UnitsSummary)
 
 
 class DaysOfWeekEnum(_AutoEnum):
