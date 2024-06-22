@@ -350,7 +350,39 @@ async def test_get_controllers(api: Hydrawise, mock_session, controller_json):
     assert query.count("zones {") == 2
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
+    assert controller.status is not None
     assert controller.status.actual_water_time.value == timedelta(minutes=10)
+
+
+async def test_get_controllers_no_zones(api: Hydrawise, mock_session, controller_json):
+    mock_session.execute.return_value = {"me": {"controllers": [controller_json]}}
+    [controller] = await api.get_controllers(fetch_zones=False)
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert query.count("zones {") == 1
+    assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
+    assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
+    assert controller.status is not None
+    assert controller.status.actual_water_time.value == timedelta(minutes=10)
+    assert len(controller.zones) == 0
+
+
+async def test_get_controllers_no_sensors(
+    api: Hydrawise, mock_session, controller_json
+):
+    del controller_json["sensors"]
+    mock_session.execute.return_value = {"me": {"controllers": [controller_json]}}
+    [controller] = await api.get_controllers(fetch_sensors=False)
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector)
+    assert query.count("sensors {") == 0
+    assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
+    assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
+    assert controller.status is not None
+    assert controller.status.actual_water_time.value == timedelta(minutes=10)
+    assert len(controller.sensors) == 0
 
 
 async def test_get_controller(api: Hydrawise, mock_session, controller_json):
@@ -365,6 +397,7 @@ async def test_get_controller(api: Hydrawise, mock_session, controller_json):
 
     assert controller.last_contact_time == datetime(2023, 1, 1, 0, 0, 0)
     assert controller.last_action == datetime(2023, 1, 1, 0, 0, 0)
+    assert controller.status is not None
     assert controller.status.actual_water_time.value == timedelta(minutes=10)
 
 

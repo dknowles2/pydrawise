@@ -110,7 +110,7 @@ class Hydrawise(HydrawiseBase):
     async def get_user(self, fetch_zones: bool = True) -> User:
         """Retrieves the currently authenticated user.
 
-        :param fetch_zones: Not used in this implementation.
+        :param fetch_zones: Whether to include zones in the controller response.
         :rtype: User
         """
         skip = [] if fetch_zones else ["controllers.zones"]
@@ -120,14 +120,24 @@ class Hydrawise(HydrawiseBase):
         result = await self._query(selector)
         return deserialize(User, result["me"])
 
-    async def get_controllers(self) -> list[Controller]:
+    async def get_controllers(
+        self, fetch_zones: bool = True, fetch_sensors: bool = True
+    ) -> list[Controller]:
         """Retrieves all controllers associated with the currently authenticated user.
 
+        :param fetch_zones: Whether to include zones in the response.
+        :param fetch_sensors: Whether to include sensors in the response.
         :rtype: list[Controller]
         """
+        skip = []
+        if not fetch_zones:
+            skip.append("zones")
+        if not fetch_sensors:
+            skip.append("sensors")
+
         selector = self._schema.Query.me.select(
             self._schema.User.controllers.select(
-                *get_selectors(self._schema, Controller)
+                *get_selectors(self._schema, Controller, skip)
             ),
         )
         result = await self._query(selector)
