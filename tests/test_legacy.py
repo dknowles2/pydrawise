@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import re
 from unittest import mock
 
+from aiohttp import ClientTimeout
 from aioresponses import aioresponses
 from freezegun import freeze_time
 from pytest import fixture
@@ -343,7 +344,7 @@ class TestLegacyHydrawiseAsync:
                     "relay_id": 12345,
                     "period_id": 999,
                 },
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             )
 
     async def test_stop_zone(self, success_status: dict) -> None:
@@ -361,7 +362,7 @@ class TestLegacyHydrawiseAsync:
             m.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
                 params={"api_key": API_KEY, "action": "stop", "relay_id": 12345},
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             )
 
     async def test_start_all_zones(self, success_status: dict) -> None:
@@ -382,7 +383,7 @@ class TestLegacyHydrawiseAsync:
                     "period_id": 999,
                     "controller_id": 1111,
                 },
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             )
 
     async def test_stop_all_zones(self, success_status: dict) -> None:
@@ -398,7 +399,7 @@ class TestLegacyHydrawiseAsync:
             m.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
                 params={"api_key": API_KEY, "action": "stopall", "controller_id": 1111},
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             )
 
     async def test_suspend_zone(self, success_status: dict) -> None:
@@ -422,7 +423,7 @@ class TestLegacyHydrawiseAsync:
                     "period_id": 999,
                     "custom": 1672621200,
                 },
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             )
 
     async def test_resume_zone(self, success_status: dict) -> None:
@@ -445,7 +446,7 @@ class TestLegacyHydrawiseAsync:
                     "relay_id": 12345,
                     "period_id": 0,
                 },
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             )
 
     async def test_suspend_all_zones(self, success_status: dict) -> None:
@@ -469,7 +470,7 @@ class TestLegacyHydrawiseAsync:
                     "custom": 1672621200,
                     "controller_id": 1111,
                 },
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             )
 
     async def test_resume_all_zones(self, success_status: dict) -> None:
@@ -490,7 +491,7 @@ class TestLegacyHydrawiseAsync:
                     "period_id": 0,
                     "controller_id": 1111,
                 },
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             )
 
 
