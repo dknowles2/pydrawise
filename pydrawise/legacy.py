@@ -1,7 +1,7 @@
-""""API for interacting with Hydrawise sprinkler controllers.
+"""API for interacting with Hydrawise sprinkler controllers.
 
 This library should remain compatible with https://github.com/ptcryan/hydrawiser.
- """
+"""
 
 from datetime import datetime, timedelta
 import time
@@ -41,7 +41,9 @@ class LegacyHydrawiseAsync(HydrawiseBase):
         params = {"api_key": self._api_key}
         params.update(kwargs)
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params, timeout=_TIMEOUT) as resp:
+            async with session.get(
+                url, params=params, timeout=aiohttp.ClientTimeout(total=_TIMEOUT)
+            ) as resp:
                 resp.raise_for_status()
                 return await resp.json()
 
