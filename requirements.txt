@@ -1,4 +1,4 @@
-aiohttp==3.10.2
+aiohttp==3.10.3
 apischema==0.18.1
 gql==3.5.0
 graphql-core==3.2.3
