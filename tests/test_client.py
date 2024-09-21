@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 from unittest.mock import create_autospec, patch
 
+import pytest
 from gql import Client
 from gql.client import AsyncClientSession
 from graphql import print_ast
-import pytest
 from pytest import fixture
 
 from pydrawise.auth import Auth
@@ -181,7 +181,10 @@ def zone_json():
                         "value": None,
                         "label": "Every Program Start Time",
                     },
-                    "description": "Every Program Start Time unless modified by your Watering Triggers",
+                    "description": (
+                        "Every Program Start Time unless modified by your "
+                        "Watering Triggers"
+                    ),
                 },
                 "runTimeGroup": {
                     "id": 49923604,
@@ -414,7 +417,7 @@ async def test_get_zones(api: Hydrawise, mock_session, controller_json, zone_jso
 
 async def test_get_zone(api: Hydrawise, mock_session, zone_json):
     mock_session.execute.return_value = {"zone": zone_json}
-    zone = await api.get_zone(1)
+    await api.get_zone(1)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
@@ -542,7 +545,7 @@ async def test_get_sensors(
         "controller": {"sensors": [rain_sensor_json, flow_sensor_json]}
     }
     ctrl = deserialize(Controller, controller_json)
-    sensors = await api.get_sensors(ctrl)
+    await api.get_sensors(ctrl)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
@@ -565,7 +568,7 @@ async def test_get_water_flow_summary(
 
     ctrl = deserialize(Controller, controller_json)
     sensor = deserialize(Sensor, flow_sensor_json)
-    water_flow_summary = await api.get_water_flow_summary(
+    await api.get_water_flow_summary(
         ctrl,
         sensor,
         datetime(2023, 11, 1, 0, 0, 0),
@@ -653,6 +656,6 @@ async def test_get_water_use_summary_without_sensor(
     assert "watering" in query
     assert 5955343 not in summary.active_use_by_zone_id
     assert summary.active_time_by_zone_id[5955343] == timedelta(seconds=1200)
-    assert summary.total_active_use == None
-    assert summary.total_inactive_use == None
+    assert summary.total_active_use is None
+    assert summary.total_inactive_use is None
     assert summary.total_active_time == timedelta(seconds=1200)

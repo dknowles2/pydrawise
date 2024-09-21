@@ -199,7 +199,7 @@ class TestLegacyHydrawiseAsync:
     ) -> None:
         """Test the get_user method."""
         client = legacy.LegacyHydrawiseAsync(API_KEY)
-        with freeze_time("2023-01-01 01:00:00") as t:
+        with freeze_time("2023-01-01 01:00:00"):
             with aioresponses() as m:
                 m.get(
                     f"https://api.hydrawise.com/api/v1/customerdetails.php?api_key={API_KEY}",
@@ -238,7 +238,7 @@ class TestLegacyHydrawiseAsync:
     ) -> None:
         """Test the get_controllers method."""
         client = legacy.LegacyHydrawiseAsync(API_KEY)
-        with freeze_time("2023-01-01 01:00:00") as t:
+        with freeze_time("2023-01-01 01:00:00"):
             with aioresponses() as m:
                 m.get(
                     f"https://api.hydrawise.com/api/v1/customerdetails.php?api_key={API_KEY}&type=controllers",
@@ -281,7 +281,7 @@ class TestLegacyHydrawiseAsync:
     async def test_get_zones(self, status_schedule: dict) -> None:
         """Test the get_zones method."""
         client = legacy.LegacyHydrawiseAsync(API_KEY)
-        with freeze_time("2023-01-01 01:00:00") as t:
+        with freeze_time("2023-01-01 01:00:00"):
             with aioresponses() as m:
                 m.get(
                     f"https://api.hydrawise.com/api/v1/statusschedule.php?api_key={API_KEY}&controller_id=12345",
@@ -564,7 +564,7 @@ class TestLegacyHydrawise:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json.return_value = success_status
 
-        with freeze_time("2023-01-01 00:00:00") as t:
+        with freeze_time("2023-01-01 00:00:00"):
             assert client.suspend_zone(1, 1) == success_status
             mock_request.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
@@ -585,7 +585,7 @@ class TestLegacyHydrawise:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json.return_value = success_status
 
-        with freeze_time("2023-01-01 00:00:00") as t:
+        with freeze_time("2023-01-01 00:00:00"):
             assert client.suspend_zone(0, 1) == success_status
             mock_request.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
@@ -605,7 +605,7 @@ class TestLegacyHydrawise:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json.return_value = success_status
 
-        with freeze_time("2023-01-01 00:00:00") as t:
+        with freeze_time("2023-01-01 00:00:00"):
             assert client.suspend_zone(1) == success_status
             mock_request.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
@@ -625,7 +625,7 @@ class TestLegacyHydrawise:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json.return_value = success_status
 
-        with freeze_time("2023-01-01 00:00:00") as t:
+        with freeze_time("2023-01-01 00:00:00"):
             assert client.run_zone(1, 1) == success_status
             mock_request.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
@@ -646,7 +646,7 @@ class TestLegacyHydrawise:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json.return_value = success_status
 
-        with freeze_time("2023-01-01 00:00:00") as t:
+        with freeze_time("2023-01-01 00:00:00"):
             assert client.run_zone(1) == success_status
             mock_request.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
@@ -666,7 +666,7 @@ class TestLegacyHydrawise:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json.return_value = success_status
 
-        with freeze_time("2023-01-01 00:00:00") as t:
+        with freeze_time("2023-01-01 00:00:00"):
             assert client.run_zone(0, 1) == success_status
             mock_request.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",
@@ -686,7 +686,7 @@ class TestLegacyHydrawise:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json.return_value = success_status
 
-        with freeze_time("2023-01-01 00:00:00") as t:
+        with freeze_time("2023-01-01 00:00:00"):
             assert client.run_zone(0) == success_status
             mock_request.assert_called_once_with(
                 "https://api.hydrawise.com/api/v1/setzone.php",

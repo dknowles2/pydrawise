@@ -17,6 +17,7 @@ __all__ = (
     "Controller",
     "Error",
     "Hydrawise",
+    "HydrawiseBase",
     "MutationError",
     "NotAuthenticatedError",
     "NotAuthorizedError",
