@@ -46,12 +46,13 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install -r requirements-test.txt
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements-test.txt
     - name: Run ruff
       run: |
-        . venv/bin/activate
-        pre-commit run --hook-stage manual ruff --all-files --show-diff-on-failure
-      env:
-        RUFF_OUTPUT_FORMAT: github
+        ruff check --output-format=github .
   mypy:
     runs-on: ubuntu-latest
     strategy:
