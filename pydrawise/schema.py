@@ -5,15 +5,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
 from enum import Enum, auto
+from importlib import resources
 from typing import Optional, Union
 
 from apischema import type_name
 from apischema.conversions import Conversion
 from apischema.metadata import conversion, fall_back_on_default
+from gql.dsl import DSLSchema
+from graphql import build_ast_schema, parse
 
 # The names in this file are from the GraphQL schema and don't always adhere to
 # the naming scheme that pylint expects.
 # pylint: disable=invalid-name
+
+SCHEMA_TEXT = resources.files(__package__).joinpath("hydrawise.graphql").read_text()
+DSL_SCHEMA = DSLSchema(build_ast_schema(parse(SCHEMA_TEXT)))
 
 
 def _optional_field(*args, **kwargs):

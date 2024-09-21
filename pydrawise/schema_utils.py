@@ -10,7 +10,9 @@ from apischema import deserialize as _deserialize
 from apischema.metadata.keys import CONVERSION_METADATA, SKIP_METADATA
 from apischema.type_names import get_type_name
 from apischema.utils import to_camel_case
-from gql.dsl import DSLField, DSLInlineFragment, DSLSchema
+from gql.dsl import DSLField, DSLInlineFragment
+
+from .schema import DSL_SCHEMA
 
 # For compatibility with < python 3.10.
 NoneType = type(None)
@@ -72,9 +74,7 @@ def _fields(cls, skip: list[str]) -> Iterator[_Field]:
         yield _Field(f.name, [field_type])
 
 
-def get_selectors(
-    ds: DSLSchema, cls: Type, skip_fields: list[str] | None = None
-) -> list[DSLField]:
+def get_selectors(cls: Type, skip_fields: list[str] | None = None) -> list[DSLField]:
     """Constructs GraphQL selectors for the given dataclass.
 
     :meta private:
@@ -82,14 +82,12 @@ def get_selectors(
     ret = []
     skip_now, skip_later = parse_skip(skip_fields or [])
     for f in _fields(cls, skip_now):
-        dsl_field = getattr(getattr(ds, get_type_name(cls).graphql), f.name)  # type: ignore[arg-type]
+        dsl_field = getattr(getattr(DSL_SCHEMA, get_type_name(cls).graphql), f.name)  # type: ignore[arg-type]
         if len(f.types) == 1:
             [f_type] = f.types
             if is_dataclass(f_type):
                 f_skip = skip_later.get(f.name, [])
-                ret.append(
-                    getattr(dsl_field, "select")(*get_selectors(ds, f_type, f_skip))
-                )
+                ret.append(getattr(dsl_field, "select")(*get_selectors(f_type, f_skip)))
             else:
                 ret.append(dsl_field)
         else:
@@ -100,8 +98,8 @@ def get_selectors(
                     raise NotImplementedError
                 sel_args.append(
                     DSLInlineFragment()
-                    .on(getattr(ds, get_type_name(f_type).graphql))  # type: ignore[arg-type]
-                    .select(*get_selectors(ds, f_type))
+                    .on(getattr(DSL_SCHEMA, get_type_name(f_type).graphql))  # type: ignore[arg-type]
+                    .select(*get_selectors(f_type))
                 )
             ret.append(getattr(dsl_field, "select")(*sel_args))
     return ret
