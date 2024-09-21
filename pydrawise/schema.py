@@ -69,12 +69,14 @@ def _time_conversion() -> conversion:
 def _list_conversion(element_conversion) -> conversion:
     return conversion(
         Conversion(
-            lambda l: list(map(element_conversion.deserialization.converter, l)),
+            lambda _list: list(
+                map(element_conversion.deserialization.converter, _list)
+            ),
             source=list,
             target=list,
         ),
         Conversion(
-            lambda l: list(map(element_conversion.serialization.converter, l)),
+            lambda _list: list(map(element_conversion.serialization.converter, _list)),
             source=list,
             target=list,
         ),
@@ -413,9 +415,9 @@ class ZoneSuspension:
 class Zone(BaseZone):
     """A watering zone."""
 
-    watering_settings: Union[
-        AdvancedWateringSettings, StandardWateringSettings
-    ] = field(default_factory=StandardWateringSettings)
+    watering_settings: Union[AdvancedWateringSettings, StandardWateringSettings] = (
+        field(default_factory=StandardWateringSettings)
+    )
     scheduled_runs: ScheduledZoneRuns = field(default_factory=ScheduledZoneRuns)
     past_runs: PastZoneRuns = field(default_factory=PastZoneRuns)
     status: ZoneStatus = field(default_factory=ZoneStatus)
