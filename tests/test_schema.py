@@ -1,5 +1,4 @@
 from dataclasses import fields, is_dataclass
-from pathlib import Path
 from string import ascii_lowercase
 
 from apischema.metadata.keys import CONVERSION_METADATA, FALL_BACK_ON_DEFAULT_METADATA
@@ -13,11 +12,7 @@ from pydrawise.schema_utils import deserialize
 
 
 def test_valid_schema():
-    root = Path(__file__).parent.parent
-    with open(Path(f"{root}/pydrawise/hydrawise.graphql")) as f:
-        schema_str = f.read()
-
-    gql_schema = build_schema(schema_str)
+    gql_schema = build_schema(_schema.SCHEMA_TEXT)
 
     for k, v in vars(_schema).items():
         if k.startswith("_") or k.startswith(ascii_lowercase):
