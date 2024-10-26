@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from collections import namedtuple
 from dataclasses import fields, is_dataclass
-from typing import Iterator, List, Type, Union, get_args, get_origin, get_type_hints
+from typing import (
+    TYPE_CHECKING,
+    Iterator,
+    List,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from apischema import deserialize as _deserialize
 from apischema.metadata.keys import CONVERSION_METADATA, SKIP_METADATA
@@ -13,6 +21,9 @@ from apischema.utils import to_camel_case
 from gql.dsl import DSLField, DSLInlineFragment
 
 from .schema import DSL_SCHEMA
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 # For compatibility with < python 3.10.
 NoneType = type(None)
@@ -30,7 +41,9 @@ def deserialize(*args, **kwargs):
 _Field = namedtuple("_Field", ["name", "types"])
 
 
-def _fields(cls, skip: list[str]) -> Iterator[_Field]:
+def _fields(
+    cls: DataclassInstance | type[DataclassInstance], skip: list[str]
+) -> Iterator[_Field]:
     """Returns _Field objects for every field on the given dataclass.
 
     :meta private:
@@ -74,7 +87,10 @@ def _fields(cls, skip: list[str]) -> Iterator[_Field]:
         yield _Field(f.name, [field_type])
 
 
-def get_selectors(cls: Type, skip_fields: list[str] | None = None) -> list[DSLField]:
+def get_selectors(
+    cls: DataclassInstance | type[DataclassInstance],
+    skip_fields: list[str] | None = None,
+) -> list[DSLField]:
     """Constructs GraphQL selectors for the given dataclass.
 
     :meta private:
