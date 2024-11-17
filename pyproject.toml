@@ -11,7 +11,7 @@ authors         = [
 dependencies    = ["aiohttp ", "apischema", "gql", "graphql-core", "requests"]
 requires-python = ">=3.10"
 dynamic         = ["readme", "version"]
-license         = {text = "Apache License 2.0"}
+license         = {text = "Apache-2.0"}
 keywords        = ["hydrawise", "api", "iot"]
 classifiers     = [
     "Programming Language :: Python :: 3.11",
