@@ -71,12 +71,14 @@ class Hydrawise(HydrawiseBase):
     Should be instantiated with an Auth object that handles authentication and low-level transport.
     """
 
-    def __init__(self, auth: Auth) -> None:
+    def __init__(self, auth: Auth, app_id: str = "pydrawise") -> None:
         """Initializes the client.
 
         :param auth: Handles authentication and transport.
+        :param app_id: Unique identifier for the application accessing the Hydrawise API.
         """
         self._auth = auth
+        self._app_id = app_id
 
     async def _client(self) -> Client:
         headers = {"Authorization": await self._auth.token()}
@@ -84,8 +86,14 @@ class Hydrawise(HydrawiseBase):
         return Client(transport=transport, parse_results=True)
 
     async def _query(self, selector: DSLSelectable) -> dict:
+        extra_args = {}
+        if self._app_id:
+            extra_args["params"] = {"appVersion": self._app_id}
         async with await self._client() as session:
-            return await session.execute(dsl_gql(DSLQuery(selector)))
+            return await session.execute(
+                dsl_gql(DSLQuery(selector)),
+                extra_args=extra_args,
+            )
 
     async def _mutation(self, selector: DSLField) -> None:
         async with await self._client() as session:
