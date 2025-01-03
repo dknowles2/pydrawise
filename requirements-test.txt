@@ -3,5 +3,5 @@ aioresponses==0.7.7
 freezegun==1.5.1
 mypy==1.14.1
 pytest==8.3.4
-pytest-asyncio==0.25.0
+pytest-asyncio==0.25.1
 ruff==0.8.5
