@@ -8,8 +8,9 @@ from typing import Any
 
 import requests
 
+from .const import REST_URL
 from .exceptions import NotInitializedError, UnknownError
-from .rest import BASE_URL, RestClient
+from .rest import RestClient
 
 _TIMEOUT = 10  # seconds
 
@@ -92,7 +93,7 @@ class LegacyHydrawise:
         return True
 
     def _get(self, path: str, **kwargs) -> dict:
-        url = f"{BASE_URL}/{path}"
+        url = f"{REST_URL}/{path}"
         params = {"api_key": self._api_key}
         params.update(kwargs)
         resp = requests.get(url, params=params, timeout=_TIMEOUT)

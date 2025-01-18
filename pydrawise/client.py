@@ -10,6 +10,7 @@ from gql.transport.aiohttp import log as gql_log
 
 from .auth import Auth
 from .base import HydrawiseBase
+from .const import GRAPHQL_URL
 from .exceptions import MutationError
 from .schema import (
     DSL_SCHEMA,
@@ -31,8 +32,6 @@ from .schema_utils import deserialize, get_selectors
 
 # GQL is quite chatty in logs by default.
 gql_log.setLevel(logging.ERROR)
-
-API_URL = "https://app.hydrawise.com/api/v2/graph"
 
 
 def _prune_watering_report_entries(
@@ -82,7 +81,7 @@ class Hydrawise(HydrawiseBase):
 
     async def _client(self) -> Client:
         headers = {"Authorization": await self._auth.token()}
-        transport = AIOHTTPTransport(url=API_URL, headers=headers)
+        transport = AIOHTTPTransport(url=GRAPHQL_URL, headers=headers)
         return Client(transport=transport, parse_results=True)
 
     async def _query(self, selector: DSLSelectable) -> dict:

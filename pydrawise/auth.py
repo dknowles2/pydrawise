@@ -7,11 +7,9 @@ from datetime import datetime, timedelta
 import aiohttp
 
 from .base import BaseAuth
+from .const import CLIENT_ID, CLIENT_SECRET, TOKEN_URL
 from .exceptions import NotAuthorizedError
 
-CLIENT_ID = "hydrawise_app"
-CLIENT_SECRET = "zn3CrjglwNV1"
-TOKEN_URL = "https://app.hydrawise.com/api/v2/oauth/access-token"
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 
