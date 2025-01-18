@@ -8,6 +8,7 @@ from typing import Any
 
 import requests
 
+from .auth import RestAuth
 from .const import REST_URL
 from .exceptions import NotInitializedError, UnknownError
 from .rest import RestClient
@@ -23,7 +24,7 @@ class LegacyHydrawiseAsync(RestClient):
     """
 
     def __init__(self, user_token: str) -> None:
-        super().__init__(user_token)
+        super().__init__(RestAuth(user_token))
 
 
 class LegacyHydrawise:

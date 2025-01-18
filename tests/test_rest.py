@@ -2,21 +2,27 @@ import re
 from datetime import datetime, timedelta
 from unittest import mock
 
-from aiohttp import ClientTimeout
 from aioresponses import aioresponses
 from freezegun import freeze_time
-from pytest import raises
+from pytest import fixture, raises
 
 from pydrawise import rest
+from pydrawise.auth import RestAuth
+from pydrawise.const import REQUEST_TIMEOUT
 from pydrawise.exceptions import NotAuthorizedError
 from pydrawise.schema import Controller, Zone
 
 API_KEY = "__api_key__"
 
 
-async def test_get_user_error() -> None:
+@fixture
+def rest_auth():
+    return RestAuth(API_KEY)
+
+
+async def test_get_user_error(rest_auth: RestAuth) -> None:
     """Test that errors are handled correctly."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with freeze_time("2023-01-01 01:00:00"):
         with aioresponses() as m:
             m.get(
@@ -28,9 +34,11 @@ async def test_get_user_error() -> None:
                 await client.get_user()
 
 
-async def test_get_user(customer_details: dict, status_schedule: dict) -> None:
+async def test_get_user(
+    rest_auth: RestAuth, customer_details: dict, status_schedule: dict
+) -> None:
     """Test the get_user method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with freeze_time("2023-01-01 01:00:00"):
         with aioresponses() as m:
             m.get(
@@ -67,9 +75,11 @@ async def test_get_user(customer_details: dict, status_schedule: dict) -> None:
             assert client.next_poll == timedelta(seconds=60)
 
 
-async def test_get_controllers(customer_details: dict, status_schedule: dict) -> None:
+async def test_get_controllers(
+    rest_auth: RestAuth, customer_details: dict, status_schedule: dict
+) -> None:
     """Test the get_controllers method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with freeze_time("2023-01-01 01:00:00"):
         with aioresponses() as m:
             m.get(
@@ -111,9 +121,9 @@ async def test_get_controllers(customer_details: dict, status_schedule: dict) ->
             assert [z.id for z in controllers[1].zones] == want_zones
 
 
-async def test_get_zones(status_schedule: dict) -> None:
+async def test_get_zones(rest_auth: RestAuth, status_schedule: dict) -> None:
     """Test the get_zones method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with freeze_time("2023-01-01 01:00:00"):
         with aioresponses() as m:
             m.get(
@@ -160,9 +170,9 @@ async def test_get_zones(status_schedule: dict) -> None:
             assert zones[2].status.suspended_until == datetime.max
 
 
-async def test_start_zone(success_status: dict) -> None:
+async def test_start_zone(rest_auth: RestAuth, success_status: dict) -> None:
     """Test the start_zone method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with aioresponses() as m:
         m.get(
             re.compile("https://api.hydrawise.com/api/v1/setzone.php"),
@@ -180,13 +190,13 @@ async def test_start_zone(success_status: dict) -> None:
                 "relay_id": 12345,
                 "period_id": 999,
             },
-            timeout=ClientTimeout(total=10),
+            timeout=REQUEST_TIMEOUT,
         )
 
 
-async def test_stop_zone(success_status: dict) -> None:
+async def test_stop_zone(rest_auth: RestAuth, success_status: dict) -> None:
     """Test the stop_zone method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with aioresponses() as m:
         m.get(
             re.compile("https://api.hydrawise.com/api/v1/setzone.php"),
@@ -199,13 +209,13 @@ async def test_stop_zone(success_status: dict) -> None:
         m.assert_called_once_with(
             "https://api.hydrawise.com/api/v1/setzone.php",
             params={"api_key": API_KEY, "action": "stop", "relay_id": 12345},
-            timeout=ClientTimeout(total=10),
+            timeout=REQUEST_TIMEOUT,
         )
 
 
-async def test_start_all_zones(success_status: dict) -> None:
+async def test_start_all_zones(rest_auth: RestAuth, success_status: dict) -> None:
     """Test the start_all_zones method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with aioresponses() as m:
         m.get(
             re.compile("https://api.hydrawise.com/api/v1/setzone.php"),
@@ -221,13 +231,13 @@ async def test_start_all_zones(success_status: dict) -> None:
                 "period_id": 999,
                 "controller_id": 1111,
             },
-            timeout=ClientTimeout(total=10),
+            timeout=REQUEST_TIMEOUT,
         )
 
 
-async def test_stop_all_zones(success_status: dict) -> None:
+async def test_stop_all_zones(rest_auth: RestAuth, success_status: dict) -> None:
     """Test the stop_all_zones method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with aioresponses() as m:
         m.get(
             re.compile("https://api.hydrawise.com/api/v1/setzone.php"),
@@ -238,13 +248,13 @@ async def test_stop_all_zones(success_status: dict) -> None:
         m.assert_called_once_with(
             "https://api.hydrawise.com/api/v1/setzone.php",
             params={"api_key": API_KEY, "action": "stopall", "controller_id": 1111},
-            timeout=ClientTimeout(total=10),
+            timeout=REQUEST_TIMEOUT,
         )
 
 
-async def test_suspend_zone(success_status: dict) -> None:
+async def test_suspend_zone(rest_auth: RestAuth, success_status: dict) -> None:
     """Test the suspend_zone method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with aioresponses() as m:
         m.get(
             re.compile("https://api.hydrawise.com/api/v1/setzone.php"),
@@ -263,13 +273,13 @@ async def test_suspend_zone(success_status: dict) -> None:
                 "period_id": 999,
                 "custom": 1672621200,
             },
-            timeout=ClientTimeout(total=10),
+            timeout=REQUEST_TIMEOUT,
         )
 
 
-async def test_resume_zone(success_status: dict) -> None:
+async def test_resume_zone(rest_auth: RestAuth, success_status: dict) -> None:
     """Test the resume_zone method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with aioresponses() as m:
         m.get(
             re.compile("https://api.hydrawise.com/api/v1/setzone.php"),
@@ -287,13 +297,13 @@ async def test_resume_zone(success_status: dict) -> None:
                 "relay_id": 12345,
                 "period_id": 0,
             },
-            timeout=ClientTimeout(total=10),
+            timeout=REQUEST_TIMEOUT,
         )
 
 
-async def test_suspend_all_zones(success_status: dict) -> None:
+async def test_suspend_all_zones(rest_auth: RestAuth, success_status: dict) -> None:
     """Test the suspend_zone method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with aioresponses() as m:
         m.get(
             re.compile("https://api.hydrawise.com/api/v1/setzone.php"),
@@ -310,13 +320,13 @@ async def test_suspend_all_zones(success_status: dict) -> None:
                 "custom": 1672621200,
                 "controller_id": 1111,
             },
-            timeout=ClientTimeout(total=10),
+            timeout=REQUEST_TIMEOUT,
         )
 
 
-async def test_resume_all_zones(success_status: dict) -> None:
+async def test_resume_all_zones(rest_auth: RestAuth, success_status: dict) -> None:
     """Test the suspend_zone method."""
-    client = rest.RestClient(API_KEY)
+    client = rest.RestClient(rest_auth)
     with aioresponses() as m:
         m.get(
             re.compile("https://api.hydrawise.com/api/v1/setzone.php"),
@@ -332,5 +342,5 @@ async def test_resume_all_zones(success_status: dict) -> None:
                 "period_id": 0,
                 "controller_id": 1111,
             },
-            timeout=ClientTimeout(total=10),
+            timeout=REQUEST_TIMEOUT,
         )

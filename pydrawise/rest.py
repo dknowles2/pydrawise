@@ -4,9 +4,8 @@ from datetime import datetime, timedelta
 
 import aiohttp
 
+from .auth import RestAuth
 from .base import HydrawiseBase
-from .const import REST_URL
-from .exceptions import NotAuthorizedError
 from .schema import (
     Controller,
     ControllerHardware,
@@ -19,7 +18,6 @@ from .schema import (
 )
 
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
-_INVALID_API_KEY = "API key not valid"
 
 
 class RestClient(HydrawiseBase):
@@ -28,23 +26,15 @@ class RestClient(HydrawiseBase):
     This should remain compatible with client.Hydrawise.
     """
 
-    def __init__(self, api_key: str) -> None:
-        self._api_key = api_key
+    def __init__(self, auth: RestAuth) -> None:
+        self._auth = auth
         self.next_poll = timedelta(0)
 
     async def _get(self, path: str, **kwargs) -> dict:
-        url = f"{REST_URL}/{path}"
-        params = {"api_key": self._api_key}
-        params.update(kwargs)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params, timeout=_TIMEOUT) as resp:
-                if resp.status == 404 and await resp.text() == _INVALID_API_KEY:
-                    raise NotAuthorizedError(_INVALID_API_KEY)
-                resp.raise_for_status()
-                json = await resp.json()
-                if "nextpoll" in json:
-                    self.next_poll = timedelta(seconds=json["nextpoll"])
-                return json
+        json = await self._auth.get(path, **kwargs)
+        if "nextpoll" in json:
+            self.next_poll = timedelta(seconds=json["nextpoll"])
+        return json
 
     async def get_user(self, fetch_zones: bool = True) -> User:
         """Retrieves the currently authenticated user.

@@ -7,10 +7,11 @@ from datetime import datetime, timedelta
 import aiohttp
 
 from .base import BaseAuth
-from .const import CLIENT_ID, CLIENT_SECRET, TOKEN_URL
+from .const import CLIENT_ID, CLIENT_SECRET, REQUEST_TIMEOUT, REST_URL, TOKEN_URL
 from .exceptions import NotAuthorizedError
 
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=60)
+_INVALID_API_KEY = "API key not valid"
 
 
 @dataclass
@@ -93,3 +94,28 @@ class Auth(BaseAuth):
         await self.check_token()
         async with self._lock:
             return str(self._token)
+
+
+class RestAuth(BaseAuth):
+    """Authentication support for the Hydrawise REST API."""
+
+    def __init__(self, api_key: str) -> None:
+        """Initializer."""
+        self._api_key = api_key
+
+    async def get(self, path: str, **kwargs) -> dict:
+        """Perform an authenticated GET request and return the JSON response."""
+        url = f"{REST_URL}/{path}"
+        params = {"api_key": self._api_key}
+        params.update(kwargs)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params, timeout=REQUEST_TIMEOUT) as resp:
+                if resp.status == 404 and await resp.text() == _INVALID_API_KEY:
+                    raise NotAuthorizedError(_INVALID_API_KEY)
+                resp.raise_for_status()
+                return await resp.json()
+
+    async def check(self) -> bool:
+        """Validates that the credentials are valid."""
+        await self.get("customerdetails.php")
+        return True
