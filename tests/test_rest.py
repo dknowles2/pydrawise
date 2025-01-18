@@ -5,11 +5,27 @@ from unittest import mock
 from aiohttp import ClientTimeout
 from aioresponses import aioresponses
 from freezegun import freeze_time
+from pytest import raises
 
 from pydrawise import rest
+from pydrawise.exceptions import NotAuthorizedError
 from pydrawise.schema import Controller, Zone
 
 API_KEY = "__api_key__"
+
+
+async def test_get_user_error() -> None:
+    """Test that errors are handled correctly."""
+    client = rest.RestClient(API_KEY)
+    with freeze_time("2023-01-01 01:00:00"):
+        with aioresponses() as m:
+            m.get(
+                f"https://api.hydrawise.com/api/v1/customerdetails.php?api_key={API_KEY}",
+                status=404,
+                body="API key not valid",
+            )
+            with raises(NotAuthorizedError):
+                await client.get_user()
 
 
 async def test_get_user(customer_details: dict, status_schedule: dict) -> None:

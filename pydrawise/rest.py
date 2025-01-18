@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import aiohttp
 
 from .base import HydrawiseBase
+from .exceptions import NotAuthorizedError
 from .schema import (
     Controller,
     ControllerHardware,
@@ -18,6 +19,7 @@ from .schema import (
 
 BASE_URL = "https://api.hydrawise.com/api/v1"
 _TIMEOUT = 10  # seconds
+_INVALID_API_KEY = "API key not valid"
 
 
 class RestClient(HydrawiseBase):
@@ -37,6 +39,8 @@ class RestClient(HydrawiseBase):
             async with session.get(
                 url, params=params, timeout=aiohttp.ClientTimeout(total=_TIMEOUT)
             ) as resp:
+                if resp.status == 404 and await resp.text() == _INVALID_API_KEY:
+                    raise NotAuthorizedError(_INVALID_API_KEY)
                 resp.raise_for_status()
                 return await resp.json()
 
