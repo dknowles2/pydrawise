@@ -6,16 +6,7 @@ import aiohttp
 
 from .auth import RestAuth
 from .base import HydrawiseBase
-from .schema import (
-    Controller,
-    ControllerHardware,
-    ScheduledZoneRun,
-    ScheduledZoneRuns,
-    User,
-    Zone,
-    ZoneStatus,
-    ZoneSuspension,
-)
+from .schema import Controller, User, Zone, ZoneSuspension
 
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
 
@@ -48,7 +39,7 @@ class RestClient(HydrawiseBase):
             customer_id=resp_json["customer_id"],
             name="",
             email="",
-            controllers=[_controller_from_json(c) for c in resp_json["controllers"]],
+            controllers=[Controller.from_json(c) for c in resp_json["controllers"]],
         )
         if fetch_zones:
             for controller in user.controllers:
@@ -61,7 +52,7 @@ class RestClient(HydrawiseBase):
         :rtype: list[Controller]
         """
         resp_json = await self._get("customerdetails.php", type="controllers")
-        controllers = [_controller_from_json(c) for c in resp_json["controllers"]]
+        controllers = [Controller.from_json(c) for c in resp_json["controllers"]]
         for controller in controllers:
             controller.zones = await self.get_zones(controller)
         return controllers
@@ -82,7 +73,7 @@ class RestClient(HydrawiseBase):
         :rtype: list[Zone]
         """
         resp_json = await self._get("statusschedule.php", controller_id=controller.id)
-        return [_zone_from_json(z) for z in resp_json["relays"]]
+        return [Zone.from_json(z) for z in resp_json["relays"]]
 
     async def get_zone(self, zone_id: int) -> Zone:
         """Retrieves a zone by its unique identifier.
@@ -206,49 +197,3 @@ class RestClient(HydrawiseBase):
         """
         _ = suspension  # unused
         raise NotImplementedError
-
-
-def _controller_from_json(controller_json: dict) -> Controller:
-    return Controller(
-        id=controller_json["controller_id"],
-        name=controller_json["name"],
-        hardware=ControllerHardware(
-            serial_number=controller_json["serial_number"],
-        ),
-        last_contact_time=datetime.fromtimestamp(controller_json["last_contact"]),
-        online=True,
-    )
-
-
-def _zone_from_json(zone_json: dict) -> Zone:
-    current_run = None
-    next_run = None
-    suspended_until = None
-    if zone_json["time"] == 1:
-        current_run = ScheduledZoneRun(
-            remaining_time=timedelta(seconds=zone_json["run"]),
-        )
-    elif zone_json["time"] == 1576800000:
-        suspended_until = datetime.max
-    else:
-        now = datetime.now().replace(microsecond=0)
-        start_time = now + timedelta(seconds=zone_json["time"])
-        duration = timedelta(seconds=zone_json["run"])
-        next_run = ScheduledZoneRun(
-            start_time=start_time,
-            end_time=start_time + duration,
-            normal_duration=duration,
-            duration=duration,
-        )
-    return Zone(
-        id=zone_json["relay_id"],
-        number=zone_json["relay"],
-        name=zone_json["name"],
-        scheduled_runs=ScheduledZoneRuns(
-            current_run=current_run,
-            next_run=next_run,
-        ),
-        status=ZoneStatus(
-            suspended_until=suspended_until,
-        ),
-    )
