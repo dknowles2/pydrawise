@@ -1,4 +1,4 @@
-"""Client library for interacting with Hydrawise's cloud API."""
+"""Asynchronous client library for interacting with Hydrawise's GraphQL API."""
 
 import logging
 from datetime import datetime, timedelta
