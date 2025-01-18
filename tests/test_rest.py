@@ -64,6 +64,7 @@ async def test_get_user(customer_details: dict, status_schedule: dict) -> None:
             ]
             assert [z.id for z in user.controllers[0].zones] == want_zones
             assert [z.id for z in user.controllers[1].zones] == want_zones
+            assert client.next_poll == timedelta(seconds=60)
 
 
 async def test_get_controllers(customer_details: dict, status_schedule: dict) -> None:
@@ -136,6 +137,7 @@ async def test_get_zones(status_schedule: dict) -> None:
             assert zones[0].number == 1
             assert zones[0].scheduled_runs.current_run is None
             next_run = zones[0].scheduled_runs.next_run
+            assert next_run is not None
             assert next_run.start_time == datetime(2023, 1, 1, 2, 30)
             assert next_run.normal_duration == timedelta(seconds=1800)
             assert next_run.duration == timedelta(seconds=1800)
@@ -143,6 +145,7 @@ async def test_get_zones(status_schedule: dict) -> None:
             assert zones[1].name == "Drips - Fence"
             assert zones[1].number == 2
             current_run = zones[1].scheduled_runs.current_run
+            assert current_run is not None
             assert current_run.start_time == datetime(2023, 1, 1, 1, 0, 0)
             assert current_run.end_time == datetime(2023, 1, 1, 1, 0, 0)
             assert current_run.normal_duration == timedelta(minutes=0)

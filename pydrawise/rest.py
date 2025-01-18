@@ -30,6 +30,7 @@ class RestClient(HydrawiseBase):
 
     def __init__(self, api_key: str) -> None:
         self._api_key = api_key
+        self.next_poll = timedelta(0)
 
     async def _get(self, path: str, **kwargs) -> dict:
         url = f"{BASE_URL}/{path}"
@@ -42,7 +43,10 @@ class RestClient(HydrawiseBase):
                 if resp.status == 404 and await resp.text() == _INVALID_API_KEY:
                     raise NotAuthorizedError(_INVALID_API_KEY)
                 resp.raise_for_status()
-                return await resp.json()
+                json = await resp.json()
+                if "nextpoll" in json:
+                    self.next_poll = timedelta(seconds=json["nextpoll"])
+                return json
 
     async def get_user(self, fetch_zones: bool = True) -> User:
         """Retrieves the currently authenticated user.
