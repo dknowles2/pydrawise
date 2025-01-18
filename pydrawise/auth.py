@@ -1,19 +1,34 @@
 """Authentication support for the Hydrawise v2 GraphQL API."""
 
+from asyncio import Lock
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from threading import Lock
 
 import aiohttp
 
+from .base import BaseAuth
 from .exceptions import NotAuthorizedError
 
 CLIENT_ID = "hydrawise_app"
 CLIENT_SECRET = "zn3CrjglwNV1"
 TOKEN_URL = "https://app.hydrawise.com/api/v2/oauth/access-token"
-DEFAULT_TIMEOUT = 60
+DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 
-class Auth:
+@dataclass
+class Token:
+    """Authentication token."""
+
+    token: str
+    refresh: str
+    type: str
+    expires: datetime
+
+    def __str__(self) -> str:
+        return f"{self.type} {self.token}"
+
+
+class Auth(BaseAuth):
     """Authentication support for the Hydrawise GraphQL API."""
 
     def __init__(self, username: str, password: str) -> None:
@@ -25,10 +40,7 @@ class Auth:
         self.__username = username
         self.__password = password
         self._lock = Lock()
-        self._token: str | None = None
-        self._token_type: str | None = None
-        self._token_expires: datetime | None = None
-        self._refresh_token: str | None = None
+        self._token: Token | None = None
 
     async def _fetch_token_locked(self, refresh=False):
         data = {
@@ -38,7 +50,7 @@ class Auth:
         if refresh:
             assert self._token is not None
             data["grant_type"] = "refresh_token"
-            data["refresh_token"] = self._refresh_token
+            data["refresh_token"] = self._token.refresh
         else:
             data["grant_type"] = "password"
             data["scope"] = "all"
@@ -53,23 +65,26 @@ class Auth:
             ) as resp:
                 resp_json = await resp.json()
                 if "error" in resp_json:
-                    self._token_type = None
                     self._token = None
-                    self._token_expires = None
                     raise NotAuthorizedError(resp_json["message"])
-                self._token = resp_json["access_token"]
-                self._refresh_token = resp_json["refresh_token"]
-                self._token_type = resp_json["token_type"]
-                self._token_expires = datetime.now() + timedelta(
-                    seconds=resp_json["expires_in"]
+                self._token = Token(
+                    token=resp_json["access_token"],
+                    refresh=resp_json["refresh_token"],
+                    type=resp_json["token_type"],
+                    expires=datetime.now() + timedelta(seconds=resp_json["expires_in"]),
                 )
+
+    async def check(self) -> bool:
+        """Validates that the credentials are valid."""
+        await self.check_token()
+        return True
 
     async def check_token(self):
         """Checks a token and refreshes if necessary."""
-        with self._lock:
+        async with self._lock:
             if self._token is None:
                 await self._fetch_token_locked(refresh=False)
-            elif self._token_expires - datetime.now() < timedelta(minutes=5):
+            elif self._token.expires - datetime.now() < timedelta(minutes=5):
                 await self._fetch_token_locked(refresh=True)
 
     async def token(self) -> str:
@@ -78,5 +93,5 @@ class Auth:
         :rtype: string
         """
         await self.check_token()
-        with self._lock:
-            return f"{self._token_type} {self._token}"
+        async with self._lock:
+            return str(self._token)

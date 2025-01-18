@@ -6,6 +6,17 @@ from datetime import datetime
 from .schema import Controller, User, Zone, ZoneSuspension
 
 
+class BaseAuth(ABC):
+    """Base class for Authentication objects."""
+
+    @abstractmethod
+    async def check(self) -> bool:
+        """Validates that the credentials are valid.
+
+        Returns True on success, otherwise should raise NotAuthorizedError.
+        """
+
+
 class HydrawiseBase(ABC):
     """Base class for Hydrawise client APIs."""
 
