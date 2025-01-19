@@ -690,7 +690,7 @@ class Controller:
     status: Optional[ControllerStatus] = None
 
     @classmethod
-    def from_json(cls: type[Controller], controller_json: dict) -> Controller:
+    def from_json(cls, controller_json: dict) -> Controller:
         controller = Controller(
             id=controller_json["controller_id"],
             name=controller_json["name"],
