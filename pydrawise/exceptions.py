@@ -23,3 +23,7 @@ class MutationError(Error):
 
 class UnknownError(Error):
     """Raised when an unknown problem occurs."""
+
+
+class ThrottledError(Error):
+    """Raised when a request has been throttled."""

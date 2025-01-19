@@ -30,14 +30,15 @@ def _optional_field(*args, **kwargs):
     return field(*args, **kwargs)
 
 
-def default_datetime() -> datetime:
-    """Default datetime factory for fields in this module.
-
-    Abstracted so it can be mocked out.
+def _now() -> datetime:
+    """Current datetime.
 
     :meta private:
     """
-    return datetime.now()
+    return datetime.now().replace(microsecond=0)
+
+
+default_datetime = _now
 
 
 def _duration_conversion(unit: str) -> conversion:
@@ -429,6 +430,41 @@ class Zone(BaseZone):
     status: ZoneStatus = field(default_factory=ZoneStatus)
     suspensions: list[ZoneSuspension] = field(default_factory=list)
 
+    @classmethod
+    def from_json(cls, zone_json: dict) -> Zone:
+        zone = Zone(
+            id=zone_json["relay_id"],
+            number=zone_json["relay"],
+            name=zone_json["name"],
+        )
+        zone.update_with_json(zone_json)
+        return zone
+
+    def update_with_json(self, zone_json: dict) -> None:
+        current_run = None
+        next_run = None
+        suspended_until = None
+        if zone_json["time"] == 1:
+            current_run = ScheduledZoneRun(
+                remaining_time=timedelta(seconds=zone_json["run"]),
+            )
+        elif zone_json["time"] == 1576800000:
+            suspended_until = datetime.max
+        else:
+            start_time = _now() + timedelta(seconds=zone_json["time"])
+            duration = timedelta(seconds=zone_json["run"])
+            next_run = ScheduledZoneRun(
+                start_time=start_time,
+                end_time=start_time + duration,
+                normal_duration=duration,
+                duration=duration,
+            )
+        self.scheduled_runs = ScheduledZoneRuns(
+            current_run=current_run,
+            next_run=next_run,
+        )
+        self.status = ZoneStatus(suspended_until=suspended_until)
+
 
 @dataclass
 class ProgramStartTimeApplication:
@@ -652,6 +688,22 @@ class Controller:
         default_factory=list
     )
     status: Optional[ControllerStatus] = None
+
+    @classmethod
+    def from_json(cls, controller_json: dict) -> Controller:
+        controller = Controller(
+            id=controller_json["controller_id"],
+            name=controller_json["name"],
+            hardware=ControllerHardware(
+                serial_number=controller_json["serial_number"],
+            ),
+        )
+        controller.update_with_json(controller_json)
+        return controller
+
+    def update_with_json(self, controller_json: dict) -> None:
+        self.last_contact_time = datetime.fromtimestamp(controller_json["last_contact"])
+        self.online = True
 
 
 @dataclass
