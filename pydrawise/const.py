@@ -9,4 +9,6 @@ REST_URL = "https://api.hydrawise.com/api/v1"
 CLIENT_ID = "hydrawise_app"
 CLIENT_SECRET = "zn3CrjglwNV1"
 
+DEFAULT_APP_ID = "pydrawise"
+
 REQUEST_TIMEOUT = ClientTimeout(total=30)

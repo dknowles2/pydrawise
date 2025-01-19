@@ -3,7 +3,16 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from .schema import Controller, User, Zone, ZoneSuspension
+from .schema import (
+    Controller,
+    ControllerWaterUseSummary,
+    Sensor,
+    SensorFlowSummary,
+    User,
+    WateringReportEntry,
+    Zone,
+    ZoneSuspension,
+)
 
 
 class BaseAuth(ABC):
@@ -141,3 +150,44 @@ class HydrawiseBase(ABC):
 
         :param suspension: The suspension to delete.
         """
+
+    @abstractmethod
+    async def get_sensors(self, controller: Controller) -> list[Sensor]:
+        """Retrieves sensors associated with the given controller.
+
+        :param controller: Controller whose sensors to fetch.
+        :rtype: list[Sensor]
+        """
+
+    @abstractmethod
+    async def get_water_flow_summary(
+        self, controller: Controller, sensor: Sensor, start: datetime, end: datetime
+    ) -> SensorFlowSummary:
+        """Retrieves the water flow summary for a given sensor.
+
+        :param controller: Controller that controls the sensor.
+        :param sensor: Sensor for which a water flow summary is fetched.
+        :param start:
+        :param end:
+        :rtype: list[Sensor]
+        """
+
+    @abstractmethod
+    async def get_watering_report(
+        self, controller: Controller, start: datetime, end: datetime
+    ) -> list[WateringReportEntry]:
+        """Retrieves a watering report for the given controller and time period.
+
+        :param controller: The controller whose watering report to generate.
+        :param start: Start time.
+        :param end: End time."""
+
+    @abstractmethod
+    async def get_water_use_summary(
+        self, controller: Controller, start: datetime, end: datetime
+    ) -> ControllerWaterUseSummary:
+        """Calculate the water use for the given controller and time period.
+
+        :param controller: The controller whose water use to report.
+        :param start: Start time
+        :param end: End time."""

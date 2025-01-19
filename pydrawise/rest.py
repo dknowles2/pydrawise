@@ -4,6 +4,13 @@ from datetime import datetime, timedelta
 
 import aiohttp
 
+from pydrawise.schema import (
+    ControllerWaterUseSummary,
+    Sensor,
+    SensorFlowSummary,
+    WateringReportEntry,
+)
+
 from .auth import RestAuth
 from .base import HydrawiseBase
 from .schema import Controller, User, Zone, ZoneSuspension
@@ -196,4 +203,22 @@ class RestClient(HydrawiseBase):
         :param suspension: The suspension to delete.
         """
         _ = suspension  # unused
+        raise NotImplementedError
+
+    async def get_sensors(self, controller: Controller) -> list[Sensor]:
+        raise NotImplementedError
+
+    async def get_water_flow_summary(
+        self, controller: Controller, sensor: Sensor, start: datetime, end: datetime
+    ) -> SensorFlowSummary:
+        raise NotImplementedError
+
+    async def get_watering_report(
+        self, controller: Controller, start: datetime, end: datetime
+    ) -> list[WateringReportEntry]:
+        raise NotImplementedError
+
+    async def get_water_use_summary(
+        self, controller: Controller, start: datetime, end: datetime
+    ) -> ControllerWaterUseSummary:
         raise NotImplementedError

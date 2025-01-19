@@ -2,6 +2,14 @@ from unittest import mock
 
 from pytest import fixture
 
+from pydrawise.schema import Controller, Sensor, User, Zone
+from pydrawise.schema_utils import deserialize
+
+
+@fixture
+def rain_sensor(rain_sensor_json):
+    yield deserialize(Sensor, rain_sensor_json)
+
 
 @fixture
 def rain_sensor_json():
@@ -61,6 +69,11 @@ def flow_summary_json(request):
 
 
 @fixture
+def user(user_json):
+    yield deserialize(User, user_json)
+
+
+@fixture
 def user_json(controller_json):
     yield {
         "id": 1234,
@@ -69,6 +82,11 @@ def user_json(controller_json):
         "email": "me@asdf.com",
         "controllers": [controller_json],
     }
+
+
+@fixture
+def controller(controller_json):
+    yield deserialize(Controller, controller_json)
 
 
 @fixture
@@ -109,6 +127,11 @@ def controller_json(rain_sensor_json, flow_sensor_json):
             },
         },
     }
+
+
+@fixture
+def zone(zone_json):
+    yield deserialize(Zone, zone_json)
 
 
 @fixture

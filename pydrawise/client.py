@@ -10,7 +10,7 @@ from gql.transport.aiohttp import log as gql_log
 
 from .auth import Auth
 from .base import HydrawiseBase
-from .const import GRAPHQL_URL
+from .const import DEFAULT_APP_ID, GRAPHQL_URL
 from .exceptions import MutationError
 from .schema import (
     DSL_SCHEMA,
@@ -70,7 +70,7 @@ class Hydrawise(HydrawiseBase):
     Should be instantiated with an Auth object that handles authentication and low-level transport.
     """
 
-    def __init__(self, auth: Auth, app_id: str = "pydrawise") -> None:
+    def __init__(self, auth: Auth, app_id: str = DEFAULT_APP_ID) -> None:
         """Initializes the client.
 
         :param auth: Handles authentication and transport.

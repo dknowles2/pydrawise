@@ -119,3 +119,19 @@ class RestAuth(BaseAuth):
         """Validates that the credentials are valid."""
         await self.get("customerdetails.php")
         return True
+
+
+class HybridAuth(Auth, RestAuth):
+    """Authentication support for the Hydrawise GraphQL & REST APIs."""
+
+    def __init__(self, username: str, password: str, api_key: str) -> None:
+        """Initializer."""
+        Auth.__init__(self, username, password)
+        RestAuth.__init__(self, api_key)
+
+    async def _check_api_token(self):
+        await self.get("customerdetails.php")
+
+    async def check(self) -> bool:
+        await super().check()
+        return True
