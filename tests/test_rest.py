@@ -47,7 +47,7 @@ async def test_get_user(
                 payload=customer_details,
             )
             m.get(
-                f"https://api.hydrawise.com/api/v1/statusschedule.php?api_key={API_KEY}&controller_id=52496",
+                f"https://api.hydrawise.com/api/v1/statusschedule.php?api_key={API_KEY}&controller_id=9876",
                 status=200,
                 payload=status_schedule,
             )
@@ -57,19 +57,9 @@ async def test_get_user(
                 payload=status_schedule,
             )
             user = await client.get_user()
-            assert user.customer_id == 47076
-            assert [c.id for c in user.controllers] == [52496, 63507]
-            want_zones = [
-                5965394,
-                5965395,
-                5965396,
-                5965397,
-                5965398,
-                5965399,
-                5965400,
-                5965401,
-                5965402,
-            ]
+            assert user.customer_id == 2222
+            assert [c.id for c in user.controllers] == [9876, 63507]
+            want_zones = [0x10A, 0x10B, 0x10C, 0x10D, 0x10E, 0x10F]
             assert [z.id for z in user.controllers[0].zones] == want_zones
             assert [z.id for z in user.controllers[1].zones] == want_zones
             assert client.next_poll == timedelta(seconds=60)
@@ -88,7 +78,7 @@ async def test_get_controllers(
                 payload=customer_details,
             )
             m.get(
-                f"https://api.hydrawise.com/api/v1/statusschedule.php?api_key={API_KEY}&controller_id=52496",
+                f"https://api.hydrawise.com/api/v1/statusschedule.php?api_key={API_KEY}&controller_id=9876",
                 status=200,
                 payload=status_schedule,
             )
@@ -98,25 +88,15 @@ async def test_get_controllers(
                 payload=status_schedule,
             )
             controllers = await client.get_controllers()
-            assert [c.id for c in controllers] == [52496, 63507]
-            assert controllers[0].name == "Home Controller"
+            assert [c.id for c in controllers] == [9876, 63507]
+            assert controllers[0].name == "Main Controller"
             assert controllers[1].name == "Other Controller"
-            assert controllers[0].hardware.serial_number == "0310b36090"
+            assert controllers[0].hardware.serial_number == "A0B1C2D3"
             assert controllers[1].hardware.serial_number == "1310b36091"
-            want_last_contact_time = datetime(2023, 8, 29, 7, 0, 20)
+            want_last_contact_time = datetime(2023, 1, 1, 0, 0, 0)
             assert controllers[0].last_contact_time == want_last_contact_time
             assert controllers[1].last_contact_time == want_last_contact_time
-            want_zones = [
-                5965394,
-                5965395,
-                5965396,
-                5965397,
-                5965398,
-                5965399,
-                5965400,
-                5965401,
-                5965402,
-            ]
+            want_zones = [0x10A, 0x10B, 0x10C, 0x10D, 0x10E, 0x10F]
             assert [z.id for z in controllers[0].zones] == want_zones
             assert [z.id for z in controllers[1].zones] == want_zones
 
@@ -132,18 +112,8 @@ async def test_get_zones(rest_auth: RestAuth, status_schedule: dict) -> None:
                 payload=status_schedule,
             )
             zones = await client.get_zones(Controller(id=12345))
-            assert [z.id for z in zones] == [
-                5965394,
-                5965395,
-                5965396,
-                5965397,
-                5965398,
-                5965399,
-                5965400,
-                5965401,
-                5965402,
-            ]
-            assert zones[0].name == "Drips - House"
+            assert [z.id for z in zones] == [0x10A, 0x10B, 0x10C, 0x10D, 0x10E, 0x10F]
+            assert zones[0].name == "Zone A"
             assert zones[0].number == 1
             assert zones[0].scheduled_runs.current_run is None
             next_run = zones[0].scheduled_runs.next_run
@@ -152,7 +122,7 @@ async def test_get_zones(rest_auth: RestAuth, status_schedule: dict) -> None:
             assert next_run.normal_duration == timedelta(seconds=1800)
             assert next_run.duration == timedelta(seconds=1800)
 
-            assert zones[1].name == "Drips - Fence"
+            assert zones[1].name == "Zone B"
             assert zones[1].number == 2
             current_run = zones[1].scheduled_runs.current_run
             assert current_run is not None
@@ -163,7 +133,7 @@ async def test_get_zones(rest_auth: RestAuth, status_schedule: dict) -> None:
             assert current_run.remaining_time == timedelta(seconds=1788)
             assert zones[1].scheduled_runs.next_run is None
 
-            assert zones[2].name == "Rotary - Front"
+            assert zones[2].name == "Zone C"
             assert zones[2].number == 3
             assert zones[2].scheduled_runs.current_run is None
             assert zones[2].scheduled_runs.next_run is None

@@ -61,6 +61,17 @@ def flow_summary_json(request):
 
 
 @fixture
+def user_json(controller_json):
+    yield {
+        "id": 1234,
+        "customerId": 2222,
+        "name": "My Name",
+        "email": "me@asdf.com",
+        "controllers": [controller_json],
+    }
+
+
+@fixture
 def controller_json(rain_sensor_json, flow_sensor_json):
     yield {
         "id": 9876,
@@ -103,7 +114,7 @@ def controller_json(rain_sensor_json, flow_sensor_json):
 @fixture
 def zone_json():
     yield {
-        "id": 1,
+        "id": 0x10A,
         "number": {
             "value": 1,
             "label": "One",
@@ -264,20 +275,20 @@ def watering_report_without_sensor_json():
 @fixture
 def customer_details():
     yield {
-        "controller_id": 52496,
-        "customer_id": 47076,
+        "controller_id": 9876,
+        "customer_id": 2222,
         "current_controller": "Home Controller",
         "controllers": [
             {
-                "name": "Home Controller",
-                "last_contact": 1693292420,
-                "serial_number": "0310b36090",
-                "controller_id": 52496,
+                "name": "Main Controller",
+                "last_contact": 1672531200,
+                "serial_number": "A0B1C2D3",
+                "controller_id": 9876,
                 "status": "Unknown",
             },
             {
                 "name": "Other Controller",
-                "last_contact": 1693292420,
+                "last_contact": 1672531200,
                 "serial_number": "1310b36091",
                 "controller_id": 63507,
                 "status": "Unknown",
@@ -298,10 +309,10 @@ def status_schedule():
         "options": 1,
         "relays": [
             {
-                "name": "Drips - House",
+                "name": "Zone A",
                 "period": 259200,
                 "relay": 1,
-                "relay_id": 5965394,
+                "relay_id": 0x10A,
                 "run": 1800,
                 "stop": 1,
                 "time": 5400,
@@ -309,10 +320,10 @@ def status_schedule():
                 "type": 1,
             },
             {
-                "name": "Drips - Fence",
+                "name": "Zone B",
                 "period": 259200,
                 "relay": 2,
-                "relay_id": 5965395,
+                "relay_id": 0x10B,
                 "run": 1788,
                 "stop": 1,
                 "time": 1,
@@ -320,10 +331,10 @@ def status_schedule():
                 "type": 106,
             },
             {
-                "name": "Rotary - Front",
+                "name": "Zone C",
                 "period": 259200,
                 "relay": 3,
-                "relay_id": 5965396,
+                "relay_id": 0x10C,
                 "run": 1800,
                 "stop": 1,
                 "time": 1576800000,
@@ -331,10 +342,10 @@ def status_schedule():
                 "type": 1,
             },
             {
-                "name": "Sprays - Side L",
+                "name": "Zone D",
                 "period": 259200,
                 "relay": 4,
-                "relay_id": 5965397,
+                "relay_id": 0x10D,
                 "run": 180,
                 "stop": 1,
                 "time": 335997,
@@ -342,10 +353,10 @@ def status_schedule():
                 "type": 1,
             },
             {
-                "name": "Rotary - Back N",
+                "name": "Zone E",
                 "period": 259200,
                 "relay": 5,
-                "relay_id": 5965398,
+                "relay_id": 0x10E,
                 "run": 1800,
                 "stop": 1,
                 "time": 336177,
@@ -353,46 +364,13 @@ def status_schedule():
                 "type": 1,
             },
             {
-                "name": "Rotary - Back C",
+                "name": "Zone F",
                 "period": 259200,
                 "relay": 6,
-                "relay_id": 5965399,
+                "relay_id": 0x10F,
                 "run": 1800,
                 "stop": 1,
                 "time": 337977,
-                "timestr": "Sat",
-                "type": 1,
-            },
-            {
-                "name": "Rotary - Back F",
-                "period": 259200,
-                "relay": 7,
-                "relay_id": 5965400,
-                "run": 1200,
-                "stop": 1,
-                "time": 339777,
-                "timestr": "Sat",
-                "type": 1,
-            },
-            {
-                "name": "Sprays - Side R",
-                "period": 259200,
-                "relay": 8,
-                "relay_id": 5965401,
-                "run": 480,
-                "stop": 1,
-                "time": 340977,
-                "timestr": "Sat",
-                "type": 1,
-            },
-            {
-                "name": "Sprays - Drivew",
-                "period": 259200,
-                "relay": 9,
-                "relay_id": 5965402,
-                "run": 900,
-                "stop": 1,
-                "time": 341457,
                 "timestr": "Sat",
                 "type": 1,
             },
@@ -403,15 +381,12 @@ def status_schedule():
                 "mode": 1,
                 "offtimer": 0,
                 "relays": [
-                    {"id": 5965394},
-                    {"id": 5965395},
-                    {"id": 5965396},
-                    {"id": 5965397},
-                    {"id": 5965398},
-                    {"id": 5965399},
-                    {"id": 5965400},
-                    {"id": 5965401},
-                    {"id": 5965402},
+                    {"id": 0x10A},
+                    {"id": 0x10B},
+                    {"id": 0x10C},
+                    {"id": 0x10D},
+                    {"id": 0x10E},
+                    {"id": 0x10F},
                 ],
                 "timer": 0,
                 "type": 1,
@@ -419,7 +394,7 @@ def status_schedule():
         ],
         "simRelays": 1,
         "stupdate": 0,
-        "time": 1693303803,
+        "time": 1672531200,
     }
 
 

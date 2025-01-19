@@ -39,17 +39,9 @@ def api(mock_auth, mock_client):
         yield api
 
 
-async def test_get_user(api: Hydrawise, mock_session, controller_json, zone_json):
-    controller_json["zones"] = [zone_json]
-    mock_session.execute.return_value = {
-        "me": {
-            "id": 1234,
-            "customerId": 1,
-            "name": "My Name",
-            "email": "me@asdf.com",
-            "controllers": [controller_json],
-        }
-    }
+async def test_get_user(api: Hydrawise, mock_session, user_json, zone_json):
+    user_json["controllers"][0]["zones"] = [zone_json]
+    mock_session.execute.return_value = {"me": user_json}
     user = await api.get_user()
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
@@ -57,22 +49,15 @@ async def test_get_user(api: Hydrawise, mock_session, controller_json, zone_json
     assert "controllers {" in query
     assert query.count("zones {") == 2
     assert user.id == 1234
+    assert user.customer_id == 2222
     assert user.name == "My Name"
     assert user.email == "me@asdf.com"
     assert len(user.controllers) == 1
     assert len(user.controllers[0].zones) == 1
 
 
-async def test_get_user_no_zones(api: Hydrawise, mock_session, controller_json):
-    mock_session.execute.return_value = {
-        "me": {
-            "id": 1234,
-            "customerId": 1,
-            "name": "My Name",
-            "email": "me@asdf.com",
-            "controllers": [controller_json],
-        }
-    }
+async def test_get_user_no_zones(api: Hydrawise, mock_session, user_json):
+    mock_session.execute.return_value = {"me": user_json}
     user = await api.get_user(fetch_zones=False)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
@@ -80,6 +65,7 @@ async def test_get_user_no_zones(api: Hydrawise, mock_session, controller_json):
     assert "controllers {" in query
     assert query.count("zones {") == 1
     assert user.id == 1234
+    assert user.customer_id == 2222
     assert user.name == "My Name"
     assert user.email == "me@asdf.com"
     assert len(user.controllers) == 1
@@ -175,7 +161,7 @@ async def test_start_zone(api: Hydrawise, mock_session, zone_json):
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
     assert "startZone(" in query
-    assert "zoneId: 1" in query
+    assert "zoneId: 266" in query
     assert "markRunAsScheduled: false" in query
     assert "customRunDuration: 10" in query
 
@@ -188,7 +174,7 @@ async def test_stop_zone(api: Hydrawise, mock_session, zone_json):
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
     assert "stopZone(" in query
-    assert "zoneId: 1" in query
+    assert "zoneId: 266" in query
 
 
 async def test_start_all_zones(api: Hydrawise, mock_session, controller_json):
@@ -223,7 +209,7 @@ async def test_suspend_zone(api: Hydrawise, mock_session, zone_json):
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
     assert "suspendZone(" in query
-    assert "zoneId: 1" in query
+    assert "zoneId: 266" in query
     assert 'until: "Sun, 01 Jan 23 00:12:00 +0000"' in query
 
 
@@ -235,7 +221,7 @@ async def test_resume_zone(api: Hydrawise, mock_session, zone_json):
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector)
     assert "resumeZone(" in query
-    assert "zoneId: 1" in query
+    assert "zoneId: 266" in query
 
 
 async def test_suspend_all_zones(api: Hydrawise, mock_session, controller_json):

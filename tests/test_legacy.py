@@ -31,23 +31,20 @@ def test_attributes(mock_request, customer_details, status_schedule):
     client = legacy.LegacyHydrawise(API_KEY)
     assert client.current_controller == customer_details["controllers"][0]
     assert client.status == "Unknown"
-    assert client.controller_id == 52496
-    assert client.customer_id == 47076
-    assert client.num_relays == 9
+    assert client.controller_id == 9876
+    assert client.customer_id == 2222
+    assert client.num_relays == 6
     assert client.relays == status_schedule["relays"]
     assert list(client.relays_by_id.keys()) == [
-        5965394,
-        5965395,
-        5965396,
-        5965397,
-        5965398,
-        5965399,
-        5965400,
-        5965401,
-        5965402,
+        0x10A,
+        0x10B,
+        0x10C,
+        0x10D,
+        0x10E,
+        0x10F,
     ]
-    assert list(client.relays_by_zone_number.keys()) == [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    assert client.name == "Home Controller"
+    assert list(client.relays_by_zone_number.keys()) == [1, 2, 3, 4, 5, 6]
+    assert client.name == "Main Controller"
     assert client.sensors == status_schedule["sensors"]
     assert client.running is None
 
@@ -87,7 +84,7 @@ def test_suspend_zone(mock_request, success_status):
                 "action": "suspend",
                 "custom": 1672617600,
                 "period_id": 999,
-                "relay_id": 5965394,
+                "relay_id": 0x10A,
             },
             timeout=10,
         )
@@ -108,7 +105,7 @@ def test_suspend_zone_unsuspend(mock_request, success_status):
                 "api_key": API_KEY,
                 "action": "suspend",
                 "period_id": 0,
-                "relay_id": 5965394,
+                "relay_id": 0x10A,
             },
             timeout=10,
         )
@@ -151,7 +148,7 @@ def test_run_zone(mock_request, success_status):
                 "action": "run",
                 "custom": 60,
                 "period_id": 999,
-                "relay_id": 5965394,
+                "relay_id": 0x10A,
             },
             timeout=10,
         )
@@ -193,7 +190,7 @@ def test_run_zone_stop(mock_request, success_status):
                 "api_key": API_KEY,
                 "action": "stop",
                 "period_id": 0,
-                "relay_id": 5965394,
+                "relay_id": 0x10A,
             },
             timeout=10,
         )
