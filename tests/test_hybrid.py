@@ -5,9 +5,9 @@ from unittest.mock import create_autospec
 from freezegun import freeze_time
 from pytest import fixture
 
-from pydrawise import hybrid
 from pydrawise.auth import HybridAuth
 from pydrawise.client import Hydrawise
+from pydrawise.hybrid import HybridClient, Throttler
 
 FROZEN_TIME = "2023-01-01 01:00:00"
 
@@ -26,12 +26,21 @@ def mock_gql_client():
 
 @fixture
 def api(hybrid_auth, mock_gql_client):
-    yield hybrid.HybridClient(hybrid_auth, gql_client=mock_gql_client)
+    yield HybridClient(
+        hybrid_auth,
+        gql_client=mock_gql_client,
+        gql_throttle=Throttler(
+            epoch_interval=timedelta(minutes=30), tokens_per_epoch=2
+        ),
+        rest_throttle=Throttler(
+            epoch_interval=timedelta(minutes=1), tokens_per_epoch=2
+        ),
+    )
 
 
 def test_throttler():
     with freeze_time(FROZEN_TIME) as frozen_time:
-        throttle = hybrid.Throttler(epoch_interval=timedelta(seconds=60))
+        throttle = Throttler(epoch_interval=timedelta(seconds=60))
         assert throttle.check()
         throttle.mark()
         assert not throttle.check()
