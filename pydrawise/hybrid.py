@@ -77,6 +77,8 @@ class HybridClient(HydrawiseBase):
         auth: HybridAuth,
         app_id: str = DEFAULT_APP_ID,
         gql_client: Hydrawise | None = None,
+        gql_throttle: Throttler | None = None,
+        rest_throttle: Throttler | None = None,
     ) -> None:
         if gql_client is None:
             gql_client = Hydrawise(auth, app_id)
@@ -86,12 +88,16 @@ class HybridClient(HydrawiseBase):
         self._user: User | None = None
         self._controllers: dict[int, Controller] = {}
         self._zones: dict[int, Zone] = {}
-        self._gql_throttle = Throttler(
-            epoch_interval=timedelta(minutes=30), tokens_per_epoch=2
-        )
-        self._rest_throttle = Throttler(
-            epoch_interval=timedelta(minutes=1), tokens_per_epoch=2
-        )
+        if gql_throttle is None:
+            gql_throttle = Throttler(
+                epoch_interval=timedelta(minutes=30), tokens_per_epoch=5
+            )
+        self._gql_throttle: Throttler = gql_throttle
+        if rest_throttle is None:
+            rest_throttle = Throttler(
+                epoch_interval=timedelta(minutes=1), tokens_per_epoch=2
+            )
+        self._rest_throttle: Throttler = rest_throttle
 
     async def get_user(self, fetch_zones: bool = True) -> User:
         async with self._lock:
