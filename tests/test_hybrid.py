@@ -1,6 +1,6 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
-from unittest.mock import create_autospec
+from unittest.mock import call, create_autospec
 
 from freezegun import freeze_time
 from pytest import fixture
@@ -8,6 +8,7 @@ from pytest import fixture
 from pydrawise.auth import HybridAuth
 from pydrawise.client import Hydrawise
 from pydrawise.hybrid import HybridClient, Throttler
+from pydrawise.schema import Zone
 
 FROZEN_TIME = "2023-01-01 01:00:00"
 
@@ -242,6 +243,35 @@ async def test_get_zones(
         assert await api.get_zones(controller) == [zone2]
         mock_gql_client.get_zones.assert_not_awaited()
         hybrid_auth.get.assert_not_awaited()
+
+
+async def test_get_user_get_zones(
+    api, hybrid_auth, mock_gql_client, user, status_schedule
+):
+    with freeze_time(FROZEN_TIME):
+        [controller] = user.controllers
+        controller.zones = []
+
+        # Fetch the user twice without zones to deplete tokens.
+        mock_gql_client.get_user.return_value = deepcopy(user)
+        assert await api.get_user(fetch_zones=False) == user
+        assert await api.get_user(fetch_zones=False) == user
+        mock_gql_client.get_user.assert_has_awaits(
+            [call(fetch_zones=False), call(fetch_zones=False)]
+        )
+
+        # Fetching zones should fall back to REST and still return zones.
+        mock_gql_client.get_user.reset_mock()
+        status_schedule["relays"] = [status_schedule["relays"][0]]
+        status_schedule["relays"][0]["time"] = 1576800000
+        status_schedule["relays"][0]["name"] = "Zone A from REST API"
+        zone = Zone.from_json(status_schedule["relays"][0])
+        hybrid_auth.get.return_value = status_schedule
+        assert await api.get_zones(controller) == [zone]
+        mock_gql_client.get_zones.assert_not_awaited()
+        hybrid_auth.get.assert_awaited_once_with(
+            "statusschedule.php", controller_id=controller.id
+        )
 
 
 async def test_get_zone(api, hybrid_auth, mock_gql_client, zone):

@@ -174,6 +174,7 @@ class HybridClient(HydrawiseBase):
             )
             self._rest_throttle.mark()
             self._rest_throttle.epoch_interval = timedelta(seconds=json["nextpoll"])
+            zones = []
             for zone_json in json["relays"]:
                 if zone := self._zones.get(zone_json["relay_id"]):
                     zone.update_with_json(zone_json)
@@ -181,6 +182,8 @@ class HybridClient(HydrawiseBase):
                     # Not an ideal case. This means we discovered a Zone from the
                     # REST API, which means we get incomplete data.
                     self._zones[zone_json["relay_id"]] = Zone.from_json(zone_json)
+                zones.append(self._zones[zone_json["relay_id"]])
+            self._controllers[controller_id].zones = zones
 
     @throttle
     async def get_zone(self, zone_id: int) -> Zone:
