@@ -668,6 +668,15 @@ class WateringReportEntry:
 
 
 @dataclass
+class MasterValve:
+    """A master valve setting for a controller."""
+
+    zone_number: Optional[SelectedOption] = None
+    delay: Optional[int] = None
+    post_timer: Optional[int] = None
+
+
+@dataclass
 class Controller:
     """A Hydrawise controller."""
 
@@ -684,6 +693,7 @@ class Controller:
     online: bool = _optional_field(default=False)
     sensors: list[Sensor] = _optional_field(default_factory=list)
     zones: list[Zone] = _optional_field(default_factory=list)
+    master_zone: Optional[MasterValve] = None
     permitted_program_start_times: list[ProgramStartTime] = _optional_field(
         default_factory=list
     )
