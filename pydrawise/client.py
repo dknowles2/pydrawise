@@ -327,6 +327,18 @@ class Hydrawise(HydrawiseBase):
         )
         return deserialize(list[Sensor], result["controller"]["sensors"])
 
+    async def update_master_valve(self, controller: Controller, zone: Zone) -> None:
+        """Updates the controller's master valve.
+
+        :param controller: Controller whose master valve to update.
+        :param zone: Zone to use as the controller's master valve.
+        """
+        await self._mutation(
+            DSL_SCHEMA.Mutation.updateControllerMasterValve.args(
+                zoneNumber=zone.number.value, controllerId=controller.id
+            ).select()
+        )
+
     async def get_water_flow_summary(
         self, controller: Controller, sensor: Sensor, start: datetime, end: datetime
     ) -> SensorFlowSummary:
