@@ -3,6 +3,7 @@
 This utilizes both the GraphQL and REST APIs.
 """
 
+import logging
 from asyncio import Lock
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -25,6 +26,8 @@ from .schema import (
     ZoneSuspension,
 )
 
+_LOGGER = logging.getLogger("pydrawise")
+
 
 @dataclass
 class Throttler:
@@ -33,17 +36,25 @@ class Throttler:
     tokens_per_epoch: int = 1
     tokens: int = 0
 
+    @property
+    def next_epoch(self) -> datetime:
+        return self.last_epoch + self.epoch_interval
+
     def check(self, tokens: int = 1) -> bool:
-        if datetime.now() > self.last_epoch + self.epoch_interval:
+        if datetime.now() > self.next_epoch:
             return tokens <= self.tokens_per_epoch
         return (self.tokens + tokens) <= self.tokens_per_epoch
 
     def mark(self) -> None:
-        if (now := datetime.now()) > self.last_epoch + self.epoch_interval:
+        if (now := datetime.now()) > self.next_epoch:
             self.last_epoch = now
             self.tokens = 1
             return
         self.tokens += 1
+
+    @property
+    def debug_str(self) -> str:
+        return f"{self.tokens}/{self.tokens_per_epoch} tokens used; next epoch: {self.next_epoch}"
 
 
 T = TypeVar("T")
@@ -112,6 +123,8 @@ class HybridClient(HydrawiseBase):
                 # If we're not fetching zones, there's nothing to update.
                 # The REST API doesn't return anything useful for a User.
                 await self._update_zones()
+            else:
+                _LOGGER.debug("get_user throttled: {self._gql_throttle.debug_str}")
 
             return self._user
 
@@ -134,6 +147,10 @@ class HybridClient(HydrawiseBase):
                 # If we're not fetching zones, there's nothing to update.
                 # The REST API doesn't return anything useful for a User.
                 await self._update_zones()
+            else:
+                _LOGGER.debug(
+                    "get_controllers() throttled: %s", self._gql_throttle.debug_str
+                )
         return list(self._controllers.values())
 
     async def get_controller(self, controller_id: int) -> Controller:
@@ -143,6 +160,10 @@ class HybridClient(HydrawiseBase):
                     controller_id
                 ] = await self._gql_client.get_controller(controller_id)
                 self._gql_throttle.mark()
+            else:
+                _LOGGER.debug(
+                    "get_controller() throttled: %s", self._gql_throttle.debug_str
+                )
         return self._controllers[controller_id]
 
     async def get_zones(self, controller: Controller) -> list[Zone]:
@@ -156,6 +177,10 @@ class HybridClient(HydrawiseBase):
                 for zone in zones:
                     self._zones[zone.id] = zone
             else:
+                _LOGGER.debug(
+                    "get_zones() throttled; falling back to REST: %s",
+                    self._gql_throttle.debug_str,
+                )
                 await self._update_zones(controller)
 
         return self._controllers[controller.id].zones
@@ -168,6 +193,7 @@ class HybridClient(HydrawiseBase):
 
         if not self._rest_throttle.check(len(controller_ids)):
             # We don't have enough quota to update everything, so update nothing.
+            _LOGGER.debug("REST client throttled: %s", self._rest_throttle.debug_str)
             return
 
         for controller_id in controller_ids:
