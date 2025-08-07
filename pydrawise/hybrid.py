@@ -124,7 +124,7 @@ class HybridClient(HydrawiseBase):
                 # The REST API doesn't return anything useful for a User.
                 await self._update_zones()
             else:
-                _LOGGER.debug("get_user throttled: {self._gql_throttle.debug_str}")
+                _LOGGER.debug("get_user throttled: %s", self._gql_throttle.debug_str)
 
             return self._user
 
