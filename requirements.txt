@@ -1,5 +1,5 @@
 aiohttp==3.12.15
 apischema==0.19.0
-gql==3.5.3
+gql==4.0.0
 graphql-core==3.2.6
 requests==2.32.5
