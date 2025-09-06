@@ -9,6 +9,7 @@ from pytest import fixture
 
 from pydrawise.auth import Auth
 from pydrawise.client import Hydrawise
+from pydrawise.exceptions import MutationError
 from pydrawise.schema import Controller, Sensor, Zone, ZoneSuspension
 from pydrawise.schema_utils import deserialize
 
@@ -157,6 +158,41 @@ async def test_start_zone(api: Hydrawise, mock_session, zone_json):
     mock_session.execute.return_value = {"startZone": {"status": "OK"}}
     zone = deserialize(Zone, zone_json)
     await api.start_zone(zone, custom_run_duration=10)
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector.document)
+    assert "startZone(" in query
+    assert "zoneId: 266" in query
+    assert "markRunAsScheduled: false" in query
+    assert "customRunDuration: 10" in query
+
+
+async def test_start_zone_warning(api: Hydrawise, mock_session, zone_json):
+    zone = deserialize(Zone, zone_json)
+    mock_session.execute.return_value = {
+        "startZone": {
+            "status": "WARNING",
+            "summary": f"Starting {zone.name} in 5 seconds",
+        }
+    }
+    await api.start_zone(zone, custom_run_duration=10)
+    mock_session.execute.assert_awaited_once()
+    [selector] = mock_session.execute.await_args.args
+    query = print_ast(selector.document)
+    assert "startZone(" in query
+    assert "zoneId: 266" in query
+    assert "markRunAsScheduled: false" in query
+    assert "customRunDuration: 10" in query
+
+
+async def test_start_zone_error(api: Hydrawise, mock_session, zone_json):
+    mock_session.execute.return_value = {
+        "startZone": {"status": "ERROR", "summary": "LOL ERROR"}
+    }
+    zone = deserialize(Zone, zone_json)
+    with pytest.raises(MutationError, match="LOL ERROR"):
+        await api.start_zone(zone, custom_run_duration=10)
+
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector.document)

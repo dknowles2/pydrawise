@@ -33,6 +33,8 @@ from .schema_utils import deserialize, get_selectors
 # GQL is quite chatty in logs by default.
 gql_log.setLevel(logging.ERROR)
 
+_LOGGER = logging.getLogger("pydrawise")
+
 
 def _prune_watering_report_entries(
     entries: list[WateringReportEntry], start: datetime, end: datetime
@@ -99,8 +101,10 @@ class Hydrawise(HydrawiseBase):
             result = await session.execute(dsl_gql(DSLMutation(selector)))
             resp = result[selector.name]
             if isinstance(resp, dict):
-                if resp["status"] != "OK":
+                if resp["status"] == "ERROR":
                     raise MutationError(resp["summary"])
+                elif resp["status"] == "WARNING":
+                    _LOGGER.warning(resp["summary"])
                 return
             elif not resp:
                 # Assume bool response
