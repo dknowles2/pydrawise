@@ -54,7 +54,8 @@ class Throttler:
 
     @property
     def debug_str(self) -> str:
-        return f"{self.tokens}/{self.tokens_per_epoch} tokens used; next epoch: {self.next_epoch}"
+        next_epoch_delta = self.next_epoch - datetime.now()
+        return f"{self.tokens}/{self.tokens_per_epoch} tokens used; next epoch in: {next_epoch_delta}"
 
 
 T = TypeVar("T")
@@ -124,7 +125,9 @@ class HybridClient(HydrawiseBase):
                 # The REST API doesn't return anything useful for a User.
                 await self._update_zones()
             else:
-                _LOGGER.debug("get_user throttled: %s", self._gql_throttle.debug_str)
+                _LOGGER.debug(
+                    "GQL get_user throttled: %s", self._gql_throttle.debug_str
+                )
 
             return self._user
 
@@ -149,7 +152,7 @@ class HybridClient(HydrawiseBase):
                 await self._update_zones()
             else:
                 _LOGGER.debug(
-                    "get_controllers() throttled: %s", self._gql_throttle.debug_str
+                    "GQL get_controllers() throttled: %s", self._gql_throttle.debug_str
                 )
         return list(self._controllers.values())
 
@@ -162,7 +165,7 @@ class HybridClient(HydrawiseBase):
                 self._gql_throttle.mark()
             else:
                 _LOGGER.debug(
-                    "get_controller() throttled: %s", self._gql_throttle.debug_str
+                    "GQL get_controller() throttled: %s", self._gql_throttle.debug_str
                 )
         return self._controllers[controller_id]
 
@@ -178,8 +181,7 @@ class HybridClient(HydrawiseBase):
                     self._zones[zone.id] = zone
             else:
                 _LOGGER.debug(
-                    "get_zones() throttled; falling back to REST: %s",
-                    self._gql_throttle.debug_str,
+                    "GQL get_zones() throttled: %s", self._gql_throttle.debug_str
                 )
                 await self._update_zones(controller)
 
@@ -193,7 +195,9 @@ class HybridClient(HydrawiseBase):
 
         if not self._rest_throttle.check(len(controller_ids)):
             # We don't have enough quota to update everything, so update nothing.
-            _LOGGER.debug("REST client throttled: %s", self._rest_throttle.debug_str)
+            _LOGGER.debug(
+                "REST _update_zones() throttled: %s", self._rest_throttle.debug_str
+            )
             return
 
         for controller_id in controller_ids:
