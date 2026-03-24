@@ -448,7 +448,7 @@ class Zone(BaseZone):
             current_run = ScheduledZoneRun(
                 remaining_time=timedelta(seconds=zone_json["run"]),
             )
-        elif zone_json["time"] == 1576800000:
+        elif zone_json["time"] == 1576800000 or zone_json.get("type") == 110:
             suspended_until = datetime.max
         else:
             start_time = _now() + timedelta(seconds=zone_json["time"])

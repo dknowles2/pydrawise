@@ -59,7 +59,7 @@ async def test_get_user(
             user = await client.get_user()
             assert user.customer_id == 2222
             assert [c.id for c in user.controllers] == [9876, 63507]
-            want_zones = [0x10A, 0x10B, 0x10C, 0x10D, 0x10E, 0x10F]
+            want_zones = [0x10A, 0x10B, 0x10C, 0x10D, 0x10E, 0x10F, 0x110]
             assert [z.id for z in user.controllers[0].zones] == want_zones
             assert [z.id for z in user.controllers[1].zones] == want_zones
             assert client.next_poll == timedelta(seconds=60)
@@ -96,7 +96,7 @@ async def test_get_controllers(
             want_last_contact_time = datetime(2023, 1, 1, 0, 0, 0)
             assert controllers[0].last_contact_time == want_last_contact_time
             assert controllers[1].last_contact_time == want_last_contact_time
-            want_zones = [0x10A, 0x10B, 0x10C, 0x10D, 0x10E, 0x10F]
+            want_zones = [0x10A, 0x10B, 0x10C, 0x10D, 0x10E, 0x10F, 0x110]
             assert [z.id for z in controllers[0].zones] == want_zones
             assert [z.id for z in controllers[1].zones] == want_zones
 
@@ -112,7 +112,7 @@ async def test_get_zones(rest_auth: RestAuth, status_schedule: dict) -> None:
                 payload=status_schedule,
             )
             zones = await client.get_zones(Controller(id=12345))
-            assert [z.id for z in zones] == [0x10A, 0x10B, 0x10C, 0x10D, 0x10E, 0x10F]
+            assert [z.id for z in zones] == [0x10A, 0x10B, 0x10C, 0x10D, 0x10E, 0x10F, 0x110]
             assert zones[0].name == "Zone A"
             assert zones[0].number == 1
             assert zones[0].scheduled_runs.current_run is None
@@ -138,6 +138,13 @@ async def test_get_zones(rest_auth: RestAuth, status_schedule: dict) -> None:
             assert zones[2].scheduled_runs.current_run is None
             assert zones[2].scheduled_runs.next_run is None
             assert zones[2].status.suspended_until == datetime.max
+
+            # Zone G: type=110 (suspended) with non-sentinel time value
+            assert zones[6].name == "Zone G"
+            assert zones[6].number == 7
+            assert zones[6].scheduled_runs.current_run is None
+            assert zones[6].scheduled_runs.next_run is None
+            assert zones[6].status.suspended_until == datetime.max
 
 
 async def test_start_zone(rest_auth: RestAuth, success_status: dict) -> None:
