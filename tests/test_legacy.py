@@ -33,7 +33,7 @@ def test_attributes(mock_request, customer_details, status_schedule):
     assert client.status == "Unknown"
     assert client.controller_id == 9876
     assert client.customer_id == 2222
-    assert client.num_relays == 6
+    assert client.num_relays == 7
     assert client.relays == status_schedule["relays"]
     assert list(client.relays_by_id.keys()) == [
         0x10A,
