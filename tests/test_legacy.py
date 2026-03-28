@@ -33,7 +33,7 @@ def test_attributes(mock_request, customer_details, status_schedule):
     assert client.status == "Unknown"
     assert client.controller_id == 9876
     assert client.customer_id == 2222
-    assert client.num_relays == 6
+    assert client.num_relays == 7
     assert client.relays == status_schedule["relays"]
     assert list(client.relays_by_id.keys()) == [
         0x10A,
@@ -42,8 +42,9 @@ def test_attributes(mock_request, customer_details, status_schedule):
         0x10D,
         0x10E,
         0x10F,
+        0x110,
     ]
-    assert list(client.relays_by_zone_number.keys()) == [1, 2, 3, 4, 5, 6]
+    assert list(client.relays_by_zone_number.keys()) == [1, 2, 3, 4, 5, 6, 7]
     assert client.name == "Main Controller"
     assert client.sensors == status_schedule["sensors"]
     assert client.running is None

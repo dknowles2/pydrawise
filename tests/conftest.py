@@ -397,6 +397,17 @@ def status_schedule():
                 "timestr": "Sat",
                 "type": 1,
             },
+            {
+                "name": "Zone G",
+                "period": 259200,
+                "relay": 7,
+                "relay_id": 0x110,
+                "run": 0,
+                "stop": 1,
+                "time": 339777,
+                "timestr": "",
+                "type": 110,
+            },
         ],
         "sensors": [
             {
