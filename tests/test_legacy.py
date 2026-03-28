@@ -42,6 +42,7 @@ def test_attributes(mock_request, customer_details, status_schedule):
         0x10D,
         0x10E,
         0x10F,
+        0x110,
     ]
     assert list(client.relays_by_zone_number.keys()) == [1, 2, 3, 4, 5, 6]
     assert client.name == "Main Controller"
