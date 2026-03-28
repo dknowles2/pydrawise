@@ -44,7 +44,7 @@ def test_attributes(mock_request, customer_details, status_schedule):
         0x10F,
         0x110,
     ]
-    assert list(client.relays_by_zone_number.keys()) == [1, 2, 3, 4, 5, 6]
+    assert list(client.relays_by_zone_number.keys()) == [1, 2, 3, 4, 5, 6, 7]
     assert client.name == "Main Controller"
     assert client.sensors == status_schedule["sensors"]
     assert client.running is None
