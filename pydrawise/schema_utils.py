@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import namedtuple
 from dataclasses import fields, is_dataclass
+from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
     Iterator,
@@ -87,23 +88,26 @@ def _fields(
         yield _Field(f.name, [field_type])
 
 
-def get_selectors(
-    cls: DataclassInstance | type[DataclassInstance],
-    skip_fields: list[str] | None = None,
-) -> list[DSLField]:
-    """Constructs GraphQL selectors for the given dataclass.
+@lru_cache(maxsize=None)
+def _get_selectors_cached(
+    cls: type,
+    skip_fields: tuple[str, ...],
+) -> tuple[DSLField, ...]:
+    """Cached implementation of get_selectors.
+
+    Uses a tuple for skip_fields to allow LRU caching with hashable arguments.
 
     :meta private:
     """
     ret = []
-    skip_now, skip_later = parse_skip(skip_fields or [])
+    skip_now, skip_later = parse_skip(list(skip_fields))
     for f in _fields(cls, skip_now):
         dsl_field = getattr(getattr(DSL_SCHEMA, get_type_name(cls).graphql), f.name)  # type: ignore[arg-type]
         if len(f.types) == 1:
             [f_type] = f.types
             if is_dataclass(f_type):
-                f_skip = skip_later.get(f.name, [])
-                ret.append(getattr(dsl_field, "select")(*get_selectors(f_type, f_skip)))
+                f_skip = tuple(skip_later.get(f.name, []))
+                ret.append(dsl_field.select(*_get_selectors_cached(f_type, f_skip)))
             else:
                 ret.append(dsl_field)
         else:
@@ -115,10 +119,21 @@ def get_selectors(
                 sel_args.append(
                     DSLInlineFragment()
                     .on(getattr(DSL_SCHEMA, get_type_name(f_type).graphql))  # type: ignore[arg-type]
-                    .select(*get_selectors(f_type))
+                    .select(*_get_selectors_cached(f_type, ()))
                 )
-            ret.append(getattr(dsl_field, "select")(*sel_args))
-    return ret
+            ret.append(dsl_field.select(*sel_args))
+    return tuple(ret)
+
+
+def get_selectors(
+    cls: DataclassInstance | type[DataclassInstance],
+    skip_fields: list[str] | None = None,
+) -> list[DSLField]:
+    """Constructs GraphQL selectors for the given dataclass.
+
+    :meta private:
+    """
+    return list(_get_selectors_cached(cls, tuple(skip_fields or [])))
 
 
 def parse_skip(skip: list[str] | None = None) -> tuple[list[str], dict[str, list[str]]]:
