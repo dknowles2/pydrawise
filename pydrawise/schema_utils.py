@@ -90,7 +90,7 @@ def _fields(
 
 @lru_cache(maxsize=None)
 def _get_selectors_cached(
-    cls: type,
+    cls: type[DataclassInstance],
     skip_fields: tuple[str, ...],
 ) -> tuple[DSLField, ...]:
     """Cached implementation of get_selectors.
@@ -133,7 +133,8 @@ def get_selectors(
 
     :meta private:
     """
-    return list(_get_selectors_cached(cls, tuple(skip_fields or [])))
+    cls_type = cls if isinstance(cls, type) else type(cls)
+    return list(_get_selectors_cached(cls_type, tuple(skip_fields or [])))
 
 
 def parse_skip(skip: list[str] | None = None) -> tuple[list[str], dict[str, list[str]]]:
