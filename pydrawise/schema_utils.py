@@ -107,7 +107,7 @@ def _get_selectors_cached(
             [f_type] = f.types
             if is_dataclass(f_type):
                 f_skip = tuple(skip_later.get(f.name, []))
-                ret.append(dsl_field.select(*_get_selectors_cached(f_type, f_skip)))
+                ret.append(dsl_field.select(*_get_selectors_cached(f_type, f_skip)))  # type: ignore[arg-type]
             else:
                 ret.append(dsl_field)
         else:
@@ -119,7 +119,7 @@ def _get_selectors_cached(
                 sel_args.append(
                     DSLInlineFragment()
                     .on(getattr(DSL_SCHEMA, get_type_name(f_type).graphql))  # type: ignore[arg-type]
-                    .select(*_get_selectors_cached(f_type, ()))
+                    .select(*_get_selectors_cached(f_type, ()))  # type: ignore[arg-type]
                 )
             ret.append(dsl_field.select(*sel_args))
     return tuple(ret)
