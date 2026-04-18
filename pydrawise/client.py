@@ -117,6 +117,8 @@ class Hydrawise(HydrawiseBase):
         :rtype: User
         """
         skip = [] if fetch_zones else ["controllers.zones"]
+        if fetch_zones:
+            skip.append("controllers.zones.past_runs")
         result = await self._query(
             DSL_SCHEMA.Query.me.select(*get_selectors(User, skip))
         )
@@ -134,6 +136,8 @@ class Hydrawise(HydrawiseBase):
         skip = []
         if not fetch_zones:
             skip.append("zones")
+        else:
+            skip.append("zones.past_runs")
         if not fetch_sensors:
             skip.append("sensors")
 
@@ -152,7 +156,7 @@ class Hydrawise(HydrawiseBase):
         """
         result = await self._query(
             DSL_SCHEMA.Query.controller(controllerId=controller_id).select(
-                *get_selectors(Controller),
+                *get_selectors(Controller, ["zones.past_runs"]),
             )
         )
         return deserialize(Controller, result["controller"])
@@ -165,7 +169,7 @@ class Hydrawise(HydrawiseBase):
         """
         result = await self._query(
             DSL_SCHEMA.Query.controller(controllerId=controller.id).select(
-                DSL_SCHEMA.Controller.zones.select(*get_selectors(Zone)),
+                DSL_SCHEMA.Controller.zones.select(*get_selectors(Zone, ["past_runs"])),
             )
         )
         return deserialize(list[Zone], result["controller"]["zones"])
@@ -177,7 +181,7 @@ class Hydrawise(HydrawiseBase):
         :rtype: Zone
         """
         result = await self._query(
-            DSL_SCHEMA.Query.zone(zoneId=zone_id).select(*get_selectors(Zone))
+            DSL_SCHEMA.Query.zone(zoneId=zone_id).select(*get_selectors(Zone, ["past_runs"]))
         )
         return deserialize(Zone, result["zone"])
 
