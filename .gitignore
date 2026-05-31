@@ -130,3 +130,9 @@ dmypy.json
 
 # Debug scripts
 debug/
+
+# Generated version file
+pydrawise/_version.py
+
+# uv lock file
+uv.lock
