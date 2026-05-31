@@ -14,7 +14,7 @@ from .auth import HybridAuth
 from .base import HydrawiseBase
 from .client import Hydrawise
 from .const import DEFAULT_APP_ID
-from .exceptions import ThrottledError
+from .exceptions import NotAuthorizedError, ThrottledError
 from .schema import (
     Controller,
     ControllerWaterUseSummary,
@@ -200,10 +200,25 @@ class HybridClient(HydrawiseBase):
             )
             return
 
+        last_err: NotAuthorizedError | None = None
+        succeeded = 0
         for controller_id in controller_ids:
-            json = await self._auth.get(
-                "statusschedule.php", controller_id=controller_id
-            )
+            try:
+                json = await self._auth.get(
+                    "statusschedule.php", controller_id=controller_id
+                )
+            except NotAuthorizedError as e:
+                # The REST API key is only valid for one controller. For multi-controller
+                # setups, secondary controllers will return "API key not valid". We track
+                # success across iterations so that if at least one controller succeeds,
+                # failures on others are treated as expected and suppressed.
+                _LOGGER.debug(
+                    "REST update skipped for controller %s (likely secondary): %s",
+                    controller_id,
+                    e,
+                )
+                last_err = e
+                continue
             self._rest_throttle.mark()
             self._rest_throttle.epoch_interval = timedelta(seconds=json["nextpoll"])
             zones = []
@@ -216,6 +231,9 @@ class HybridClient(HydrawiseBase):
                     self._zones[zone_json["relay_id"]] = Zone.from_json(zone_json)
                 zones.append(self._zones[zone_json["relay_id"]])
             self._controllers[controller_id].zones = zones
+            succeeded += 1
+        if succeeded == 0 and last_err is not None:
+            raise last_err
 
     @throttle
     async def get_zone(self, zone_id: int) -> Zone:
