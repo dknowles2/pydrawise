@@ -1,10 +1,12 @@
 from datetime import timedelta
 
+import pytest
 from aioresponses import aioresponses
 from freezegun import freeze_time
 from pytest import fixture
 
 from pydrawise import auth
+from pydrawise.exceptions import NotAuthorizedError
 
 
 @fixture
@@ -73,3 +75,29 @@ async def test_token(mock_token_fetch):
     a = auth.Auth("__username__", "__password__")
     token = await a.token()
     assert token == "bearer __access-token__"
+
+
+async def test_hybrid_auth_check_validates_rest_api_key(token_payload):
+    a = auth.HybridAuth("__username__", "__password__", "__api_key__")
+    with aioresponses() as m:
+        m.post(auth.TOKEN_URL, status=200, payload=token_payload)
+        m.get(
+            f"{auth.REST_URL}/customerdetails.php?api_key=__api_key__",
+            status=200,
+            payload={"customer_id": 123},
+        )
+        result = await a.check()
+    assert result is True
+
+
+async def test_hybrid_auth_check_raises_on_invalid_rest_api_key(token_payload):
+    a = auth.HybridAuth("__username__", "__password__", "__bad_key__")
+    with aioresponses() as m:
+        m.post(auth.TOKEN_URL, status=200, payload=token_payload)
+        m.get(
+            f"{auth.REST_URL}/customerdetails.php?api_key=__bad_key__",
+            status=404,
+            body="API key not valid",
+        )
+        with pytest.raises(NotAuthorizedError):
+            await a.check()

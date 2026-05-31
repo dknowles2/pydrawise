@@ -134,4 +134,5 @@ class HybridAuth(Auth, RestAuth):
 
     async def check(self) -> bool:
         await super().check()
+        await self._check_api_token()
         return True
