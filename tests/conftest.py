@@ -1,9 +1,76 @@
 from unittest import mock
 
+import aiohttp
+from aiohttp import web
+from aiohttp.test_utils import TestServer
 from pytest import fixture
 
 from pydrawise.schema import Controller, Sensor, User, Zone
 from pydrawise.schema_utils import deserialize
+
+
+class MockServer:
+    """A minimal aiohttp-based HTTP server for mocking outgoing requests.
+
+    Routes are looked up dynamically via a single catch-all handler so that
+    `add()` can be called after the server has started (the aiohttp router is
+    frozen once the app is running and cannot accept new routes).
+    """
+
+    def __init__(self) -> None:
+        self._routes: dict[tuple[str, str], dict] = {}
+        self.app = web.Application()
+        self.app.router.add_route("*", "/{tail:.*}", self._handle)
+        self._server = TestServer(self.app)
+
+    async def _handle(self, request: web.Request) -> web.Response:
+        spec = self._routes.get((request.method, request.path))
+        if spec is None:
+            return web.Response(status=404)
+        if spec["payload"] is not None:
+            return web.json_response(spec["payload"], status=spec["status"])
+        return web.Response(text=spec["body"] or "", status=spec["status"])
+
+    def add(
+        self, method: str, path: str, *, status: int = 200, payload=None, body=None
+    ):
+        """Registers a canned response for the given method and path."""
+        self._routes[(method, path)] = {
+            "status": status,
+            "payload": payload,
+            "body": body,
+        }
+
+    async def start(self) -> None:
+        await self._server.start_server()
+
+    async def stop(self) -> None:
+        await self._server.close()
+
+    def url(self, path: str) -> str:
+        return str(self._server.make_url(path))
+
+
+@fixture
+async def mock_server():
+    server = MockServer()
+    await server.start()
+    yield server
+    await server.stop()
+
+
+@fixture
+def request_spy(monkeypatch):
+    """Captures outgoing aiohttp requests while letting them proceed normally."""
+    calls = []
+    orig_request = aiohttp.ClientSession._request
+
+    async def spy(self, method, str_or_url, **kwargs):
+        calls.append(mock.call(method, str(str_or_url), **kwargs))
+        return await orig_request(self, method, str_or_url, **kwargs)
+
+    monkeypatch.setattr(aiohttp.ClientSession, "_request", spy)
+    return calls
 
 
 @fixture
