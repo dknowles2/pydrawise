@@ -6,7 +6,7 @@ This utilizes both the GraphQL and REST APIs.
 import logging
 from asyncio import Lock
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 from typing import Awaitable, Callable, Coroutine, ParamSpec, TypeVar
 
