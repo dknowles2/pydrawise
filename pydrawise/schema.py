@@ -443,13 +443,15 @@ class Zone(BaseZone):
     def update_with_json(self, zone_json: dict) -> None:
         current_run = None
         next_run = None
-        suspended_until = None
         if zone_json["time"] == 1:
+            # Zone is currently running; it cannot be suspended.
             current_run = ScheduledZoneRun(
                 remaining_time=timedelta(seconds=zone_json["run"]),
             )
+            self.status = ZoneStatus(suspended_until=None)
         elif zone_json["time"] == 1576800000 or zone_json.get("type") == 110:
-            suspended_until = datetime.max
+            # Zone is permanently suspended (REST API sentinel values).
+            self.status = ZoneStatus(suspended_until=datetime.max)
         else:
             start_time = _now() + timedelta(seconds=zone_json["time"])
             duration = timedelta(seconds=zone_json["run"])
@@ -459,11 +461,14 @@ class Zone(BaseZone):
                 normal_duration=duration,
                 duration=duration,
             )
+            # Do NOT overwrite self.status.suspended_until here. The REST API
+            # cannot represent non-permanent suspensions (e.g. those set via the
+            # GraphQL API), so leaving the existing value in place preserves any
+            # suspension that was established through the GraphQL API.
         self.scheduled_runs = ScheduledZoneRuns(
             current_run=current_run,
             next_run=next_run,
         )
-        self.status = ZoneStatus(suspended_until=suspended_until)
 
 
 @dataclass

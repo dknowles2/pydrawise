@@ -249,6 +249,43 @@ async def test_get_zones(
         hybrid_auth.get.assert_not_awaited()
 
 
+async def test_get_zones_preserves_gql_suspension_across_rest_fallback(
+    api, hybrid_auth, mock_gql_client, controller, zone, status_schedule
+):
+    """Regression test for #493.
+
+    A zone suspended via the GraphQL API (with a specific end date, as opposed
+    to a permanent suspension) must stay suspended across a REST-fallback poll
+    that reports it as having a normal upcoming next run -- the REST API has
+    no way to represent a dated suspension, so it cannot be used to conclude
+    the zone is unsuspended.
+    """
+    with freeze_time(FROZEN_TIME):
+        suspended_until = zone.status.suspended_until
+        assert suspended_until is not None
+        assert suspended_until != datetime.max
+
+        # First and second fetches query the GraphQL API and report the zone
+        # as suspended until a specific date.
+        mock_gql_client.get_zones.return_value = [deepcopy(zone)]
+        assert await api.get_zones(controller) == [zone]
+        mock_gql_client.get_zones.reset_mock()
+        assert await api.get_zones(controller) == [zone]
+
+        # Third fetch: GraphQL is throttled, so we fall back to REST. Zone A's
+        # entry in the REST payload (relay_id 0x10A, matching `zone`) reports
+        # a normal scheduled next run, with no information about the
+        # GraphQL-managed suspension.
+        mock_gql_client.get_zones.reset_mock()
+        status_schedule["relays"] = [status_schedule["relays"][0]]
+        hybrid_auth.get.return_value = status_schedule
+        [zone2] = await api.get_zones(controller)
+        mock_gql_client.get_zones.assert_not_awaited()
+
+        # The suspension must survive the REST poll instead of being wiped.
+        assert zone2.status.suspended_until == suspended_until
+
+
 async def test_get_user_get_zones(
     api, hybrid_auth, mock_gql_client, user, status_schedule
 ):
