@@ -440,7 +440,9 @@ class Zone(BaseZone):
         zone.update_with_json(zone_json)
         return zone
 
-    def update_with_json(self, zone_json: dict) -> None:
+    def update_with_json(
+        self, zone_json: dict, *, trust_suspension_sentinel: bool = True
+    ) -> None:
         current_run = None
         next_run = None
         if zone_json["time"] == 1:
@@ -450,8 +452,21 @@ class Zone(BaseZone):
             )
             self.status = ZoneStatus(suspended_until=None)
         elif zone_json["time"] == 1576800000 or zone_json.get("type") == 110:
-            # Zone is permanently suspended (REST API sentinel values).
-            self.status = ZoneStatus(suspended_until=datetime.max)
+            # The REST API sends this same sentinel both for a truly
+            # suspended zone and for one that's merely being held off by
+            # e.g. a rain sensor -- it can't tell the two apart. Callers that
+            # already have a more reliable source of truth for this zone
+            # (e.g. HybridClient, which only falls back to REST when its
+            # cached zone was last populated by the GraphQL API) pass
+            # trust_suspension_sentinel=False so the sentinel is only used to
+            # corroborate a suspension we already know about, never to
+            # originate one -- treating it as authoritative produced false
+            # positives that then flapped back to unsuspended on the next
+            # GraphQL poll. Callers with no other source of truth (e.g. a
+            # brand new Zone built straight from REST data) keep the default
+            # of trusting it, since it's the only signal available.
+            if trust_suspension_sentinel or self.status.suspended_until is not None:
+                self.status = ZoneStatus(suspended_until=datetime.max)
         else:
             start_time = _now() + timedelta(seconds=zone_json["time"])
             duration = timedelta(seconds=zone_json["run"])

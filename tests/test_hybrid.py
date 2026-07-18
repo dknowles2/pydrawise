@@ -11,7 +11,7 @@ from pydrawise.auth import HybridAuth
 from pydrawise.client import Hydrawise
 from pydrawise.exceptions import NotAuthorizedError
 from pydrawise.hybrid import HybridClient, Throttler
-from pydrawise.schema import Controller, Zone
+from pydrawise.schema import Controller, Zone, ZoneStatus
 from pydrawise.schema_utils import deserialize
 
 FROZEN_TIME = "2023-01-01 01:00:00"
@@ -284,6 +284,41 @@ async def test_get_zones_preserves_gql_suspension_across_rest_fallback(
 
         # The suspension must survive the REST poll instead of being wiped.
         assert zone2.status.suspended_until == suspended_until
+
+
+async def test_get_zones_rain_sensor_hold_does_not_falsely_suspend(
+    api, hybrid_auth, mock_gql_client, controller, zone, status_schedule
+):
+    """Regression test for #176404.
+
+    A zone GraphQL reports as active (not suspended) must stay active across
+    a REST-fallback poll, even when the REST payload sends the same 'not
+    scheduled to run' sentinel it uses for suspended zones -- e.g. because a
+    physical rain sensor is holding the zone's next run off. Treating that
+    sentinel as authoritative previously caused Home Assistant's automatic
+    watering switch to flap between on and off while the rain sensor was wet.
+    """
+    zone.status = ZoneStatus(suspended_until=None)
+    with freeze_time(FROZEN_TIME):
+        # First and second fetches query the GraphQL API and confirm the zone
+        # is active.
+        mock_gql_client.get_zones.return_value = [deepcopy(zone)]
+        assert await api.get_zones(controller) == [zone]
+        mock_gql_client.get_zones.reset_mock()
+        assert await api.get_zones(controller) == [zone]
+
+        # Third fetch: GraphQL is throttled, so we fall back to REST. A rain
+        # sensor is holding the zone off, which the REST API reports using
+        # the same sentinel as a real suspension.
+        mock_gql_client.get_zones.reset_mock()
+        status_schedule["relays"] = [status_schedule["relays"][0]]
+        status_schedule["relays"][0]["time"] = 1576800000
+        hybrid_auth.get.return_value = status_schedule
+        [zone2] = await api.get_zones(controller)
+        mock_gql_client.get_zones.assert_not_awaited()
+
+        # The zone must not be falsely reported as suspended.
+        assert zone2.status.suspended_until is None
 
 
 async def test_get_user_get_zones(
