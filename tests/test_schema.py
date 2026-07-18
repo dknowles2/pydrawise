@@ -262,3 +262,50 @@ def test_update_with_json_sets_permanent_suspension_from_type_110():
     zone.update_with_json(_relay_json(time_=339777, type_=110))
 
     assert zone.status.suspended_until == datetime.max
+
+
+def test_update_with_json_untrusted_sentinel_does_not_originate_suspension():
+    """Regression test for #176404.
+
+    The REST API sends the same 'not scheduled to run' sentinel when a zone
+    is merely being held off by a rain sensor as it does for a truly
+    suspended zone -- it can't tell the two apart. Callers that already have
+    a more reliable source of truth (e.g. HybridClient, whose cached zone was
+    last populated by the GraphQL API) pass trust_suspension_sentinel=False.
+    If we don't already have a reason to believe the zone is suspended, the
+    sentinel must not be treated as authoritative in that case, or a
+    rain-sensor hold would falsely flip the zone to suspended until the next
+    GraphQL poll corrects it -- causing Home Assistant's automatic watering
+    switch to flap.
+    """
+    zone = _zone(None)
+
+    zone.update_with_json(
+        _relay_json(time_=1576800000), trust_suspension_sentinel=False
+    )
+
+    assert zone.status.suspended_until is None
+
+
+def test_update_with_json_untrusted_type_110_does_not_originate_suspension():
+    zone = _zone(None)
+
+    zone.update_with_json(
+        _relay_json(time_=339777, type_=110), trust_suspension_sentinel=False
+    )
+
+    assert zone.status.suspended_until is None
+
+
+def test_update_with_json_untrusted_sentinel_still_corroborates_known_suspension():
+    """Even with trust_suspension_sentinel=False, a REST sentinel corroborates
+    a suspension we already know about (e.g. from the GraphQL API) rather
+    than being ignored outright."""
+    suspended_until = datetime(2026, 8, 1, 12, 0, 0)
+    zone = _zone(suspended_until)
+
+    zone.update_with_json(
+        _relay_json(time_=1576800000), trust_suspension_sentinel=False
+    )
+
+    assert zone.status.suspended_until == datetime.max

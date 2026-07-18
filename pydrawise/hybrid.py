@@ -224,7 +224,10 @@ class HybridClient(HydrawiseBase):
             zones = []
             for zone_json in json["relays"]:
                 if zone := self._zones.get(zone_json["relay_id"]):
-                    zone.update_with_json(zone_json)
+                    # This zone was last populated by the GraphQL API (or by a
+                    # prior REST update layered on top of one), so it's a more
+                    # reliable source of truth than this REST poll alone.
+                    zone.update_with_json(zone_json, trust_suspension_sentinel=False)
                 else:
                     # Not an ideal case. This means we discovered a Zone from the
                     # REST API, which means we get incomplete data.
