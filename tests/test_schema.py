@@ -1,4 +1,5 @@
 from dataclasses import fields, is_dataclass
+from datetime import datetime
 from string import ascii_lowercase
 
 from apischema.metadata.keys import CONVERSION_METADATA, FALL_BACK_ON_DEFAULT_METADATA
@@ -8,6 +9,7 @@ from graphql import build_schema
 from graphql.type import GraphQLBoolean, GraphQLInt, GraphQLNonNull, GraphQLString
 
 from pydrawise import schema as _schema
+from pydrawise.schema import Zone, ZoneStatus
 from pydrawise.schema_utils import deserialize
 
 
@@ -187,3 +189,76 @@ def test_optional_fields():
             "controllers": [],
         },
     )
+
+
+def _zone(suspended_until):
+    zone = Zone(id=0x10A, number=1, name="Zone A")
+    zone.status = ZoneStatus(suspended_until=suspended_until)
+    return zone
+
+
+def _relay_json(time_, type_=1, run=1800):
+    """A REST API statusschedule.php 'relays' entry."""
+    return {
+        "name": "Zone A",
+        "period": 259200,
+        "relay": 1,
+        "relay_id": 0x10A,
+        "run": run,
+        "stop": 1,
+        "time": time_,
+        "timestr": "Sat",
+        "type": type_,
+    }
+
+
+def test_update_with_json_preserves_dated_suspension_with_scheduled_next_run():
+    """Regression test for #493.
+
+    The REST API can't represent a non-permanent (GraphQL-managed) suspension:
+    a suspended-until-a-date zone looks identical in the REST response to an
+    unsuspended one, since both report a normal upcoming next-run time. A REST
+    poll must not clobber the suspension in that case.
+    """
+    suspended_until = datetime(2026, 8, 1, 12, 0, 0)
+    zone = _zone(suspended_until)
+
+    zone.update_with_json(_relay_json(time_=5400))
+
+    assert zone.status.suspended_until == suspended_until
+    assert zone.scheduled_runs.current_run is None
+    assert zone.scheduled_runs.next_run is not None
+
+
+def test_update_with_json_leaves_unsuspended_zone_unsuspended():
+    zone = _zone(None)
+
+    zone.update_with_json(_relay_json(time_=5400))
+
+    assert zone.status.suspended_until is None
+
+
+def test_update_with_json_clears_suspension_for_running_zone():
+    """A zone that's actively running cannot be suspended."""
+    zone = _zone(datetime(2026, 8, 1, 12, 0, 0))
+
+    zone.update_with_json(_relay_json(time_=1, run=1788))
+
+    assert zone.status.suspended_until is None
+    assert zone.scheduled_runs.current_run is not None
+
+
+def test_update_with_json_sets_permanent_suspension_from_sentinel_time():
+    zone = _zone(None)
+
+    zone.update_with_json(_relay_json(time_=1576800000))
+
+    assert zone.status.suspended_until == datetime.max
+
+
+def test_update_with_json_sets_permanent_suspension_from_type_110():
+    zone = _zone(None)
+
+    zone.update_with_json(_relay_json(time_=339777, type_=110))
+
+    assert zone.status.suspended_until == datetime.max
