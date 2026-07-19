@@ -1,6 +1,7 @@
 """Asynchronous client library for interacting with Hydrawise's GraphQL API."""
 
 import logging
+import aiohttp
 from datetime import datetime, timedelta
 
 from gql import Client
@@ -72,18 +73,29 @@ class Hydrawise(HydrawiseBase):
     Should be instantiated with an Auth object that handles authentication and low-level transport.
     """
 
-    def __init__(self, auth: Auth, app_id: str = DEFAULT_APP_ID) -> None:
+    def __init__(
+        self,
+        auth: Auth,
+        app_id: str = DEFAULT_APP_ID,
+        session: aiohttp.ClientSession | None = None,
+    ) -> None:
         """Initializes the client.
 
         :param auth: Handles authentication and transport.
         :param app_id: Unique identifier for the application accessing the Hydrawise API.
+        :param session: Optional aiohttp ClientSession to use for requests. If not
+            provided, a new session will be created for each request. It is the
+            caller's responsibility to close any session that is passed in.
         """
         self._auth = auth
         self._app_id = app_id
+        self._session = session
 
     async def _client(self) -> Client:
         headers = {"Authorization": await self._auth.token()}
-        transport = AIOHTTPTransport(url=GRAPHQL_URL, headers=headers)
+        transport = AIOHTTPTransport(
+            url=GRAPHQL_URL, headers=headers, client_session=self._session
+        )
         return Client(transport=transport, parse_results=True)
 
     async def _query(self, selector: DSLSelectable) -> dict:
