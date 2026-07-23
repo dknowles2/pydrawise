@@ -246,7 +246,7 @@ async def test_suspend_zone(api: Hydrawise, mock_session, zone_json):
     query = print_ast(selector.document)
     assert "suspendZone(" in query
     assert "zoneId: 266" in query
-    assert 'until: "Sun, 01 Jan 23 00:12:00 +0000"' in query
+    assert 'until: "Sun, 01 Jan 23 00:00:00 +0000"' in query
 
 
 async def test_resume_zone(api: Hydrawise, mock_session, zone_json):
@@ -269,7 +269,7 @@ async def test_suspend_all_zones(api: Hydrawise, mock_session, controller_json):
     query = print_ast(selector.document)
     assert "suspendAllZones(" in query
     assert "controllerId: 9876" in query
-    assert 'until: "Sun, 01 Jan 23 00:12:00 +0000"' in query
+    assert 'until: "Sun, 01 Jan 23 00:00:00 +0000"' in query
 
 
 async def test_resume_all_zones(api: Hydrawise, mock_session, controller_json):
