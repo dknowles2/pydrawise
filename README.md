@@ -45,7 +45,7 @@ for details.
 
 ### Pip
 
-To install pydrawse, run this command in your terminal:
+To install pydrawise, run this command in your terminal:
 
 ```sh
 $ pip install pydrawise
