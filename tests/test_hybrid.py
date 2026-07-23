@@ -11,7 +11,7 @@ from pydrawise.auth import HybridAuth
 from pydrawise.client import Hydrawise
 from pydrawise.exceptions import NotAuthorizedError
 from pydrawise.hybrid import HybridClient, Throttler
-from pydrawise.schema import Controller, Zone, ZoneStatus
+from pydrawise.schema import Controller, Zone, ZoneStatus, ZoneSuspension
 from pydrawise.schema_utils import deserialize
 
 FROZEN_TIME = "2023-01-01 01:00:00"
@@ -426,3 +426,84 @@ async def test_get_zones_all_controllers_rest_error(
         hybrid_auth.get.side_effect = NotAuthorizedError("API key not valid")
         with pytest.raises(NotAuthorizedError):
             await api.get_controllers()
+
+
+async def test_start_zone(api, mock_gql_client, zone):
+    await api.start_zone(zone, mark_run_as_scheduled=True, custom_run_duration=60)
+    mock_gql_client.start_zone.assert_awaited_once_with(zone, True, 60)
+
+
+async def test_stop_zone(api, mock_gql_client, zone):
+    await api.stop_zone(zone)
+    mock_gql_client.stop_zone.assert_awaited_once_with(zone)
+
+
+async def test_start_all_zones(api, mock_gql_client, controller):
+    await api.start_all_zones(
+        controller, mark_run_as_scheduled=True, custom_run_duration=60
+    )
+    mock_gql_client.start_all_zones.assert_awaited_once_with(controller, True, 60)
+
+
+async def test_stop_all_zones(api, mock_gql_client, controller):
+    await api.stop_all_zones(controller)
+    mock_gql_client.stop_all_zones.assert_awaited_once_with(controller)
+
+
+async def test_suspend_zone(api, mock_gql_client, zone):
+    until = datetime(2023, 1, 1)
+    await api.suspend_zone(zone, until)
+    mock_gql_client.suspend_zone.assert_awaited_once_with(zone, until)
+
+
+async def test_resume_zone(api, mock_gql_client, zone):
+    await api.resume_zone(zone)
+    mock_gql_client.resume_zone.assert_awaited_once_with(zone)
+
+
+async def test_suspend_all_zones(api, mock_gql_client, controller):
+    until = datetime(2023, 1, 1)
+    await api.suspend_all_zones(controller, until)
+    mock_gql_client.suspend_all_zones.assert_awaited_once_with(controller, until)
+
+
+async def test_resume_all_zones(api, mock_gql_client, controller):
+    await api.resume_all_zones(controller)
+    mock_gql_client.resume_all_zones.assert_awaited_once_with(controller)
+
+
+async def test_delete_zone_suspension(api, mock_gql_client):
+    suspension = ZoneSuspension(id=42)
+    await api.delete_zone_suspension(suspension)
+    mock_gql_client.delete_zone_suspension.assert_awaited_once_with(suspension)
+
+
+async def test_get_water_flow_summary(api, mock_gql_client, controller, rain_sensor):
+    start = datetime(2023, 1, 1)
+    end = datetime(2023, 1, 2)
+    mock_gql_client.get_water_flow_summary.return_value = "summary"
+    result = await api.get_water_flow_summary(controller, rain_sensor, start, end)
+    assert result == "summary"
+    mock_gql_client.get_water_flow_summary.assert_awaited_once_with(
+        controller, rain_sensor, start, end
+    )
+
+
+async def test_get_watering_report(api, mock_gql_client, controller):
+    start = datetime(2023, 1, 1)
+    end = datetime(2023, 1, 2)
+    mock_gql_client.get_watering_report.return_value = ["entry"]
+    result = await api.get_watering_report(controller, start, end)
+    assert result == ["entry"]
+    mock_gql_client.get_watering_report.assert_awaited_once_with(controller, start, end)
+
+
+async def test_get_water_use_summary(api, mock_gql_client, controller):
+    start = datetime(2023, 1, 1)
+    end = datetime(2023, 1, 2)
+    mock_gql_client.get_water_use_summary.return_value = "summary"
+    result = await api.get_water_use_summary(controller, start, end)
+    assert result == "summary"
+    mock_gql_client.get_water_use_summary.assert_awaited_once_with(
+        controller, start, end
+    )
