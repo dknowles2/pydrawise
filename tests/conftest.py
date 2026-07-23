@@ -1,3 +1,5 @@
+import os
+import time
 from unittest import mock
 
 import aiohttp
@@ -7,6 +9,12 @@ from pytest import fixture
 
 from pydrawise.schema import Controller, Sensor, User, Zone
 from pydrawise.schema_utils import deserialize
+
+# A number of tests assert on UTC offsets and epoch timestamps derived from
+# naive datetimes. Pin the process timezone to UTC so those assertions are
+# reproducible on any contributor's machine, not just UTC CI runners.
+os.environ["TZ"] = "UTC"
+time.tzset()
 
 
 class MockServer:
