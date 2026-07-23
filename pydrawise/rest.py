@@ -65,10 +65,10 @@ class RestClient(HydrawiseBase):
         return controllers
 
     async def get_controller(self, controller_id: int) -> Controller:
-        """Retrieves a single controller by its unique identifier.
+        """Not supported by the Hydrawise v1 REST API.
 
         :param controller_id: Unique identifier for the controller to retrieve.
-        :rtype: Controller
+        :raises NotImplementedError: always.
         """
         _ = controller_id  # unused
         raise NotImplementedError
@@ -83,10 +83,10 @@ class RestClient(HydrawiseBase):
         return [Zone.from_json(z) for z in resp_json["relays"]]
 
     async def get_zone(self, zone_id: int) -> Zone:
-        """Retrieves a zone by its unique identifier.
+        """Not supported by the Hydrawise v1 REST API.
 
         :param zone_id: The zone's unique identifier.
-        :rtype: Zone
+        :raises NotImplementedError: always.
         """
         _ = zone_id  # unused
         raise NotImplementedError
@@ -196,11 +196,10 @@ class RestClient(HydrawiseBase):
         )
 
     async def delete_zone_suspension(self, suspension: ZoneSuspension) -> None:
-        """Removes a specific zone suspension.
-
-        Useful when there are multiple suspensions for a zone in effect.
+        """Not supported by the Hydrawise v1 REST API.
 
         :param suspension: The suspension to delete.
+        :raises NotImplementedError: always.
         """
         _ = suspension  # unused
         raise NotImplementedError
