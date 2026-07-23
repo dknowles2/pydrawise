@@ -25,6 +25,10 @@ class RestClient(HydrawiseBase):
     """
 
     def __init__(self, auth: RestAuth) -> None:
+        """Initializer.
+
+        :param auth: Handles authentication and transport.
+        """
         self._auth = auth
         self.next_poll = timedelta(0)
 
@@ -205,19 +209,35 @@ class RestClient(HydrawiseBase):
         raise NotImplementedError
 
     async def get_sensors(self, controller: Controller) -> list[Sensor]:
+        """Not supported by the Hydrawise v1 REST API.
+
+        :raises NotImplementedError: always.
+        """
         raise NotImplementedError
 
     async def get_water_flow_summary(
         self, controller: Controller, sensor: Sensor, start: datetime, end: datetime
     ) -> SensorFlowSummary:
+        """Not supported by the Hydrawise v1 REST API.
+
+        :raises NotImplementedError: always.
+        """
         raise NotImplementedError
 
     async def get_watering_report(
         self, controller: Controller, start: datetime, end: datetime
     ) -> list[WateringReportEntry]:
+        """Not supported by the Hydrawise v1 REST API.
+
+        :raises NotImplementedError: always.
+        """
         raise NotImplementedError
 
     async def get_water_use_summary(
         self, controller: Controller, start: datetime, end: datetime
     ) -> ControllerWaterUseSummary:
+        """Not supported by the Hydrawise v1 REST API.
+
+        :raises NotImplementedError: always.
+        """
         raise NotImplementedError

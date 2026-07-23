@@ -100,7 +100,10 @@ class RestAuth(BaseAuth):
     """Authentication support for the Hydrawise REST API."""
 
     def __init__(self, api_key: str) -> None:
-        """Initializer."""
+        """Initializer.
+
+        :param api_key: The API key to use for authenticating with the Hydrawise REST service.
+        """
         self._api_key = api_key
 
     async def get(self, path: str, **kwargs) -> dict:
@@ -125,7 +128,12 @@ class HybridAuth(Auth, RestAuth):
     """Authentication support for the Hydrawise GraphQL & REST APIs."""
 
     def __init__(self, username: str, password: str, api_key: str) -> None:
-        """Initializer."""
+        """Initializer.
+
+        :param username: The username to use for authenticating with the Hydrawise GraphQL service.
+        :param password: The password to use for authenticating with the Hydrawise GraphQL service.
+        :param api_key: The API key to use for authenticating with the Hydrawise REST service.
+        """
         Auth.__init__(self, username, password)
         RestAuth.__init__(self, api_key)
 
@@ -133,6 +141,7 @@ class HybridAuth(Auth, RestAuth):
         await self.get("customerdetails.php")
 
     async def check(self) -> bool:
+        """Validates that both the GraphQL credentials and the REST API key are valid."""
         await super().check()
         await self._check_api_token()
         return True
