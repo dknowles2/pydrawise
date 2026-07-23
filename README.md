@@ -34,6 +34,13 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+The example above uses `pydrawise.Hydrawise`, which talks to Hydrawise's GraphQL API. Pydrawise
+also provides a REST API client (`pydrawise.rest.RestClient`) and a hybrid client
+(`pydrawise.hybrid.HybridClient`) that prefers GraphQL but falls back to REST when GraphQL
+requests are throttled. See the [usage guide](https://pydrawise.readthedocs.io/en/latest/usage/)
+for more examples, and the [full API reference](https://pydrawise.readthedocs.io/en/latest/reference/)
+for details.
+
 ## Installation
 
 ### Pip

@@ -432,6 +432,12 @@ class Zone(BaseZone):
 
     @classmethod
     def from_json(cls, zone_json: dict) -> Zone:
+        """Builds a new Zone from a REST API "relay" JSON object.
+
+        :param zone_json: A single relay entry, as returned by the REST
+            API's statusschedule.php endpoint.
+        :rtype: Zone
+        """
         zone = Zone(
             id=zone_json["relay_id"],
             number=zone_json["relay"],
@@ -443,6 +449,17 @@ class Zone(BaseZone):
     def update_with_json(
         self, zone_json: dict, *, trust_suspension_sentinel: bool = True
     ) -> None:
+        """Updates this Zone's schedule and status from a REST API "relay" JSON object.
+
+        :param zone_json: A single relay entry, as returned by the REST
+            API's statusschedule.php endpoint.
+        :param trust_suspension_sentinel: Whether the REST API's ambiguous
+            "suspended" sentinel value should be treated as authoritative for
+            this zone. Callers with a more reliable source of truth (e.g.
+            HybridClient, once it already knows this zone's real suspension
+            state from the GraphQL API) should pass False so the sentinel can
+            only corroborate a suspension already known, never originate one.
+        """
         current_run = None
         next_run = None
         if zone_json["time"] == 1:
@@ -634,12 +651,16 @@ class ControllerStatus:
 
 @dataclass
 class RunStatusType:
+    """The status of a reported zone run."""
+
     value: int = 0
     label: str = ""
 
 
 @dataclass
 class RunStopReasonType:
+    """Why a reported zone run stopped."""
+
     finished_normally: bool = False
     description: list[str] = field(default_factory=list)
 
@@ -721,6 +742,12 @@ class Controller:
 
     @classmethod
     def from_json(cls, controller_json: dict) -> Controller:
+        """Builds a new Controller from a REST API "controller" JSON object.
+
+        :param controller_json: A single controller entry, as returned by
+            the REST API's customerdetails.php endpoint.
+        :rtype: Controller
+        """
         controller = Controller(
             id=controller_json["controller_id"],
             name=controller_json["name"],
@@ -732,6 +759,11 @@ class Controller:
         return controller
 
     def update_with_json(self, controller_json: dict) -> None:
+        """Updates this Controller's last contact time from a REST API "controller" JSON object.
+
+        :param controller_json: A single controller entry, as returned by
+            the REST API's customerdetails.php endpoint.
+        """
         self.last_contact_time = datetime.fromtimestamp(controller_json["last_contact"])
         self.online = True
 
