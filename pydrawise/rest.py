@@ -25,6 +25,10 @@ class RestClient(HydrawiseBase):
     """
 
     def __init__(self, auth: RestAuth) -> None:
+        """Initializer.
+
+        :param auth: Handles authentication and transport.
+        """
         self._auth = auth
         self.next_poll = timedelta(0)
 
@@ -65,10 +69,10 @@ class RestClient(HydrawiseBase):
         return controllers
 
     async def get_controller(self, controller_id: int) -> Controller:
-        """Retrieves a single controller by its unique identifier.
+        """Not supported by the Hydrawise v1 REST API.
 
         :param controller_id: Unique identifier for the controller to retrieve.
-        :rtype: Controller
+        :raises NotImplementedError: always.
         """
         _ = controller_id  # unused
         raise NotImplementedError
@@ -83,10 +87,10 @@ class RestClient(HydrawiseBase):
         return [Zone.from_json(z) for z in resp_json["relays"]]
 
     async def get_zone(self, zone_id: int) -> Zone:
-        """Retrieves a zone by its unique identifier.
+        """Not supported by the Hydrawise v1 REST API.
 
         :param zone_id: The zone's unique identifier.
-        :rtype: Zone
+        :raises NotImplementedError: always.
         """
         _ = zone_id  # unused
         raise NotImplementedError
@@ -196,29 +200,44 @@ class RestClient(HydrawiseBase):
         )
 
     async def delete_zone_suspension(self, suspension: ZoneSuspension) -> None:
-        """Removes a specific zone suspension.
-
-        Useful when there are multiple suspensions for a zone in effect.
+        """Not supported by the Hydrawise v1 REST API.
 
         :param suspension: The suspension to delete.
+        :raises NotImplementedError: always.
         """
         _ = suspension  # unused
         raise NotImplementedError
 
     async def get_sensors(self, controller: Controller) -> list[Sensor]:
+        """Not supported by the Hydrawise v1 REST API.
+
+        :raises NotImplementedError: always.
+        """
         raise NotImplementedError
 
     async def get_water_flow_summary(
         self, controller: Controller, sensor: Sensor, start: datetime, end: datetime
     ) -> SensorFlowSummary:
+        """Not supported by the Hydrawise v1 REST API.
+
+        :raises NotImplementedError: always.
+        """
         raise NotImplementedError
 
     async def get_watering_report(
         self, controller: Controller, start: datetime, end: datetime
     ) -> list[WateringReportEntry]:
+        """Not supported by the Hydrawise v1 REST API.
+
+        :raises NotImplementedError: always.
+        """
         raise NotImplementedError
 
     async def get_water_use_summary(
         self, controller: Controller, start: datetime, end: datetime
     ) -> ControllerWaterUseSummary:
+        """Not supported by the Hydrawise v1 REST API.
+
+        :raises NotImplementedError: always.
+        """
         raise NotImplementedError

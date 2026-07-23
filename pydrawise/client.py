@@ -356,7 +356,7 @@ class Hydrawise(HydrawiseBase):
         :param sensor: Sensor for which a water flow summary is fetched.
         :param start:
         :param end:
-        :rtype: list[Sensor]
+        :rtype: SensorFlowSummary
         """
         result = await self._query(
             DSL_SCHEMA.Query.controller(controllerId=controller.id).select(

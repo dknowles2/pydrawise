@@ -169,7 +169,7 @@ class HydrawiseBase(ABC):
         :param sensor: Sensor for which a water flow summary is fetched.
         :param start:
         :param end:
-        :rtype: list[Sensor]
+        :rtype: SensorFlowSummary
         """
 
     @abstractmethod
