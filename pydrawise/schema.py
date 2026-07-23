@@ -152,7 +152,7 @@ class DateTime:
             # Make sure we have a timezone set so strftime outputs a valid string.
             local = local.replace(tzinfo=datetime.now(timezone.utc).astimezone().tzinfo)
         return DateTime(
-            value=local.strftime("%a, %d %b %y %H:%I:%S %z"),
+            value=local.strftime("%a, %d %b %y %H:%M:%S %z"),
             timestamp=int(dt.timestamp()),
         )
 
