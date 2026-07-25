@@ -45,6 +45,9 @@ jobs:
     - name: Run ruff
       run: |
         uv run --locked ruff check --output-format=github .
+    - name: Check formatting
+      run: |
+        uv run --locked ruff format --check .
   mypy:
     runs-on: ubuntu-latest
     strategy:
