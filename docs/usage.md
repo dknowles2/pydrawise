@@ -94,7 +94,9 @@ print(f"{flow_summary.total_water_volume.value} {flow_summary.total_water_volume
 # Individual watering events (start/end time, duration, water used, why it stopped).
 for entry in await h.get_watering_report(controller, start, end):
     run = entry.run_event
-    print(f"{run.zone.name}: {run.reported_duration} starting {run.reported_start_time}")
+    print(
+        f"{run.zone.name}: {run.reported_duration} starting {run.reported_start_time}"
+    )
 
 # Aggregate water use across all zones, broken down by zone id.
 summary = await h.get_water_use_summary(controller, start, end)

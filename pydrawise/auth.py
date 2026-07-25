@@ -55,12 +55,15 @@ class Auth(BaseAuth):
             data["scope"] = "all"
             data["username"] = self.__username
             data["password"] = self.__password
-        async with aiohttp.ClientSession() as session, session.post(
-            TOKEN_URL,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            data=data,
-            timeout=DEFAULT_TIMEOUT,
-        ) as resp:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                TOKEN_URL,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                data=data,
+                timeout=DEFAULT_TIMEOUT,
+            ) as resp,
+        ):
             resp_json = await resp.json()
             if "error" in resp_json:
                 self._token = None
@@ -110,13 +113,14 @@ class RestAuth(BaseAuth):
         url = f"{REST_URL}/{path}"
         params = {"api_key": self._api_key}
         params.update(kwargs)
-        async with aiohttp.ClientSession() as session, session.get(
-            url, params=params, timeout=REQUEST_TIMEOUT
-        ) as resp:
-                if resp.status == 404 and await resp.text() == _INVALID_API_KEY:
-                    raise NotAuthorizedError(_INVALID_API_KEY)
-                resp.raise_for_status()
-                return await resp.json()
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(url, params=params, timeout=REQUEST_TIMEOUT) as resp,
+        ):
+            if resp.status == 404 and await resp.text() == _INVALID_API_KEY:
+                raise NotAuthorizedError(_INVALID_API_KEY)
+            resp.raise_for_status()
+            return await resp.json()
 
     async def check(self) -> bool:
         """Validates that the credentials are valid."""
