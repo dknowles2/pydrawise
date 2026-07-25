@@ -71,9 +71,9 @@ def test_valid_schema():
                 # TODO: Validate the source type.
                 # got_type = md.deserialization.source
                 continue
-            assert (
-                got_type == want_type
-            ), f"{name}.{f.name} is {got_type}, want {want_type}"
+            assert got_type == want_type, (
+                f"{name}.{f.name} is {got_type}, want {want_type}"
+            )
 
 
 def test_optional_fields():
