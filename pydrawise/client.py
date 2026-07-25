@@ -46,19 +46,21 @@ def _prune_watering_report_entries(
     """
     return list(
         filter(
-            lambda entry: entry.run_event is not None
-            and entry.run_event.reported_start_time is not None
-            and entry.run_event.reported_end_time is not None
-            and (
-                (
-                    start.timestamp()
-                    <= entry.run_event.reported_start_time.timestamp()
-                    <= end.timestamp()
-                )
-                or (
-                    start.timestamp()
-                    <= entry.run_event.reported_end_time.timestamp()
-                    <= end.timestamp()
+            lambda entry: (
+                entry.run_event is not None
+                and entry.run_event.reported_start_time is not None
+                and entry.run_event.reported_end_time is not None
+                and (
+                    (
+                        start.timestamp()
+                        <= entry.run_event.reported_start_time.timestamp()
+                        <= end.timestamp()
+                    )
+                    or (
+                        start.timestamp()
+                        <= entry.run_event.reported_end_time.timestamp()
+                        <= end.timestamp()
+                    )
                 )
             ),
             entries,
@@ -181,7 +183,9 @@ class Hydrawise(HydrawiseBase):
         :rtype: Zone
         """
         result = await self._query(
-            DSL_SCHEMA.Query.zone(zoneId=zone_id).select(*get_selectors(Zone, ["past_runs"]))
+            DSL_SCHEMA.Query.zone(zoneId=zone_id).select(
+                *get_selectors(Zone, ["past_runs"])
+            )
         )
         return deserialize(Zone, result["zone"])
 

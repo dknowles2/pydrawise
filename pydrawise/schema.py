@@ -421,8 +421,8 @@ class ZoneSuspension:
 class Zone(BaseZone):
     """A watering zone."""
 
-    watering_settings: AdvancedWateringSettings | StandardWateringSettings = (
-        field(default_factory=StandardWateringSettings)
+    watering_settings: AdvancedWateringSettings | StandardWateringSettings = field(
+        default_factory=StandardWateringSettings
     )
     scheduled_runs: ScheduledZoneRuns = field(default_factory=ScheduledZoneRuns)
     past_runs: PastZoneRuns = field(default_factory=PastZoneRuns)
