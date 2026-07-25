@@ -2,10 +2,9 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from unittest.mock import call, create_autospec
 
+import pytest
 from freezegun import freeze_time
 from pytest import fixture
-
-import pytest
 
 from pydrawise.auth import HybridAuth
 from pydrawise.client import Hydrawise
