@@ -19,10 +19,24 @@ classifiers     = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
+[project.optional-dependencies]
+docs = ["mkdocs==1.6.1", "mkdocstrings==1.0.6", "mkdocstrings-python==2.0.5"]
+
 [project.urls]
 "Homepage"      = "https://github.com/dknowles2/pydrawise"
 "Source Code"   = "https://github.com/dknowles2/pydrawise"
 "Bug Reports"   = "https://github.com/dknowles2/pydrawise/issues"
+
+[dependency-groups]
+test = [
+    "freezegun==1.5.5",
+    "mypy==2.3.0",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "ruff==0.16.0",
+    "types-requests==2.33.0.20260712",
+]
+dev = [{ include-group = "test" }, "pre-commit==4.6.1"]
 
 [tool.setuptools]
 platforms            = ["any"]
