@@ -51,6 +51,9 @@ readme          = { file = ["README.md"], content-type = "text/markdown" }
 [tool.setuptools_scm]
 write_to = "pydrawise/_version.py"
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
 [tool.ruff.lint]
 ignore = ["DTZ", "RUF009"]
 
