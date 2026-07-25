@@ -17,7 +17,7 @@ def test_valid_schema():
     gql_schema = build_schema(_schema.SCHEMA_TEXT)
 
     for k, v in vars(_schema).items():
-        if k.startswith("_") or k.startswith(ascii_lowercase):
+        if k.startswith(("_", *ascii_lowercase)):
             # Ignore private types
             continue
         if getattr(v, "_pydrawise_type", False):
@@ -47,7 +47,9 @@ def test_valid_schema():
                 stype = sf.type
                 want_optional = FALL_BACK_ON_DEFAULT_METADATA not in f.metadata
                 assert (
-                    FALL_BACK_ON_DEFAULT_METADATA in f.metadata or "Optional" in f.type
+                    FALL_BACK_ON_DEFAULT_METADATA in f.metadata
+                    or "Optional" in f.type
+                    or "None" in f.type
                 ), f"{name}.{f.name} should be optional"
 
             type_map = {
@@ -59,7 +61,10 @@ def test_valid_schema():
                 continue
             want_type = type_map[stype]
             if want_optional:
-                want_type = f"Optional[{want_type}]"
+                if " | None" in f.type:
+                    want_type = f"{want_type} | None"
+                else:
+                    want_type = f"Optional[{want_type}]"
             got_type = f.type
             if md := f.metadata.get(CONVERSION_METADATA):
                 assert md.deserialization is not None

@@ -5,10 +5,11 @@ This utilizes both the GraphQL and REST APIs.
 
 import logging
 from asyncio import Lock
+from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Awaitable, Callable, Coroutine, ParamSpec, TypeVar
+from typing import ParamSpec, TypeVar
 
 from .auth import HybridAuth
 from .base import HydrawiseBase

@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from collections import namedtuple
+from collections.abc import Iterator
 from dataclasses import fields, is_dataclass
-from functools import lru_cache
+from functools import cache
 from typing import (
     TYPE_CHECKING,
-    Iterator,
-    List,
     Union,
     get_args,
     get_origin,
@@ -80,7 +79,7 @@ def _fields(
             [field_type] = field_types
             origin = get_origin(field_type)
 
-        if origin in (List, list):
+        if origin in (list, list):
             # Extract the contained type.
             # We assume all list types are uniform.
             [field_type] = get_args(field_type)
@@ -88,7 +87,7 @@ def _fields(
         yield _Field(f.name, [field_type])
 
 
-@lru_cache(maxsize=None)
+@cache
 def _get_selectors_cached(
     cls: type[DataclassInstance],
     skip_fields: tuple[str, ...],
