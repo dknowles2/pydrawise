@@ -136,7 +136,7 @@ async def test_get_controller(api: Hydrawise, mock_session, controller_json):
 async def test_get_zones(api: Hydrawise, mock_session, controller_json, zone_json):
     mock_session.execute.return_value = {"controller": {"zones": [zone_json]}}
     ctrl = deserialize(Controller, controller_json)
-    [zone] = await api.get_zones(ctrl)
+    [_zone] = await api.get_zones(ctrl)
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector.document)

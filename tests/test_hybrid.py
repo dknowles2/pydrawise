@@ -2,10 +2,9 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from unittest.mock import call, create_autospec
 
+import pytest
 from freezegun import freeze_time
 from pytest import fixture
-
-import pytest
 
 from pydrawise.auth import HybridAuth
 from pydrawise.client import Hydrawise
@@ -395,19 +394,27 @@ async def test_get_zones_secondary_controller_rest_error(
     api, hybrid_auth, mock_gql_client, controller_json, zone, status_schedule
 ):
     """NotAuthorizedError on a secondary controller is suppressed if the primary succeeds."""
-    secondary_json = {**controller_json, "id": controller_json["id"] + 1, "name": "Secondary"}
+    secondary_json = {
+        **controller_json,
+        "id": controller_json["id"] + 1,
+        "name": "Secondary",
+    }
     primary = deserialize(Controller, controller_json)
     secondary = deserialize(Controller, secondary_json)
 
     with freeze_time(FROZEN_TIME):
         # Deplete GQL tokens with two fetches so the third falls back to REST.
-        mock_gql_client.get_controllers.return_value = [deepcopy(primary), deepcopy(secondary)]
+        mock_gql_client.get_controllers.return_value = [
+            deepcopy(primary),
+            deepcopy(secondary),
+        ]
         await api.get_controllers()
         await api.get_controllers()
 
         # Third fetch: primary succeeds via REST, secondary raises NotAuthorizedError.
         hybrid_auth.get.side_effect = lambda path, **kw: (
-            status_schedule if kw.get("controller_id") == primary.id
+            status_schedule
+            if kw.get("controller_id") == primary.id
             else (_ for _ in ()).throw(NotAuthorizedError("API key not valid"))
         )
         controllers = await api.get_controllers()

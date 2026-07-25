@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta, timezone
+from datetime import UTC, datetime, time, timedelta
 from enum import Enum, auto
 from importlib import resources
-from typing import Optional, Union
 
 from apischema import type_name
 from apischema.conversions import Conversion
@@ -150,7 +149,7 @@ class DateTime:
         local = dt
         if local.tzinfo is None:
             # Make sure we have a timezone set so strftime outputs a valid string.
-            local = local.replace(tzinfo=datetime.now(timezone.utc).astimezone().tzinfo)
+            local = local.replace(tzinfo=datetime.now(UTC).astimezone().tzinfo)
         return DateTime(
             value=local.strftime("%a, %d %b %y %H:%M:%S %z"),
             timestamp=int(dt.timestamp()),
@@ -279,14 +278,14 @@ class WateringSettings:
     """Generic settings for a watering program."""
 
     fixed_watering_adjustment: int = 0
-    cycle_and_soak_settings: Optional[CycleAndSoakSettings] = None
+    cycle_and_soak_settings: CycleAndSoakSettings | None = None
 
 
 @dataclass
 class AdvancedWateringSettings(WateringSettings):
     """Advanced watering program settings."""
 
-    advanced_program: Optional[AdvancedProgram] = None
+    advanced_program: AdvancedProgram | None = None
 
 
 @dataclass
@@ -382,16 +381,16 @@ class ScheduledZoneRuns:
     """Scheduled runs for a zone."""
 
     summary: str = ""
-    current_run: Optional[ScheduledZoneRun] = None
-    next_run: Optional[ScheduledZoneRun] = None
-    status: Optional[str] = None
+    current_run: ScheduledZoneRun | None = None
+    next_run: ScheduledZoneRun | None = None
+    status: str | None = None
 
 
 @dataclass
 class PastZoneRuns:
     """Previous zone runs."""
 
-    last_run: Optional[ScheduledZoneRun] = None
+    last_run: ScheduledZoneRun | None = None
     runs: list[ScheduledZoneRun] = _optional_field(default_factory=list)
 
 
@@ -400,7 +399,7 @@ class ZoneStatus:
     """A zone's status."""
 
     relative_water_balance: int = 0
-    suspended_until: Optional[datetime] = field(
+    suspended_until: datetime | None = field(
         metadata=DateTime.conversion(), default=None
     )
 
@@ -422,8 +421,8 @@ class ZoneSuspension:
 class Zone(BaseZone):
     """A watering zone."""
 
-    watering_settings: Union[AdvancedWateringSettings, StandardWateringSettings] = (
-        field(default_factory=StandardWateringSettings)
+    watering_settings: AdvancedWateringSettings | StandardWateringSettings = field(
+        default_factory=StandardWateringSettings
     )
     scheduled_runs: ScheduledZoneRuns = field(default_factory=ScheduledZoneRuns)
     past_runs: PastZoneRuns = field(default_factory=PastZoneRuns)
@@ -575,14 +574,14 @@ class SensorModel:
     )
     divisor: float = _optional_field(default=0.0)
     flow_rate: float = _optional_field(default=0.0)
-    sensor_type: Optional[CustomSensorTypeEnum] = None
+    sensor_type: CustomSensorTypeEnum | None = None
 
 
 @dataclass
 class SensorStatus:
     """Current status of a sensor."""
 
-    water_flow: Optional[LocalizedValueType] = None
+    water_flow: LocalizedValueType | None = None
     active: bool = _optional_field(default=False)
 
 
@@ -610,7 +609,7 @@ class Sensor:
 class SensorWithFlowSummary(Sensor):
     """A Sensor, as returned by its `flowSummary` method."""
 
-    flow_summary: Optional[SensorFlowSummary] = _optional_field(
+    flow_summary: SensorFlowSummary | None = _optional_field(
         default_factory=SensorFlowSummary
     )
 
@@ -646,7 +645,7 @@ class ControllerStatus:
     normal_water_time: NormalWaterTime = _optional_field(
         default_factory=NormalWaterTime
     )
-    last_contact: Optional[DateTime] = None
+    last_contact: DateTime | None = None
 
 
 @dataclass
@@ -678,10 +677,10 @@ class RunEvent:
     advanced_program: AdvancedProgramRef = _optional_field(
         default_factory=AdvancedProgramRef
     )
-    reported_start_time: Optional[datetime] = field(
+    reported_start_time: datetime | None = field(
         metadata=DateTime.conversion(), default=None
     )
-    reported_end_time: Optional[datetime] = field(
+    reported_end_time: datetime | None = field(
         metadata=DateTime.conversion(), default=None
     )
     reported_duration: timedelta = _optional_field(
@@ -712,9 +711,9 @@ class WateringReportEntry:
 class MasterValve:
     """A master valve setting for a controller."""
 
-    zone_number: Optional[SelectedOption] = None
-    delay: Optional[int] = None
-    post_timer: Optional[int] = None
+    zone_number: SelectedOption | None = None
+    delay: int | None = None
+    post_timer: int | None = None
 
 
 @dataclass
@@ -734,11 +733,11 @@ class Controller:
     online: bool = _optional_field(default=False)
     sensors: list[Sensor] = _optional_field(default_factory=list)
     zones: list[Zone] = _optional_field(default_factory=list)
-    master_zone: Optional[MasterValve] = None
+    master_zone: MasterValve | None = None
     permitted_program_start_times: list[ProgramStartTime] = _optional_field(
         default_factory=list
     )
-    status: Optional[ControllerStatus] = None
+    status: ControllerStatus | None = None
 
     @classmethod
     def from_json(cls, controller_json: dict) -> Controller:
@@ -816,8 +815,8 @@ class ControllerWaterUseSummary:
         metadata=_duration_conversion("seconds"), default=timedelta()
     )
     active_time_by_zone_id: dict[int, timedelta] = field(default_factory=dict)
-    total_use: Optional[float] = None
-    total_active_use: Optional[float] = None
-    total_inactive_use: Optional[float] = None
+    total_use: float | None = None
+    total_active_use: float | None = None
+    total_inactive_use: float | None = None
     active_use_by_zone_id: dict[int, float] = field(default_factory=dict)
-    unit: Optional[str] = None
+    unit: str | None = None

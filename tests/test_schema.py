@@ -17,7 +17,7 @@ def test_valid_schema():
     gql_schema = build_schema(_schema.SCHEMA_TEXT)
 
     for k, v in vars(_schema).items():
-        if k.startswith("_") or k.startswith(ascii_lowercase):
+        if k.startswith(("_", *ascii_lowercase)):
             # Ignore private types
             continue
         if getattr(v, "_pydrawise_type", False):
@@ -47,7 +47,9 @@ def test_valid_schema():
                 stype = sf.type
                 want_optional = FALL_BACK_ON_DEFAULT_METADATA not in f.metadata
                 assert (
-                    FALL_BACK_ON_DEFAULT_METADATA in f.metadata or "Optional" in f.type
+                    FALL_BACK_ON_DEFAULT_METADATA in f.metadata
+                    or "Optional" in f.type
+                    or "None" in f.type
                 ), f"{name}.{f.name} should be optional"
 
             type_map = {
@@ -58,17 +60,24 @@ def test_valid_schema():
             if stype not in type_map:
                 continue
             want_type = type_map[stype]
-            if want_optional:
-                want_type = f"Optional[{want_type}]"
             got_type = f.type
             if md := f.metadata.get(CONVERSION_METADATA):
                 assert md.deserialization is not None
                 # TODO: Validate the source type.
                 # got_type = md.deserialization.source
                 continue
-            assert (
-                got_type == want_type
-            ), f"{name}.{f.name} is {got_type}, want {want_type}"
+            if want_optional:
+                assert got_type in (
+                    f"Optional[{want_type}]",
+                    f"{want_type} | None",
+                    f"None | {want_type}",
+                ), (
+                    f"{name}.{f.name} is {got_type}, want Optional[{want_type}] or {want_type} | None"
+                )
+            else:
+                assert got_type == want_type, (
+                    f"{name}.{f.name} is {got_type}, want {want_type}"
+                )
 
 
 def test_optional_fields():
