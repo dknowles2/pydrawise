@@ -35,7 +35,7 @@ test = [
     "mypy==2.3.0",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
-    "ruff==0.16.0",
+    "ruff==0.16.1",
     "types-requests==2.33.0.20260712",
 ]
 dev = [{ include-group = "test" }, "pre-commit==4.6.1"]
