@@ -5,9 +5,14 @@ name: Release Drafter
     branches:
       - main
 
+permissions: {}
+
 jobs:
   update_release_draft:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # create and update the release draft
+      pull-requests: read   # read merged PRs to build release notes
     steps:
       - uses: release-drafter/release-drafter@v7.7.0
         env:

@@ -9,6 +9,14 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
+# A newer push to the same branch makes an in-flight run redundant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build_and_test:
     runs-on: ubuntu-latest
@@ -27,19 +35,17 @@ jobs:
       run: python -m pip install uv
     - name: Test with pytest
       run: |
-        uv run --locked pytest
+        uv run --locked pytest --cov --cov-report=term-missing --cov-fail-under=95
   ruff:
+    # Lint and format results don't vary by interpreter, so this runs once
+    # rather than across the version matrix.
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
     - uses: actions/checkout@v7
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python
       uses: actions/setup-python@v7
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.13"
     - name: Install uv
       run: python -m pip install uv
     - name: Run ruff
@@ -68,3 +74,38 @@ jobs:
     - name: Run mypy
       run: |
         uv run --locked mypy .
+  docs:
+    # Read the Docs builds the published site; this catches broken
+    # cross-references and other mkdocs warnings on the PR itself.
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0  # setuptools_scm needs history to derive a version
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: "3.13"
+    - name: Install uv
+      run: python -m pip install uv
+    - name: Build docs
+      run: |
+        uv run --locked --extra docs mkdocs build --strict
+  package:
+    # Catches packaging problems (bad metadata, a README that won't render on
+    # PyPI) here rather than at release time, when publishing is automatic.
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0  # setuptools_scm needs history to derive a version
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: "3.13"
+    - name: Install uv
+      run: python -m pip install uv
+    - name: Build distributions
+      run: uv build
+    - name: Check distribution metadata
+      run: uvx twine check --strict dist/*
