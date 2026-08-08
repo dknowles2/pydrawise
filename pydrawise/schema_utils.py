@@ -6,7 +6,7 @@ from collections import namedtuple
 from collections.abc import Iterator
 from dataclasses import fields, is_dataclass
 from functools import cache
-from types import NoneType
+from types import NoneType, UnionType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -64,7 +64,11 @@ def _fields(
         field_type = hints[f.name]
         origin = get_origin(field_type)
 
-        if origin == Union:
+        # `X | Y` and `Union[X, Y]` do not report the same origin: before
+        # Python 3.14 the former is types.UnionType and only the latter is
+        # typing.Union. Both spellings appear in schema.py, and matching only
+        # typing.Union silently emitted union fields with no sub-selection.
+        if origin is Union or origin is UnionType:
             # Drop None from Optional fields.
             field_types = set(get_args(field_type)) - {NoneType}
 
