@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, time, timedelta
 from enum import Enum, auto
 from importlib import resources
+from typing import Any
 
 from apischema import type_name
 from apischema.conversions import Conversion
@@ -21,7 +22,7 @@ SCHEMA_TEXT = resources.files(__package__).joinpath("hydrawise.graphql").read_te
 DSL_SCHEMA = DSLSchema(build_ast_schema(parse(SCHEMA_TEXT)))
 
 
-def _optional_field(*args, **kwargs):
+def _optional_field(*args: Any, **kwargs: Any) -> Any:
     if "metadata" in kwargs:
         kwargs["metadata"] |= fall_back_on_default
     else:
@@ -72,7 +73,10 @@ def _time_conversion() -> conversion:
     )
 
 
-def _list_conversion(element_conversion) -> conversion:
+# apischema types `conversion` loosely enough that the .deserialization /
+# .serialization attributes read below aren't visible to mypy, so the
+# parameter stays Any.
+def _list_conversion(element_conversion: Any) -> conversion:
     return conversion(
         Conversion(
             lambda _list: list(
@@ -91,7 +95,9 @@ def _list_conversion(element_conversion) -> conversion:
 
 class _AutoEnum(Enum):
     @staticmethod
-    def _generate_next_value_(name, start, count, last_values):
+    def _generate_next_value_(
+        name: str, start: int, count: int, last_values: list[Any]
+    ) -> str:
         """Determines the value for an auto() call."""
         return name
 
@@ -439,7 +445,10 @@ class Zone(BaseZone):
         """
         zone = Zone(
             id=zone_json["relay_id"],
-            number=zone_json["relay"],
+            # The REST API sends a bare integer where the GraphQL API sends a
+            # SelectedOption. Wrap it so a Zone has the same shape regardless of
+            # which API produced it -- HybridClient merges the two.
+            number=SelectedOption(value=zone_json["relay"]),
             name=zone_json["name"],
         )
         zone.update_with_json(zone_json)

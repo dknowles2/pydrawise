@@ -1,21 +1,20 @@
 """Asynchronous client library for interacting with Hydrawise's REST API."""
 
 from datetime import datetime, timedelta
-
-import aiohttp
-
-from pydrawise.schema import (
-    ControllerWaterUseSummary,
-    Sensor,
-    SensorFlowSummary,
-    WateringReportEntry,
-)
+from typing import Any
 
 from .auth import RestAuth
 from .base import HydrawiseBase
-from .schema import Controller, User, Zone, ZoneSuspension
-
-_TIMEOUT = aiohttp.ClientTimeout(total=10)
+from .schema import (
+    Controller,
+    ControllerWaterUseSummary,
+    Sensor,
+    SensorFlowSummary,
+    User,
+    WateringReportEntry,
+    Zone,
+    ZoneSuspension,
+)
 
 
 class RestClient(HydrawiseBase):
@@ -32,7 +31,7 @@ class RestClient(HydrawiseBase):
         self._auth = auth
         self.next_poll = timedelta(0)
 
-    async def _get(self, path: str, **kwargs) -> dict:
+    async def _get(self, path: str, **kwargs: Any) -> dict:
         json = await self._auth.get(path, **kwargs)
         if "nextpoll" in json:
             self.next_poll = timedelta(seconds=json["nextpoll"])

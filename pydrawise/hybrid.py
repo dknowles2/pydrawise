@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 from .auth import HybridAuth
 from .base import HydrawiseBase
@@ -89,13 +89,16 @@ def throttle(fn: Callable[P, Awaitable[T]]) -> Callable[P, Coroutine[None, None,
 
     :param fn: The bound HybridClient method to wrap.
     """
-    cache: dict[str, T] = {}
 
     @wraps(fn)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         assert len(args) > 1
         assert isinstance(args[0], HybridClient)
         self: HybridClient = args[0]
+        # The cache lives on the instance, not in this closure: the closure is
+        # created once per decorated method at class-definition time, so a
+        # cache here would be shared by every HybridClient in the process.
+        cache: dict[str, T] = self._throttle_cache.setdefault(fn.__name__, {})
         k = str(args[1].id if isinstance(args[1], Controller) else args[1])
         async with self._lock:
             if self._gql_throttle.check():
@@ -145,6 +148,8 @@ class HybridClient(HydrawiseBase):
         self._user: User | None = None
         self._controllers: dict[int, Controller] = {}
         self._zones: dict[int, Zone] = {}
+        # Per-method result caches used by @throttle, keyed by method name.
+        self._throttle_cache: dict[str, dict[str, Any]] = {}
         if gql_throttle is None:
             gql_throttle = Throttler(
                 epoch_interval=timedelta(minutes=30), tokens_per_epoch=5
@@ -266,7 +271,7 @@ class HybridClient(HydrawiseBase):
 
         return self._controllers[controller.id].zones
 
-    async def _update_zones(self, controller: Controller | None = None):
+    async def _update_zones(self, controller: Controller | None = None) -> None:
         if controller:
             controller_ids = [controller.id]
         else:
@@ -451,8 +456,8 @@ class HybridClient(HydrawiseBase):
 
         :param controller: Controller that controls the sensor.
         :param sensor: Sensor for which a water flow summary is fetched.
-        :param start:
-        :param end:
+        :param start: Start time.
+        :param end: End time.
         :rtype: SensorFlowSummary
         """
         return await self._gql_client.get_water_flow_summary(
