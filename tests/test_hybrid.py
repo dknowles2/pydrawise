@@ -8,7 +8,7 @@ from pytest import fixture
 
 from pydrawise.auth import HybridAuth
 from pydrawise.client import Hydrawise
-from pydrawise.exceptions import NotAuthorizedError
+from pydrawise.exceptions import NotAuthorizedError, ThrottledError
 from pydrawise.hybrid import HybridClient, Throttler
 from pydrawise.schema import Controller, Zone, ZoneStatus, ZoneSuspension
 from pydrawise.schema_utils import deserialize
@@ -514,3 +514,53 @@ async def test_get_water_use_summary(api, mock_gql_client, controller):
     mock_gql_client.get_water_use_summary.assert_awaited_once_with(
         controller, start, end
     )
+
+
+async def test_throttle_cache_is_per_instance(
+    hybrid_auth, mock_gql_client, zone
+) -> None:
+    """Two HybridClients must not share @throttle's cached results.
+
+    The decorator runs once per method at class-definition time, so a cache
+    held in its closure would be shared by every client in the process: a
+    throttled client would then serve another client's data instead of
+    raising ThrottledError.
+    """
+
+    def make_client() -> HybridClient:
+        return HybridClient(
+            hybrid_auth,
+            gql_client=mock_gql_client,
+            # One token, so the second call on a client is always throttled.
+            gql_throttle=Throttler(
+                epoch_interval=timedelta(minutes=30), tokens_per_epoch=1
+            ),
+            rest_throttle=Throttler(
+                epoch_interval=timedelta(minutes=1), tokens_per_epoch=2
+            ),
+        )
+
+    with freeze_time(FROZEN_TIME):
+        first = make_client()
+        mock_gql_client.get_zone.return_value = deepcopy(zone)
+        assert await first.get_zone(zone.id) == zone
+
+        # First client is now out of budget and serves its own cached result.
+        mock_gql_client.get_zone.reset_mock()
+        assert await first.get_zone(zone.id) == zone
+        mock_gql_client.get_zone.assert_not_awaited()
+
+        # A second client starts with its own budget and its own empty cache.
+        second = make_client()
+        mock_gql_client.get_zone.reset_mock()
+        assert await second.get_zone(zone.id) == zone
+        mock_gql_client.get_zone.assert_awaited_once_with(zone.id)
+
+        # Once out of budget with nothing cached of its own, a third client
+        # must raise rather than borrow the others' results.
+        third = make_client()
+        third._gql_throttle.mark()
+        mock_gql_client.get_zone.reset_mock()
+        with pytest.raises(ThrottledError):
+            await third.get_zone(zone.id)
+        mock_gql_client.get_zone.assert_not_awaited()
