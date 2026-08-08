@@ -123,6 +123,26 @@ h = HybridClient(auth)
 controllers = await h.get_controllers()
 ```
 
+By default it allows 5 GraphQL calls per 30 minutes and 2 REST calls per
+minute. Pass your own [`Throttler`][pydrawise.hybrid.Throttler] objects to
+change that — for example, to poll GraphQL more aggressively:
+
+```python
+from datetime import timedelta
+
+from pydrawise.hybrid import HybridClient, Throttler
+
+h = HybridClient(
+    auth,
+    gql_throttle=Throttler(epoch_interval=timedelta(minutes=15), tokens_per_epoch=10),
+)
+```
+
+Once the GraphQL budget for the current window is spent, calls fall back to
+the REST API where possible; methods that have no REST equivalent return their
+last cached result, or raise
+[`ThrottledError`][pydrawise.ThrottledError] if nothing is cached yet.
+
 ## Using the REST-only client
 
 If you only have a Hydrawise API key (no username/password), use
