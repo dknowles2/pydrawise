@@ -6,10 +6,17 @@ from apischema.metadata.keys import CONVERSION_METADATA, FALL_BACK_ON_DEFAULT_ME
 from apischema.type_names import get_type_name
 from apischema.utils import to_camel_case
 from graphql import build_schema
-from graphql.type import GraphQLBoolean, GraphQLInt, GraphQLNonNull, GraphQLString
+from graphql.type import (
+    GraphQLBoolean,
+    GraphQLInt,
+    GraphQLInterfaceType,
+    GraphQLNonNull,
+    GraphQLObjectType,
+    GraphQLString,
+)
 
 from pydrawise import schema as _schema
-from pydrawise.schema import Zone, ZoneStatus
+from pydrawise.schema import SelectedOption, Zone, ZoneStatus
 from pydrawise.schema_utils import deserialize
 
 
@@ -32,6 +39,12 @@ def test_valid_schema():
 
         st = gql_schema.get_type(name)
         assert st is not None, f"{name} not found in schema"
+        # Every dataclass in schema.py maps to a GraphQL type that has fields --
+        # an object type, or an interface such as Program. The isinstance check
+        # both documents that and gives `st.fields` a type.
+        assert isinstance(st, GraphQLObjectType | GraphQLInterfaceType), (
+            f"{name} has no fields"
+        )
         for f in fields(v):
             if f.name.startswith("_"):
                 # Ignore private fields.
@@ -197,7 +210,7 @@ def test_optional_fields():
 
 
 def _zone(suspended_until):
-    zone = Zone(id=0x10A, number=1, name="Zone A")
+    zone = Zone(id=0x10A, number=SelectedOption(value=1), name="Zone A")
     zone.status = ZoneStatus(suspended_until=suspended_until)
     return zone
 

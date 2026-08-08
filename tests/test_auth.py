@@ -103,3 +103,52 @@ async def test_hybrid_auth_check_raises_on_invalid_rest_api_key(
     )
     with pytest.raises(NotAuthorizedError):
         await a.check()
+
+
+async def test_token_fetch_error_uses_message(mock_server):
+    """An error response's human-readable message becomes the exception text."""
+    a = auth.Auth("__username__", "__bad_password__")
+    mock_server.add(
+        "POST",
+        "/oauth/access-token",
+        status=400,
+        payload={"error": "invalid_grant", "message": "Bad credentials"},
+    )
+    with pytest.raises(NotAuthorizedError, match="Bad credentials"):
+        await a.check_token()
+
+
+async def test_token_fetch_error_without_message_falls_back_to_error_code(mock_server):
+    """Not every error response carries a "message"; the error code is used instead."""
+    a = auth.Auth("__username__", "__bad_password__")
+    mock_server.add(
+        "POST",
+        "/oauth/access-token",
+        status=400,
+        payload={"error": "invalid_grant"},
+    )
+    with pytest.raises(NotAuthorizedError, match="invalid_grant"):
+        await a.check_token()
+
+
+async def test_token_fetch_error_clears_any_existing_token(mock_server, token_payload):
+    """A failed refresh must not leave a stale token behind."""
+    a = auth.Auth("__username__", "__password__")
+    with freeze_time("2023-01-01 01:00:00") as t:
+        mock_server.add(
+            "POST", "/oauth/access-token", status=200, payload=token_payload
+        )
+        await a.check_token()
+        assert a._token is not None
+
+        # Advance past the refresh window so the next check refreshes.
+        t.tick(timedelta(minutes=2))
+        mock_server.add(
+            "POST",
+            "/oauth/access-token",
+            status=400,
+            payload={"error": "invalid_grant", "message": "Refresh rejected"},
+        )
+        with pytest.raises(NotAuthorizedError):
+            await a.check_token()
+        assert a._token is None

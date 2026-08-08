@@ -124,7 +124,7 @@ class LegacyHydrawise:
         self.controller_status = self._get_controller_status()
         return True
 
-    def _get(self, path: str, **kwargs) -> dict:
+    def _get(self, path: str, **kwargs: Any) -> dict:
         url = f"{REST_URL}/{path}"
         params = {"api_key": self._api_key}
         params.update(kwargs)

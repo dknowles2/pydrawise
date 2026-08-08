@@ -6,11 +6,14 @@ repos:
         stages: [manual]
       - id: check-json
         exclude: (.vscode|.devcontainer)
+      - id: check-yaml
       - id: no-commit-to-branch
         args:
           - --branch=main
+  # Keep this in sync with the ruff pin in pyproject.toml's `test` dependency
+  # group, so local hooks and CI agree on lint and format results.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.0
+    rev: v0.16.1
     hooks:
       - id: ruff-check
         args:

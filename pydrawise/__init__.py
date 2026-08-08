@@ -8,6 +8,7 @@ from .exceptions import (
     MutationError,
     NotAuthenticatedError,
     NotAuthorizedError,
+    NotInitializedError,
     ThrottledError,
     UnknownError,
 )
@@ -22,6 +23,7 @@ __all__ = (
     "MutationError",
     "NotAuthenticatedError",
     "NotAuthorizedError",
+    "NotInitializedError",
     "Sensor",
     "ThrottledError",
     "UnknownError",

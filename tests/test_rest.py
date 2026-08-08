@@ -8,7 +8,7 @@ from pydrawise import rest
 from pydrawise.auth import RestAuth
 from pydrawise.const import REQUEST_TIMEOUT
 from pydrawise.exceptions import NotAuthorizedError
-from pydrawise.schema import Controller, Zone
+from pydrawise.schema import Controller, Sensor, Zone, ZoneSuspension
 
 API_KEY = "__api_key__"
 
@@ -102,7 +102,7 @@ async def test_get_zones(
             0x110,
         ]
         assert zones[0].name == "Zone A"
-        assert zones[0].number == 1
+        assert zones[0].number.value == 1
         assert zones[0].scheduled_runs.current_run is None
         next_run = zones[0].scheduled_runs.next_run
         assert next_run is not None
@@ -111,7 +111,7 @@ async def test_get_zones(
         assert next_run.duration == timedelta(seconds=1800)
 
         assert zones[1].name == "Zone B"
-        assert zones[1].number == 2
+        assert zones[1].number.value == 2
         current_run = zones[1].scheduled_runs.current_run
         assert current_run is not None
         assert current_run.start_time == datetime(2023, 1, 1, 1, 0, 0)
@@ -122,14 +122,14 @@ async def test_get_zones(
         assert zones[1].scheduled_runs.next_run is None
 
         assert zones[2].name == "Zone C"
-        assert zones[2].number == 3
+        assert zones[2].number.value == 3
         assert zones[2].scheduled_runs.current_run is None
         assert zones[2].scheduled_runs.next_run is None
         assert zones[2].status.suspended_until == datetime.max
 
         # Zone G: type=110 (suspended) with non-sentinel time value
         assert zones[6].name == "Zone G"
-        assert zones[6].number == 7
+        assert zones[6].number.value == 7
         assert zones[6].scheduled_runs.current_run is None
         assert zones[6].scheduled_runs.next_run is None
         assert zones[6].status.suspended_until == datetime.max
@@ -301,3 +301,31 @@ async def test_resume_all_zones(
         "controller_id": 1111,
     }
     assert call.kwargs["timeout"] == REQUEST_TIMEOUT
+
+
+async def test_unsupported_methods(rest_auth: RestAuth) -> None:
+    """Methods the v1 REST API cannot represent must raise NotImplementedError.
+
+    These are part of the HydrawiseBase interface, so they exist on RestClient
+    only to fail loudly rather than silently returning something wrong.
+    """
+    client = rest.RestClient(rest_auth)
+    controller = Controller(id=1111)
+    sensor = Sensor(id=3333)
+    start = datetime(2023, 1, 1)
+    end = datetime(2023, 1, 2)
+
+    with raises(NotImplementedError):
+        await client.get_controller(1111)
+    with raises(NotImplementedError):
+        await client.get_zone(0x10A)
+    with raises(NotImplementedError):
+        await client.delete_zone_suspension(ZoneSuspension(id=1))
+    with raises(NotImplementedError):
+        await client.get_sensors(controller)
+    with raises(NotImplementedError):
+        await client.get_water_flow_summary(controller, sensor, start, end)
+    with raises(NotImplementedError):
+        await client.get_watering_report(controller, start, end)
+    with raises(NotImplementedError):
+        await client.get_water_use_summary(controller, start, end)

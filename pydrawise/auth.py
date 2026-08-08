@@ -3,6 +3,7 @@
 from asyncio import Lock
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 
 import aiohttp
 
@@ -41,7 +42,7 @@ class Auth(BaseAuth):
         self._lock = Lock()
         self._token: Token | None = None
 
-    async def _fetch_token_locked(self, refresh=False):
+    async def _fetch_token_locked(self, refresh: bool = False) -> None:
         data = {
             "client_id": CLIENT_ID,
             "client_secret": CLIENT_SECRET,
@@ -67,7 +68,9 @@ class Auth(BaseAuth):
             resp_json = await resp.json()
             if "error" in resp_json:
                 self._token = None
-                raise NotAuthorizedError(resp_json["message"])
+                # The service usually includes a human-readable "message", but
+                # falls back to the bare "error" code when it doesn't.
+                raise NotAuthorizedError(resp_json.get("message", resp_json["error"]))
             self._token = Token(
                 token=resp_json["access_token"],
                 refresh=resp_json["refresh_token"],
@@ -80,7 +83,7 @@ class Auth(BaseAuth):
         await self.check_token()
         return True
 
-    async def check_token(self):
+    async def check_token(self) -> None:
         """Checks a token and refreshes if necessary."""
         async with self._lock:
             if self._token is None:
@@ -108,7 +111,7 @@ class RestAuth(BaseAuth):
         """
         self._api_key = api_key
 
-    async def get(self, path: str, **kwargs) -> dict:
+    async def get(self, path: str, **kwargs: Any) -> dict:
         """Perform an authenticated GET request and return the JSON response."""
         url = f"{REST_URL}/{path}"
         params = {"api_key": self._api_key}
@@ -141,7 +144,7 @@ class HybridAuth(Auth, RestAuth):
         Auth.__init__(self, username, password)
         RestAuth.__init__(self, api_key)
 
-    async def _check_api_token(self):
+    async def _check_api_token(self) -> None:
         await self.get("customerdetails.php")
 
     async def check(self) -> bool:
