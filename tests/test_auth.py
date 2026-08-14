@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from aiohttp import ClientResponseError
 from freezegun import freeze_time
 from pytest import fixture
 
@@ -152,3 +153,30 @@ async def test_token_fetch_error_clears_any_existing_token(mock_server, token_pa
         with pytest.raises(NotAuthorizedError):
             await a.check_token()
         assert a._token is None
+
+
+async def test_rest_auth_check_validates_the_api_key(mock_server, request_spy):
+    a = auth.RestAuth("__api_key__")
+    mock_server.add(
+        "GET", "/api/v1/customerdetails.php", status=200, payload={"customer_id": 123}
+    )
+    assert await a.check() is True
+    [call] = request_spy
+    assert call.kwargs["params"]["api_key"] == "__api_key__"
+
+
+async def test_rest_auth_check_raises_on_invalid_api_key(mock_server):
+    a = auth.RestAuth("__bad_key__")
+    mock_server.add(
+        "GET", "/api/v1/customerdetails.php", status=404, body="API key not valid"
+    )
+    with pytest.raises(NotAuthorizedError, match="API key not valid"):
+        await a.check()
+
+
+async def test_rest_auth_raises_for_other_http_errors(mock_server):
+    """A non-404 failure is surfaced as-is, not mistaken for a bad API key."""
+    a = auth.RestAuth("__api_key__")
+    mock_server.add("GET", "/api/v1/customerdetails.php", status=500, body="boom")
+    with pytest.raises(ClientResponseError):
+        await a.check()

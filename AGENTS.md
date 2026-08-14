@@ -129,5 +129,5 @@ reimplementing this.
   don't remove that without checking those assertions still hold on a non-UTC machine.
 - `pytest-asyncio` runs in `auto` mode (`[tool.pytest.ini_options]` in `pyproject.toml`), so
   `async def test_*` functions don't need an explicit `@pytest.mark.asyncio` marker.
-- CI enforces a coverage floor of 95% (`--cov-fail-under=95`); the suite currently sits around 98%.
+- CI enforces a coverage floor of 99% (`--cov-fail-under=99`); the suite currently sits just above it.
   `pydrawise/_version.py` is excluded since it's generated at build time.
