@@ -35,7 +35,7 @@ jobs:
       run: python -m pip install uv
     - name: Test with pytest
       run: |
-        uv run --locked pytest --cov --cov-report=term-missing --cov-fail-under=95
+        uv run --locked pytest --cov --cov-report=term-missing --cov-fail-under=99
   ruff:
     # Lint and format results don't vary by interpreter, so this matrix is
     # redundant -- but `ruff (3.11)` and `ruff (3.12)` are required status

@@ -1,7 +1,16 @@
+from dataclasses import dataclass, field
+
+from apischema.metadata import skip
 from graphql import InlineFragmentNode
 
 from pydrawise import schema_utils
-from pydrawise.schema import Controller, User, Zone
+from pydrawise.schema import (
+    AdvancedWateringSettings,
+    Controller,
+    StandardWateringSettings,
+    User,
+    Zone,
+)
 
 
 def test_parse_skip():
@@ -85,3 +94,55 @@ def test_get_selectors_is_cached_per_skip_list():
     first = schema_utils.get_selectors(Controller)
     assert schema_utils.get_selectors(Controller) == first
     assert schema_utils.get_selectors(Controller, ["zones"]) != first
+
+
+def test_fields_omits_fields_skipped_in_either_direction():
+    """A field skipped for (de)serialization is left out of the selection.
+
+    No type in schema.py uses this today, so it's exercised here directly
+    against purpose-built dataclasses rather than through get_selectors.
+    """
+
+    @dataclass
+    class Thing:
+        kept: int = 0
+        no_deserialize: int = field(default=0, metadata=skip(deserialization=True))
+        no_serialize: int = field(default=0, metadata=skip(serialization=True))
+
+    assert [f.name for f in schema_utils._fields(Thing, [])] == ["kept"]
+
+
+def test_fields_keeps_fields_with_a_no_op_skip():
+    """Bare skip() sets neither direction, so the field stays in the selection."""
+
+    @dataclass
+    class Thing:
+        kept: int = field(default=0, metadata=skip())
+
+    assert [f.name for f in schema_utils._fields(Thing, [])] == ["kept"]
+
+
+def test_fields_drops_none_from_optional_fields():
+    """`X | None` yields just X, so the selector recurses into the real type."""
+
+    @dataclass
+    class Thing:
+        maybe: Zone | None = None
+
+    [f] = schema_utils._fields(Thing, [])
+    assert f.types == [Zone]
+
+
+def test_fields_honors_the_skip_list():
+    @dataclass
+    class Thing:
+        a: int = 0
+        b: int = 0
+
+    assert [f.name for f in schema_utils._fields(Thing, ["b"])] == ["a"]
+
+
+def test_fields_yields_both_members_of_a_real_union():
+    """A union of two dataclasses is reported as a multi-type field."""
+    [f] = [f for f in schema_utils._fields(Zone, []) if f.name == "watering_settings"]
+    assert set(f.types) == {AdvancedWateringSettings, StandardWateringSettings}

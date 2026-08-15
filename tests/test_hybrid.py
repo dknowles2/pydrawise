@@ -564,3 +564,54 @@ async def test_throttle_cache_is_per_instance(
         with pytest.raises(ThrottledError):
             await third.get_zone(zone.id)
         mock_gql_client.get_zone.assert_not_awaited()
+
+
+def test_default_throttles_and_gql_client(hybrid_auth):
+    """The documented defaults apply when no throttlers or client are supplied.
+
+    Every other test injects these, so nothing exercised the constructor's
+    own defaults -- which are what real callers get.
+    """
+    client = HybridClient(hybrid_auth)
+
+    assert client._gql_throttle.epoch_interval == timedelta(minutes=30)
+    assert client._gql_throttle.tokens_per_epoch == 5
+    assert client._rest_throttle.epoch_interval == timedelta(minutes=1)
+    assert client._rest_throttle.tokens_per_epoch == 2
+
+    # A GraphQL client is built from the same auth object.
+    assert isinstance(client._gql_client, Hydrawise)
+    assert client._gql_client._auth is hybrid_auth
+
+
+async def test_get_user_throttled_without_zones_does_not_poll_rest(
+    api, hybrid_auth, mock_gql_client, user
+):
+    """fetch_zones=False has nothing REST can refresh, so it must not spend a token."""
+    with freeze_time(FROZEN_TIME):
+        mock_gql_client.get_user.return_value = deepcopy(user)
+        # Exhaust the GraphQL budget (the fixture allows 2 tokens).
+        await api.get_user(fetch_zones=False)
+        await api.get_user(fetch_zones=False)
+        mock_gql_client.get_user.reset_mock()
+        hybrid_auth.get.reset_mock()
+
+        assert await api.get_user(fetch_zones=False) == user
+        mock_gql_client.get_user.assert_not_awaited()
+        hybrid_auth.get.assert_not_awaited()
+
+
+async def test_get_controllers_throttled_without_zones_does_not_poll_rest(
+    api, hybrid_auth, mock_gql_client, controller
+):
+    """Same as get_user: no zones requested means no REST refresh to make."""
+    with freeze_time(FROZEN_TIME):
+        mock_gql_client.get_controllers.return_value = [deepcopy(controller)]
+        await api.get_controllers(fetch_zones=False)
+        await api.get_controllers(fetch_zones=False)
+        mock_gql_client.get_controllers.reset_mock()
+        hybrid_auth.get.reset_mock()
+
+        assert await api.get_controllers(fetch_zones=False) == [controller]
+        mock_gql_client.get_controllers.assert_not_awaited()
+        hybrid_auth.get.assert_not_awaited()

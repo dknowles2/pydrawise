@@ -1,8 +1,12 @@
 from unittest import mock
 
 from freezegun import freeze_time
+from pytest import raises
+from requests import HTTPError
 
 from pydrawise import legacy
+from pydrawise.exceptions import NotInitializedError, UnknownError
+from pydrawise.rest import RestClient
 
 API_KEY = "__api_key__"
 
@@ -215,3 +219,44 @@ def test_run_zone_stop_all(mock_request, success_status):
             },
             timeout=10,
         )
+
+
+def test_get_raises_unknown_error_on_error_message():
+    """The v1 API reports failures in-band with a 200 and an error_message."""
+    with mock.patch("requests.get") as req:
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {"error_message": "nope"}
+        req.return_value = resp
+        with raises(UnknownError, match="nope"):
+            legacy.LegacyHydrawise(API_KEY)
+
+
+def test_get_raises_for_http_status():
+    with mock.patch("requests.get") as req:
+        resp = mock.Mock(status_code=500)
+        resp.raise_for_status.side_effect = HTTPError("boom")
+        req.return_value = resp
+        with raises(HTTPError):
+            legacy.LegacyHydrawise(API_KEY)
+
+
+def test_suspend_zone_without_loaded_zones():
+    """Targeting a specific zone needs the relay list; refuse rather than KeyError."""
+    with mock.patch("requests.get"):
+        client = legacy.LegacyHydrawise(API_KEY, load_on_init=False)
+        with raises(NotInitializedError, match="No zones loaded"):
+            client.suspend_zone(1, zone=1)
+
+
+def test_run_zone_without_loaded_zones():
+    with mock.patch("requests.get"):
+        client = legacy.LegacyHydrawise(API_KEY, load_on_init=False)
+        with raises(NotInitializedError, match="No zones loaded"):
+            client.run_zone(1, zone=1)
+
+
+def test_legacy_async_client_wraps_the_api_key(mock_request):
+    """LegacyHydrawiseAsync is a RestClient that builds its own RestAuth."""
+    client = legacy.LegacyHydrawiseAsync(API_KEY)
+    assert isinstance(client, RestClient)
+    assert client._auth._api_key == API_KEY

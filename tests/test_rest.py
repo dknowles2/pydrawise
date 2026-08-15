@@ -329,3 +329,39 @@ async def test_unsupported_methods(rest_auth: RestAuth) -> None:
         await client.get_watering_report(controller, start, end)
     with raises(NotImplementedError):
         await client.get_water_use_summary(controller, start, end)
+
+
+async def test_start_zone_with_custom_duration(
+    rest_auth: RestAuth, mock_server, request_spy, success_status: dict
+) -> None:
+    """A positive custom_run_duration is sent as the `custom` param."""
+    client = rest.RestClient(rest_auth)
+    mock_server.add("GET", "/api/v1/setzone.php", status=200, payload=success_status)
+    zone = mock.create_autospec(Zone)
+    zone.id = 12345
+    await client.start_zone(zone, custom_run_duration=600)
+    [call] = request_spy
+    assert call.kwargs["params"] == {
+        "api_key": API_KEY,
+        "action": "run",
+        "relay_id": 12345,
+        "period_id": 999,
+        "custom": 600,
+    }
+
+
+async def test_start_all_zones_with_custom_duration(
+    rest_auth: RestAuth, mock_server, request_spy, success_status: dict
+) -> None:
+    """A positive custom_run_duration is sent as the `custom` param."""
+    client = rest.RestClient(rest_auth)
+    mock_server.add("GET", "/api/v1/setzone.php", status=200, payload=success_status)
+    await client.start_all_zones(Controller(id=1111), custom_run_duration=600)
+    [call] = request_spy
+    assert call.kwargs["params"] == {
+        "api_key": API_KEY,
+        "action": "runall",
+        "controller_id": 1111,
+        "period_id": 999,
+        "custom": 600,
+    }
