@@ -449,6 +449,14 @@ class HybridClient(HydrawiseBase):
         """
         return await self._gql_client.get_sensors(controller)
 
+    async def update_master_valve(self, controller: Controller, zone: Zone) -> None:
+        """Updates the controller's master valve. Always uses the GraphQL API.
+
+        :param controller: Controller whose master valve to update.
+        :param zone: Zone to use as the controller's master valve.
+        """
+        return await self._gql_client.update_master_valve(controller, zone)
+
     async def get_water_flow_summary(
         self, controller: Controller, sensor: Sensor, start: datetime, end: datetime
     ) -> SensorFlowSummary:

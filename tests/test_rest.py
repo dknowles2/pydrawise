@@ -324,6 +324,8 @@ async def test_unsupported_methods(rest_auth: RestAuth) -> None:
     with raises(NotImplementedError):
         await client.get_sensors(controller)
     with raises(NotImplementedError):
+        await client.update_master_valve(controller, Zone(id=0x10A))
+    with raises(NotImplementedError):
         await client.get_water_flow_summary(controller, sensor, start, end)
     with raises(NotImplementedError):
         await client.get_watering_report(controller, start, end)
@@ -365,3 +367,19 @@ async def test_start_all_zones_with_custom_duration(
         "period_id": 999,
         "custom": 600,
     }
+
+
+async def test_get_controllers_without_zones(
+    rest_auth: RestAuth, mock_server, request_spy, customer_details: dict
+) -> None:
+    """fetch_zones=False skips the per-controller statusschedule.php calls."""
+    client = rest.RestClient(rest_auth)
+    mock_server.add(
+        "GET", "/api/v1/customerdetails.php", status=200, payload=customer_details
+    )
+    controllers = await client.get_controllers(fetch_zones=False)
+    assert [c.id for c in controllers] == [9876, 63507]
+    assert all(c.zones == [] for c in controllers)
+    # Only the customerdetails call; no zone fetches.
+    assert len(request_spy) == 1
+    assert request_spy[0].args[1].endswith("/api/v1/customerdetails.php")

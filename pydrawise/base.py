@@ -38,9 +38,13 @@ class HydrawiseBase(ABC):
         """
 
     @abstractmethod
-    async def get_controllers(self) -> list[Controller]:
+    async def get_controllers(
+        self, fetch_zones: bool = True, fetch_sensors: bool = True
+    ) -> list[Controller]:
         """Retrieves all controllers associated with the currently authenticated user.
 
+        :param fetch_zones: Whether to include zones in the response.
+        :param fetch_sensors: Whether to include sensors in the response.
         :rtype: list[Controller]
         """
 
@@ -157,6 +161,14 @@ class HydrawiseBase(ABC):
 
         :param controller: Controller whose sensors to fetch.
         :rtype: list[Sensor]
+        """
+
+    @abstractmethod
+    async def update_master_valve(self, controller: Controller, zone: Zone) -> None:
+        """Updates the controller's master valve.
+
+        :param controller: Controller whose master valve to update.
+        :param zone: Zone to use as the controller's master valve.
         """
 
     @abstractmethod

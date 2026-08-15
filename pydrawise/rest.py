@@ -56,15 +56,21 @@ class RestClient(HydrawiseBase):
                 controller.zones = await self.get_zones(controller)
         return user
 
-    async def get_controllers(self) -> list[Controller]:
+    async def get_controllers(
+        self, fetch_zones: bool = True, fetch_sensors: bool = True
+    ) -> list[Controller]:
         """Retrieves all controllers associated with the currently authenticated user.
 
+        :param fetch_zones: When True, also fetch zones.
+        :param fetch_sensors: Ignored; the v1 REST API doesn't report sensors.
         :rtype: list[Controller]
         """
+        _ = fetch_sensors  # unused
         resp_json = await self._get("customerdetails.php", type="controllers")
         controllers = [Controller.from_json(c) for c in resp_json["controllers"]]
-        for controller in controllers:
-            controller.zones = await self.get_zones(controller)
+        if fetch_zones:
+            for controller in controllers:
+                controller.zones = await self.get_zones(controller)
         return controllers
 
     async def get_controller(self, controller_id: int) -> Controller:
@@ -208,6 +214,13 @@ class RestClient(HydrawiseBase):
         raise NotImplementedError
 
     async def get_sensors(self, controller: Controller) -> list[Sensor]:
+        """Not supported by the Hydrawise v1 REST API.
+
+        :raises NotImplementedError: always.
+        """
+        raise NotImplementedError
+
+    async def update_master_valve(self, controller: Controller, zone: Zone) -> None:
         """Not supported by the Hydrawise v1 REST API.
 
         :raises NotImplementedError: always.

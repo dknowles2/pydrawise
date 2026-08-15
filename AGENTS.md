@@ -61,8 +61,8 @@ four concrete clients implement identically:
   to stay under Hydrawise's GraphQL rate limits without losing responsiveness.
 - `rest.RestClient` — REST v1 only. Several `HydrawiseBase` methods aren't representable in the v1
   API and always `raise NotImplementedError` (`get_controller`, `get_zone`,
-  `delete_zone_suspension`, `get_sensors`, `get_water_flow_summary`, `get_watering_report`,
-  `get_water_use_summary`).
+  `delete_zone_suspension`, `get_sensors`, `update_master_valve`, `get_water_flow_summary`,
+  `get_watering_report`, `get_water_use_summary`).
 - `legacy.LegacyHydrawise` — synchronous, kept compatible with
   [hydrawiser](https://github.com/ptcryan/hydrawiser). Exposes raw REST JSON via dict-backed
   properties rather than the `schema` dataclasses.
