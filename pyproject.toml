@@ -22,7 +22,7 @@ classifiers     = [
 ]
 
 [project.optional-dependencies]
-docs = ["mkdocs==1.6.1", "mkdocstrings==1.0.6", "mkdocstrings-python==2.0.5"]
+docs = ["mkdocs==1.6.1", "mkdocstrings==1.0.6", "mkdocstrings-python==2.0.6"]
 
 [project.urls]
 "Homepage"      = "https://github.com/dknowles2/pydrawise"
