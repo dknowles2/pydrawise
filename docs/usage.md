@@ -53,6 +53,9 @@ await h.stop_zone(zone)
 # Start or stop every zone on a controller at once.
 await h.start_all_zones(controller, custom_run_duration=600)
 await h.stop_all_zones(controller)
+
+# Designate a zone as the controller's master valve.
+await h.update_master_valve(controller, zone)
 ```
 
 ## Suspending and resuming zones
@@ -149,8 +152,9 @@ If you only have a Hydrawise API key (no username/password), use
 [`RestClient`][pydrawise.rest.RestClient] instead. Note that a handful of
 methods aren't available through the v1 REST API and always raise
 `NotImplementedError`: `get_controller`, `get_zone`,
-`delete_zone_suspension`, `get_sensors`, `get_water_flow_summary`,
-`get_watering_report`, and `get_water_use_summary`.
+`delete_zone_suspension`, `get_sensors`, `update_master_valve`,
+`get_water_flow_summary`, `get_watering_report`, and
+`get_water_use_summary`.
 
 ```python
 from pydrawise.auth import RestAuth

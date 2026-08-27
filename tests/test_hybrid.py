@@ -615,3 +615,9 @@ async def test_get_controllers_throttled_without_zones_does_not_poll_rest(
         assert await api.get_controllers(fetch_zones=False) == [controller]
         mock_gql_client.get_controllers.assert_not_awaited()
         hybrid_auth.get.assert_not_awaited()
+
+
+async def test_update_master_valve(api, mock_gql_client, controller, zone):
+    """Always delegates to the GraphQL API; the REST API can't set a master valve."""
+    await api.update_master_valve(controller, zone)
+    mock_gql_client.update_master_valve.assert_awaited_once_with(controller, zone)
