@@ -180,3 +180,21 @@ async def test_rest_auth_raises_for_other_http_errors(mock_server):
     mock_server.add("GET", "/api/v1/customerdetails.php", status=500, body="boom")
     with pytest.raises(ClientResponseError):
         await a.check()
+
+
+async def test_rest_auth_raises_not_authorized_on_403(mock_server):
+    a = auth.RestAuth("__api_key__")
+    mock_server.add("GET", "/api/v1/customerdetails.php", status=403, body="Forbidden")
+    with pytest.raises(NotAuthorizedError, match="HTTP 403"):
+        await a.check()
+
+
+async def test_rest_auth_redacts_api_key_on_other_errors(mock_server):
+    a = auth.RestAuth("__secret_api_key__")
+    mock_server.add("GET", "/api/v1/customerdetails.php", status=500, body="boom")
+    with pytest.raises(ClientResponseError) as exc_info:
+        await a.check()
+
+    error_str = str(exc_info.value)
+    assert "__secret_api_key__" not in error_str
+    assert "api_key=***" in error_str
