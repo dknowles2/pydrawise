@@ -14,6 +14,26 @@ jobs:
       contents: write       # create and update the release draft
       pull-requests: read   # read merged PRs to build release notes
     steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0    # need all tags to find the latest release this month
+
+      - name: Compute CalVer version
+        id: calver
+        run: |
+          set -euo pipefail
+          # CalVer: YYYY.M.PATCH, where PATCH restarts at 0 each month.
+          prefix="$(date -u +'%Y.%-m')"
+          latest="$(git tag --list "${prefix}.*" | sort -V | tail -n1)"
+          if [ -z "${latest}" ]; then
+            patch=0
+          else
+            patch=$(( ${latest##*.} + 1 ))
+          fi
+          echo "version=${prefix}.${patch}" >> "$GITHUB_OUTPUT"
+
       - uses: release-drafter/release-drafter@v7.7.0
+        with:
+          version: ${{ steps.calver.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
