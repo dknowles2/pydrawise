@@ -621,3 +621,35 @@ async def test_update_master_valve(api, mock_gql_client, controller, zone):
     """Always delegates to the GraphQL API; the REST API can't set a master valve."""
     await api.update_master_valve(controller, zone)
     mock_gql_client.update_master_valve.assert_awaited_once_with(controller, zone)
+
+async def test_update_zones_suppresses_auth_error_if_rest_ok(api, mock_gql_client):
+    from unittest.mock import MagicMock
+    from pydrawise.schema import Controller
+    
+    # GraphQL gives us 2 controllers, A and B
+    c1 = MagicMock(spec=Controller)
+    c1.id = 11
+    
+    c2 = MagicMock(spec=Controller)
+    c2.id = 12
+
+    api._controllers = {
+        11: c1,
+        12: c2,
+    }
+
+    async def mock_get(path, controller_id, **kwargs):
+        if controller_id == 11:
+            return {"nextpoll": 60, "relays": []}
+        else:
+            from pydrawise.exceptions import NotAuthorizedError
+            raise NotAuthorizedError("HTTP 403")
+
+    api._auth.get.side_effect = mock_get
+
+    # 1. Update zones on C1 successfully. This populates `_rest_ok`.
+    await api._update_zones(api._controllers[11])
+    assert 11 in api._rest_ok
+
+    # 2. Update zones on C2 alone. This hits 403, but is suppressed.
+    await api._update_zones(api._controllers[12])

@@ -126,19 +126,16 @@ class RestAuth(BaseAuth):
             try:
                 resp.raise_for_status()
             except aiohttp.ClientResponseError as e:
-                if e.status in (401, 403):
-                    # For client-side auth/authz statuses, we don't want to leak
-                    # the API key in the URL that gets logged by ClientResponseError.
-                    # See https://github.com/dknowles2/pydrawise/issues/561
-                    # So we raise NotAuthorizedError instead.
-                    raise NotAuthorizedError(f"HTTP {e.status}") from e
-
-                # Otherwise, redact the API key from the error message.
+                # Redact the API key from the error message.
                 if e.request_info and e.request_info.url:
                     e.request_info = e.request_info._replace(
                         url=e.request_info.url.with_query({"api_key": "***"}),
                         real_url=e.request_info.real_url.with_query({"api_key": "***"}),
                     )
+                if e.status in (401, 403):
+                    # For client-side auth/authz statuses, we raise NotAuthorizedError.
+                    # Redaction above ensures the API key doesn't leak via the `__cause__`.
+                    raise NotAuthorizedError(f"HTTP {e.status}") from e
                 raise
             return await resp.json()
 

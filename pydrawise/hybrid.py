@@ -148,6 +148,7 @@ class HybridClient(HydrawiseBase):
         self._user: User | None = None
         self._controllers: dict[int, Controller] = {}
         self._zones: dict[int, Zone] = {}
+        self._rest_ok: set[int] = set()
         # Per-method result caches used by @throttle, keyed by method name.
         self._throttle_cache: dict[str, dict[str, Any]] = {}
         if gql_throttle is None:
@@ -303,6 +304,7 @@ class HybridClient(HydrawiseBase):
                 )
                 last_err = e
                 continue
+            self._rest_ok.add(controller_id)
             self._rest_throttle.mark()
             self._rest_throttle.epoch_interval = timedelta(seconds=json["nextpoll"])
             zones = []
@@ -320,7 +322,8 @@ class HybridClient(HydrawiseBase):
             self._controllers[controller_id].zones = zones
             succeeded += 1
         if succeeded == 0 and last_err is not None:
-            raise last_err
+            if not (self._rest_ok - set(controller_ids)):
+                raise last_err
 
     @throttle
     async def get_zone(self, zone_id: int) -> Zone:
