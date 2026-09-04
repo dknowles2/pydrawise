@@ -622,14 +622,16 @@ async def test_update_master_valve(api, mock_gql_client, controller, zone):
     await api.update_master_valve(controller, zone)
     mock_gql_client.update_master_valve.assert_awaited_once_with(controller, zone)
 
+
 async def test_update_zones_suppresses_auth_error_if_rest_ok(api, mock_gql_client):
     from unittest.mock import MagicMock
+
     from pydrawise.schema import Controller
-    
+
     # GraphQL gives us 2 controllers, A and B
     c1 = MagicMock(spec=Controller)
     c1.id = 11
-    
+
     c2 = MagicMock(spec=Controller)
     c2.id = 12
 
@@ -643,6 +645,7 @@ async def test_update_zones_suppresses_auth_error_if_rest_ok(api, mock_gql_clien
             return {"nextpoll": 60, "relays": []}
         else:
             from pydrawise.exceptions import NotAuthorizedError
+
             raise NotAuthorizedError("HTTP 403")
 
     api._auth.get.side_effect = mock_get
