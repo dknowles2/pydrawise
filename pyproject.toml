@@ -37,7 +37,7 @@ test = [
     "pytest-asyncio==1.4.0",
     "pytest-cov==7.1.0",
     "ruff==0.16.6",
-    "types-requests==2.33.0.20260712",
+    "types-requests==2.33.0.20260906",
 ]
 dev = [{ include-group = "test" }, "pre-commit==4.6.2"]
 
