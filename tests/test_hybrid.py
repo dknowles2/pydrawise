@@ -8,7 +8,7 @@ from pytest import fixture
 
 from pydrawise.auth import HybridAuth
 from pydrawise.client import Hydrawise
-from pydrawise.exceptions import NotAuthorizedError, ThrottledError
+from pydrawise.exceptions import APIError, NotAuthorizedError, ThrottledError
 from pydrawise.hybrid import HybridClient, Throttler
 from pydrawise.schema import Controller, Zone, ZoneStatus, ZoneSuspension
 from pydrawise.schema_utils import deserialize
@@ -656,3 +656,41 @@ async def test_update_zones_suppresses_auth_error_if_rest_ok(api, mock_gql_clien
 
     # 2. Update zones on C2 alone. This hits 403, but is suppressed.
     await api._update_zones(api._controllers[12])
+
+
+async def test_get_user_api_error_keeps_cache_and_budget(
+    api, hybrid_auth, mock_gql_client, user
+):
+    """A failed GraphQL fetch propagates without clobbering the cached user or spending a token."""
+    with freeze_time(FROZEN_TIME):
+        mock_gql_client.get_user.return_value = deepcopy(user)
+        assert await api.get_user(fetch_zones=False) == user
+
+        mock_gql_client.get_user.side_effect = APIError("unavailable")
+        with pytest.raises(APIError):
+            await api.get_user(fetch_zones=False)
+        assert api._user == user
+
+        # The failed call didn't consume the second (and last) GraphQL token.
+        mock_gql_client.get_user.side_effect = None
+        mock_gql_client.get_user.reset_mock()
+        assert await api.get_user(fetch_zones=False) == user
+        mock_gql_client.get_user.assert_awaited_once()
+
+
+async def test_throttled_method_api_error_keeps_cache_and_budget(
+    api, mock_gql_client, controller
+):
+    """Same guarantee for methods behind the @throttle decorator."""
+    with freeze_time(FROZEN_TIME):
+        mock_gql_client.get_sensors.return_value = []
+        assert await api.get_sensors(controller) == []
+
+        mock_gql_client.get_sensors.side_effect = APIError("unavailable")
+        with pytest.raises(APIError):
+            await api.get_sensors(controller)
+
+        mock_gql_client.get_sensors.side_effect = None
+        mock_gql_client.get_sensors.reset_mock()
+        assert await api.get_sensors(controller) == []
+        mock_gql_client.get_sensors.assert_awaited_once()

@@ -4,6 +4,7 @@ from .auth import Auth
 from .base import HydrawiseBase
 from .client import Hydrawise
 from .exceptions import (
+    APIError,
     Error,
     MutationError,
     NotAuthenticatedError,
@@ -15,6 +16,7 @@ from .exceptions import (
 from .schema import Controller, Sensor, User, Zone
 
 __all__ = (
+    "APIError",
     "Auth",
     "Controller",
     "Error",

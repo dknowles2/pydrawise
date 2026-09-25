@@ -2,17 +2,23 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from unittest.mock import create_autospec, patch
 
+import aiohttp
 import pytest
 from gql import Client
 from gql.client import AsyncClientSession
 from gql.transport.aiohttp import AIOHTTPTransport
+from gql.transport.exceptions import (
+    TransportConnectionFailed,
+    TransportQueryError,
+    TransportServerError,
+)
 from graphql import print_ast
 from pytest import fixture
 
 from pydrawise.auth import Auth
 from pydrawise.client import Hydrawise
 from pydrawise.const import DEFAULT_APP_ID, GRAPHQL_URL
-from pydrawise.exceptions import MutationError
+from pydrawise.exceptions import APIError, MutationError, NotAuthorizedError
 from pydrawise.schema import DSL_SCHEMA, Controller, Sensor, Zone, ZoneSuspension
 from pydrawise.schema_utils import deserialize
 
@@ -587,3 +593,82 @@ async def test_client_without_app_id_sends_no_extra_params(mock_auth, mock_clien
         session.execute.return_value = {"me": {}}
         await api._query(DSL_SCHEMA.Query.me.select(DSL_SCHEMA.User.id))
         assert session.execute.await_args.kwargs["extra_args"] == {}
+
+
+@pytest.mark.parametrize(
+    "err",
+    [
+        TransportQueryError("{'message': 'unavailable'}"),
+        TransportServerError("Internal Server Error", code=500),
+        TransportConnectionFailed("connection lost"),
+        aiohttp.ClientConnectionError("boom"),
+        TimeoutError(),
+    ],
+)
+async def test_query_transport_errors_raise_api_error(
+    api: Hydrawise, mock_session, err
+):
+    """Transport-level failures surface as APIError, chained to the original."""
+    mock_session.execute.side_effect = err
+    with pytest.raises(APIError) as exc_info:
+        await api.get_user()
+    assert exc_info.value.__cause__ is err
+
+
+@pytest.mark.parametrize("code", [401, 403])
+async def test_query_auth_errors_raise_not_authorized(
+    api: Hydrawise, mock_session, code
+):
+    err = TransportServerError("denied", code=code)
+    mock_session.execute.side_effect = err
+    with pytest.raises(NotAuthorizedError, match=f"HTTP {code}") as exc_info:
+        await api.get_user()
+    assert exc_info.value.__cause__ is err
+
+
+async def test_mutation_transport_errors_raise_api_error(
+    api: Hydrawise, mock_session, zone_json
+):
+    err = TransportQueryError("{'message': 'unavailable'}")
+    mock_session.execute.side_effect = err
+    zone = deserialize(Zone, zone_json)
+    with pytest.raises(APIError) as exc_info:
+        await api.start_zone(zone)
+    assert exc_info.value.__cause__ is err
+
+
+@pytest.mark.parametrize("code", [401, 403])
+async def test_mutation_auth_errors_raise_not_authorized(
+    api: Hydrawise, mock_session, zone_json, code
+):
+    mock_session.execute.side_effect = TransportServerError("denied", code=code)
+    zone = deserialize(Zone, zone_json)
+    with pytest.raises(NotAuthorizedError, match=f"HTTP {code}"):
+        await api.start_zone(zone)
+
+
+async def test_token_fetch_network_error_raises_api_error(mock_auth):
+    """A network failure while fetching the token (building the client) is wrapped too."""
+    err = aiohttp.ClientConnectionError("boom")
+    mock_auth.token.side_effect = err
+    api = Hydrawise(mock_auth)
+    with pytest.raises(APIError) as exc_info:
+        await api.get_user()
+    assert exc_info.value.__cause__ is err
+
+
+async def test_token_fetch_auth_error_is_not_wrapped(mock_auth):
+    """pydrawise's own errors from the auth layer pass through unchanged."""
+    err = NotAuthorizedError("bad credentials")
+    mock_auth.token.side_effect = err
+    api = Hydrawise(mock_auth)
+    with pytest.raises(NotAuthorizedError) as exc_info:
+        await api.get_user()
+    assert exc_info.value is err
+
+
+async def test_non_transport_errors_are_not_wrapped(api: Hydrawise, mock_session):
+    """Only transport-level failures become APIError; other bugs surface as-is."""
+    mock_session.execute.side_effect = ValueError("not a transport error")
+    with pytest.raises(ValueError, match="not a transport error"):
+        await api.get_user()

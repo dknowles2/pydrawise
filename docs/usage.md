@@ -169,7 +169,14 @@ controllers = await h.get_controllers()
 All pydrawise exceptions derive from [`Error`][pydrawise.Error]:
 
 ```python
-from pydrawise import Auth, Hydrawise, NotAuthorizedError, ThrottledError, MutationError
+from pydrawise import (
+    APIError,
+    Auth,
+    Hydrawise,
+    MutationError,
+    NotAuthorizedError,
+    ThrottledError,
+)
 
 h = Hydrawise(Auth("username", "password"))
 
@@ -183,4 +190,9 @@ except ThrottledError:
     print("Rate limited; try again later.")
 except MutationError as e:
     print(f"Hydrawise rejected the request: {e}")
+except APIError as e:
+    # Transient failure talking to the GraphQL API: network error, timeout,
+    # server error, or a GraphQL error response. The original exception is
+    # available as e.__cause__.
+    print(f"Request failed; try again later: {e}")
 ```

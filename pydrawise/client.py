@@ -1,17 +1,21 @@
 """Asynchronous client library for interacting with Hydrawise's GraphQL API."""
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 
+import aiohttp
 from gql import Client
 from gql.dsl import DSLField, DSLMutation, DSLQuery, DSLSelectable, dsl_gql
 from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.aiohttp import log as gql_log
+from gql.transport.exceptions import TransportError, TransportServerError
 
 from .auth import Auth
 from .base import HydrawiseBase
 from .const import DEFAULT_APP_ID, GRAPHQL_URL
-from .exceptions import MutationError
+from .exceptions import APIError, MutationError, NotAuthorizedError
 from .schema import (
     DSL_SCHEMA,
     Controller,
@@ -34,6 +38,19 @@ from .schema_utils import deserialize, get_selectors
 gql_log.setLevel(logging.ERROR)
 
 _LOGGER = logging.getLogger("pydrawise")
+
+
+@contextmanager
+def _translate_errors() -> Iterator[None]:
+    """Translates transport-level errors into pydrawise exceptions."""
+    try:
+        yield
+    except TransportServerError as e:
+        if e.code in (401, 403):
+            raise NotAuthorizedError(f"HTTP {e.code}") from e
+        raise APIError(str(e)) from e
+    except (TransportError, aiohttp.ClientError, TimeoutError) as e:
+        raise APIError(str(e)) from e
 
 
 def _prune_watering_report_entries(
@@ -92,25 +109,27 @@ class Hydrawise(HydrawiseBase):
         extra_args = {}
         if self._app_id:
             extra_args["params"] = {"appVersion": self._app_id}
-        async with await self._client() as session:
-            return await session.execute(
-                dsl_gql(DSLQuery(selector)),
-                extra_args=extra_args,
-            )
+        with _translate_errors():
+            async with await self._client() as session:
+                return await session.execute(
+                    dsl_gql(DSLQuery(selector)),
+                    extra_args=extra_args,
+                )
 
     async def _mutation(self, selector: DSLField) -> None:
-        async with await self._client() as session:
-            result = await session.execute(dsl_gql(DSLMutation(selector)))
-            resp = result[selector.name]
-            if isinstance(resp, dict):
-                if resp["status"] == "ERROR":
-                    raise MutationError(resp["summary"])
-                elif resp["status"] == "WARNING":
-                    _LOGGER.warning(resp["summary"])
-                return
-            elif not resp:
-                # Assume bool response
-                raise MutationError
+        with _translate_errors():
+            async with await self._client() as session:
+                result = await session.execute(dsl_gql(DSLMutation(selector)))
+        resp = result[selector.name]
+        if isinstance(resp, dict):
+            if resp["status"] == "ERROR":
+                raise MutationError(resp["summary"])
+            elif resp["status"] == "WARNING":
+                _LOGGER.warning(resp["summary"])
+            return
+        elif not resp:
+            # Assume bool response
+            raise MutationError
 
     async def get_user(self, fetch_zones: bool = True) -> User:
         """Retrieves the currently authenticated user.
