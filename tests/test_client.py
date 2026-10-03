@@ -507,9 +507,9 @@ async def test_get_water_use_summary_ignores_malformed_report_entries(
     """Entries missing a run event or a zone must not corrupt the per-zone totals.
 
     They are dropped by _prune_watering_report_entries rather than by the
-    `zone is None` guard in the summing loop: apischema's fall_back_on_default
-    turns a null runEvent/zone into a default object, never None, so such an
-    entry arrives with no reported start or end time and is pruned.
+    `zone is None` guard in the summing loop: _optional_field's fall-back
+    turns a null or unparseable runEvent into a default object, never None, so
+    such an entry arrives with no reported start or end time and is pruned.
     """
     report = deepcopy(watering_report_json)
     [real_entry] = report["watering"]

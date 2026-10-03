@@ -16,28 +16,57 @@ from typing import (
     get_type_hints,
 )
 
-from apischema import deserialize as _deserialize
-from apischema.metadata.keys import CONVERSION_METADATA, SKIP_METADATA
-from apischema.type_names import get_type_name
-from apischema.utils import to_camel_case
 from gql.dsl import DSLField, DSLInlineFragment
+from pydantic import TypeAdapter
 
-from .schema import DSL_SCHEMA
+from .schema import DSL_SCHEMA, _graphql_type_name, _WireType
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
 
+#: Field metadata key: leave this field out of generated GraphQL selections.
+SKIP_FIELD_METADATA = "pydrawise_skip_field"
 
-def deserialize(*args: Any, **kwargs: Any) -> Any:
+
+@cache
+def _adapter(cls: Any) -> TypeAdapter[Any]:
+    """Returns a cached validator for the given type.
+
+    Building a TypeAdapter compiles a validator, which is far too expensive to
+    repeat on every API response.
+
+    :meta private:
+    """
+    return TypeAdapter(cls)
+
+
+def deserialize(cls: Any, payload: Any) -> Any:
     """Deserializes a GraphQL JSON blob.
 
     :meta private:
     """
-    kwargs.setdefault("aliaser", to_camel_case)
-    return _deserialize(*args, **kwargs)
+    return _adapter(cls).validate_python(payload)
 
 
 _Field = namedtuple("_Field", ["name", "types"])
+
+
+def _wire_type(annotation: Any) -> Any | None:
+    """Returns the GraphQL type an annotation deserializes from, if it differs.
+
+    Looks through union wrappers: `ZoneStatus.suspended_until` is spelled
+    `_GqlDateTime | None`, but still selects the `DateTime` object's fields.
+
+    :meta private:
+    """
+    for metadata in getattr(annotation, "__metadata__", ()):
+        if isinstance(metadata, _WireType):
+            return metadata.graphql_type
+    if get_origin(annotation) in (Union, UnionType):
+        for arg in get_args(annotation):
+            if (found := _wire_type(arg)) is not None:
+                return found
+    return None
 
 
 def _fields(
@@ -48,17 +77,18 @@ def _fields(
     :meta private:
     """
     hints = get_type_hints(cls)
+    # The same hints with their Annotated metadata left on, which is where a
+    # field records the GraphQL type it deserializes from.
+    annotated_hints = get_type_hints(cls, include_extras=True)
     for f in fields(cls):
         if f.name in skip:
             continue
 
-        if (skip_md := f.metadata.get(SKIP_METADATA, None)) and (
-            skip_md.serialization or skip_md.deserialization
-        ):
+        if f.metadata.get(SKIP_FIELD_METADATA):
             continue
 
-        if conversion_md := f.metadata.get(CONVERSION_METADATA, None):
-            yield _Field(f.name, [conversion_md.deserialization.source])
+        if (wire_type := _wire_type(annotated_hints[f.name])) is not None:
+            yield _Field(f.name, [wire_type])
             continue
 
         field_type = hints[f.name]
@@ -69,12 +99,14 @@ def _fields(
         # typing.Union. Both spellings appear in schema.py, and matching only
         # typing.Union silently emitted union fields with no sub-selection.
         if origin is Union or origin is UnionType:
-            # Drop None from Optional fields.
-            field_types = set(get_args(field_type)) - {NoneType}
+            # Drop None from Optional fields. Declaration order is kept so the
+            # inline fragments a union expands into -- and therefore the query
+            # text we send -- are stable across processes.
+            field_types = [t for t in get_args(field_type) if t is not NoneType]
 
             # Actual unions just yield the union.
             if len(field_types) > 1:
-                yield _Field(f.name, list(field_types))
+                yield _Field(f.name, field_types)
                 continue
 
             # If we have only one type left after dropping None, this could
@@ -104,7 +136,7 @@ def _get_selectors_cached(
     ret = []
     skip_now, skip_later = parse_skip(list(skip_fields))
     for f in _fields(cls, skip_now):
-        dsl_field = getattr(getattr(DSL_SCHEMA, get_type_name(cls).graphql), f.name)  # type: ignore[arg-type]
+        dsl_field = getattr(getattr(DSL_SCHEMA, _graphql_type_name(cls)), f.name)
         if len(f.types) == 1:
             [f_type] = f.types
             if is_dataclass(f_type):
@@ -120,7 +152,7 @@ def _get_selectors_cached(
                     raise NotImplementedError
                 sel_args.append(
                     DSLInlineFragment()
-                    .on(getattr(DSL_SCHEMA, get_type_name(f_type).graphql))  # type: ignore[arg-type]
+                    .on(getattr(DSL_SCHEMA, _graphql_type_name(f_type)))
                     .select(*_get_selectors_cached(f_type, ()))  # type: ignore[arg-type]
                 )
             ret.append(dsl_field.select(*sel_args))

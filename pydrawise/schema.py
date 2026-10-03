@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import dataclasses
+from collections.abc import Callable
+from dataclasses import field
 from datetime import UTC, datetime, time, timedelta
 from enum import Enum, auto
 from importlib import resources
-from typing import Any
+from typing import Annotated, Any, TypeVar, cast, dataclass_transform
 
-from apischema import type_name
-from apischema.conversions import Conversion
-from apischema.metadata import conversion, fall_back_on_default
 from gql.dsl import DSLSchema
 from graphql import build_ast_schema, parse
+from pydantic import BeforeValidator, ConfigDict, ValidationError, model_validator
+from pydantic.alias_generators import to_camel
+from pydantic.dataclasses import dataclass as _pydantic_dataclass
+from pydantic_core.core_schema import ValidatorFunctionWrapHandler
 
 # The names in this file are from the GraphQL schema and don't always adhere to
 # the naming scheme that pylint expects.
@@ -22,12 +25,142 @@ SCHEMA_TEXT = resources.files(__package__).joinpath("hydrawise.graphql").read_te
 DSL_SCHEMA = DSLSchema(build_ast_schema(parse(SCHEMA_TEXT)))
 
 
+_T = TypeVar("_T")
+
+# The Hydrawise API speaks camelCase while these dataclasses are snake_case, so
+# every type below deserializes by alias. Field names have to be accepted too:
+# pydantic routes a dataclass's __init__ through the same validator, and the
+# REST paths (rest.py, Zone.from_json, Controller.from_json) construct these
+# types with ordinary snake_case keyword arguments.
+_PYDANTIC_CONFIG = ConfigDict(
+    alias_generator=to_camel, validate_by_alias=True, validate_by_name=True
+)
+
+# Field metadata key set by _optional_field. See _fall_back_on_default.
+_OPTIONAL_FIELD_METADATA = "pydrawise_optional"
+
+
+class _WireType:
+    """Marks the GraphQL type a field is deserialized from.
+
+    Only needed when the wire type is a GraphQL object but the field exposes a
+    native Python type -- `DateTime` arriving as a `datetime`, say.
+    `schema_utils.get_selectors` reads this to know it must emit a
+    sub-selection for the field rather than treating it as a scalar leaf.
+
+    :meta private:
+    """
+
+    def __init__(self, graphql_type: type) -> None:
+        self.graphql_type = graphql_type
+
+
+_GRAPHQL_TYPE_NAMES: dict[type, str] = {}
+
+
+def _type_name(name: str) -> Callable[[type[_T]], type[_T]]:
+    """Declares the GraphQL type a dataclass deserializes from.
+
+    Only needed when the names differ; otherwise the class name is used.
+
+    :meta private:
+    """
+
+    def decorate(cls: type[_T]) -> type[_T]:
+        _GRAPHQL_TYPE_NAMES[cls] = name
+        return cls
+
+    return decorate
+
+
+def _graphql_type_name(cls: Any) -> str:
+    """Returns the GraphQL type name a dataclass deserializes from.
+
+    :meta private:
+    """
+    return _GRAPHQL_TYPE_NAMES.get(cls, cls.__name__)
+
+
 def _optional_field(*args: Any, **kwargs: Any) -> Any:
-    if "metadata" in kwargs:
-        kwargs["metadata"] |= fall_back_on_default
-    else:
-        kwargs["metadata"] = fall_back_on_default
+    """Declares a field that falls back to its default when the API sends null.
+
+    :meta private:
+    """
+    kwargs["metadata"] = {**kwargs.get("metadata", {}), _OPTIONAL_FIELD_METADATA: True}
     return field(*args, **kwargs)
+
+
+def _optional_field_names(cls: type) -> frozenset[str]:
+    """Names of the fields on `cls` that _optional_field declared.
+
+    Called before pydantic processes the class, so `dataclasses.fields` isn't
+    available yet -- the raw Field objects are still plain class attributes.
+    Inherited names come from the already-decorated base classes.
+
+    :meta private:
+    """
+    names = {
+        name
+        for name, value in vars(cls).items()
+        if isinstance(value, dataclasses.Field)
+        and value.metadata.get(_OPTIONAL_FIELD_METADATA)
+    }
+    for base in cls.__mro__[1:]:
+        names |= getattr(base, "_pydrawise_optional_fields", frozenset())
+    return frozenset(names)
+
+
+@dataclass_transform(field_specifiers=(field, _optional_field))
+def _dataclass(cls: type[_T]) -> type[_T]:
+    """Declares a dataclass that deserializes from camelCased GraphQL JSON.
+
+    Wraps `pydantic.dataclasses.dataclass`, so the result is still a real
+    dataclass -- `dataclasses.fields()` and `is_dataclass()` work on it, which
+    is what lets `schema_utils.get_selectors` walk it.
+
+    :meta private:
+    """
+    optional = _optional_field_names(cls)
+    # Deserialization is by alias, so an error is reported under whichever
+    # spelling the payload used.
+    keys = optional | {to_camel(name) for name in optional}
+
+    def fall_back_on_default(
+        _cls: type, data: Any, handler: ValidatorFunctionWrapHandler
+    ) -> Any:
+        """Falls back to the default for any _optional_field that won't parse.
+
+        The Hydrawise API regularly sends null -- or a half-populated object --
+        where its own schema promises a value. Dropping the offending key lets
+        pydantic substitute the field's default, which is what callers expect.
+
+        Only applies while deserializing a payload: constructing one of these
+        dataclasses directly passes ArgsKwargs rather than a mapping, and those
+        errors are the caller's own and stay fatal.
+        """
+        try:
+            return handler(data)
+        except ValidationError as err:
+            if not isinstance(data, dict):
+                raise
+            dropped = {
+                loc[0]
+                for error in err.errors()
+                if (loc := error["loc"]) and loc[0] in keys
+            }
+            if not dropped:
+                raise
+            return handler({k: v for k, v in data.items() if k not in dropped})
+
+    cls._pydrawise_optional_fields = optional  # type: ignore[attr-defined]
+    # pydantic types model_validator for decorator use inside a class body,
+    # where it can infer the model type; applying it programmatically like this
+    # is correct at runtime but outside what those overloads describe.
+    validator = model_validator(mode="wrap")(
+        classmethod(fall_back_on_default)  # type: ignore[arg-type]
+    )
+    cls._fall_back_on_default = validator  # type: ignore[attr-defined]
+    return cast(type[_T], _pydantic_dataclass(cls, config=_PYDANTIC_CONFIG))
 
 
 def _now() -> datetime:
@@ -41,56 +174,49 @@ def _now() -> datetime:
 default_datetime = _now
 
 
-def _duration_conversion(unit: str) -> conversion:
-    assert unit in (
-        "days",
-        "seconds",
-        "microseconds",
-        "milliseconds",
-        "minutes",
-        "hours",
-        "weeks",
-    )
-    return conversion(
-        Conversion(lambda d: timedelta(**{unit: d}), source=int, target=timedelta),
-        Conversion(lambda d: getattr(d, unit), source=timedelta, target=int),
-    )
+def _duration(unit: str) -> BeforeValidator:
+    """Deserializes a bare count of `unit` into a timedelta.
+
+    :meta private:
+    """
+
+    def convert(value: Any) -> Any:
+        if isinstance(value, int | float):
+            return timedelta(**{unit: value})
+        return value
+
+    return BeforeValidator(convert)
 
 
-def _timestamp_conversion() -> conversion:
-    return conversion(
-        Conversion(datetime.fromtimestamp, source=int, target=datetime),
-        Conversion(datetime.timestamp, source=datetime, target=int),
-    )
+def _from_timestamp(value: Any) -> Any:
+    """Deserializes a Unix timestamp into a datetime.
+
+    :meta private:
+    """
+    if isinstance(value, int | float):
+        return datetime.fromtimestamp(value)
+    return value
 
 
-def _time_conversion() -> conversion:
-    return conversion(
-        Conversion(
-            lambda s: datetime.strptime(s, "%H:%M").time(), source=str, target=time
-        ),
-        Conversion(lambda t: t.strftime("%H:%M"), source=time, target=str),
-    )
+def _from_hour_minute(value: Any) -> Any:
+    """Deserializes an "HH:MM" string into a time.
+
+    :meta private:
+    """
+    if isinstance(value, str):
+        return datetime.strptime(value, "%H:%M").time()
+    return value
 
 
-# apischema types `conversion` loosely enough that the .deserialization /
-# .serialization attributes read below aren't visible to mypy, so the
-# parameter stays Any.
-def _list_conversion(element_conversion: Any) -> conversion:
-    return conversion(
-        Conversion(
-            lambda _list: list(
-                map(element_conversion.deserialization.converter, _list)
-            ),
-            source=list,
-            target=list,
-        ),
-        Conversion(
-            lambda _list: list(map(element_conversion.serialization.converter, _list)),
-            source=list,
-            target=list,
-        ),
-    )
+# Converted field types. Each pairs the Python type a field exposes with the
+# converter that turns the wire representation into it. The converters all pass
+# an already-converted value straight through, so these types stay usable as
+# ordinary constructor arguments -- which the REST paths in Zone.from_json and
+# Controller.from_json rely on.
+_Minutes = Annotated[timedelta, _duration("minutes")]
+_Seconds = Annotated[timedelta, _duration("seconds")]
+_Timestamp = Annotated[datetime, BeforeValidator(_from_timestamp)]
+_HourMinute = Annotated[time, BeforeValidator(_from_hour_minute)]
 
 
 class _AutoEnum(Enum):
@@ -110,7 +236,7 @@ class StatusCodeEnum(_AutoEnum):
     ERROR = auto()
 
 
-@dataclass
+@_dataclass
 class StatusCodeAndSummary:
     """A response status code and a human-readable summary."""
 
@@ -118,7 +244,7 @@ class StatusCodeAndSummary:
     summary: str = ""
 
 
-@dataclass
+@_dataclass
 class LocalizedValueType:
     """A localized value."""
 
@@ -126,7 +252,7 @@ class LocalizedValueType:
     unit: str = _optional_field(default="")
 
 
-@dataclass
+@_dataclass
 class SelectedOption:
     """A generic option."""
 
@@ -134,7 +260,7 @@ class SelectedOption:
     label: str = _optional_field(default="")
 
 
-@dataclass
+@_dataclass
 class DateTime:
     """A date & time.
 
@@ -161,17 +287,29 @@ class DateTime:
             timestamp=int(dt.timestamp()),
         )
 
-    @staticmethod
-    def conversion() -> conversion:
-        """Returns a GraphQL conversion for a DateTime."""
-        return conversion(
-            Conversion(DateTime.from_json, source=DateTime, target=datetime),
-            Conversion(DateTime.to_json, source=datetime, target=DateTime),
-        )
+
+def _from_datetime_object(value: Any) -> Any:
+    """Deserializes a GraphQL DateTime object into a datetime.
+
+    :meta private:
+    """
+    if isinstance(value, DateTime):
+        return DateTime.from_json(value)
+    if isinstance(value, dict):
+        if (timestamp := value.get("timestamp")) is None:
+            raise ValueError(f"DateTime has no timestamp: {value!r}")
+        return datetime.fromtimestamp(timestamp)
+    return value
 
 
-@type_name("Zone")
-@dataclass
+#: A datetime that arrives on the wire as a GraphQL `DateTime` object.
+_GqlDateTime = Annotated[
+    datetime, BeforeValidator(_from_datetime_object), _WireType(DateTime)
+]
+
+
+@_type_name("Zone")
+@_dataclass
 class BaseZone:
     """Basic zone information."""
 
@@ -180,30 +318,24 @@ class BaseZone:
     name: str = ""
 
 
-@dataclass
+@_dataclass
 class CycleAndSoakSettings:
     """Cycle and soak durations."""
 
-    cycle_duration: timedelta = field(
-        metadata=_duration_conversion("minutes"), default=timedelta()
-    )
-    soak_duration: timedelta = field(
-        metadata=_duration_conversion("minutes"), default=timedelta()
-    )
+    cycle_duration: _Minutes = timedelta()
+    soak_duration: _Minutes = timedelta()
 
 
-@dataclass
+@_dataclass
 class RunTimeGroup:
     """The runtime of a watering program group."""
 
     id: int = 0
     name: str = _optional_field(default="")
-    duration: timedelta = field(
-        metadata=_duration_conversion("minutes"), default=timedelta()
-    )
+    duration: _Minutes = timedelta()
 
 
-@dataclass
+@_dataclass
 class WateringPeriodicity:
     """Watering frequency description (e.g., "Every Program Start Time")."""
 
@@ -211,7 +343,7 @@ class WateringPeriodicity:
     label: str = _optional_field(default="")
 
 
-@dataclass
+@_dataclass
 class ProgramWateringFrequency:
     """Watering frequency information."""
 
@@ -220,8 +352,8 @@ class ProgramWateringFrequency:
     description: str = ""
 
 
-@dataclass
-@type_name("StandardProgram")
+@_dataclass
+@_type_name("StandardProgram")
 class StandardProgramRef:
     """Super small base class to reference a watering program without having
     to pull in all the voluminous sub-fields."""
@@ -230,8 +362,8 @@ class StandardProgramRef:
     name: str = ""
 
 
-@dataclass
-@type_name("AdvancedProgram")
+@_dataclass
+@_type_name("AdvancedProgram")
 class AdvancedProgramRef:
     """Super small base class to reference a watering program without having
     to pull in all the voluminous sub-fields."""
@@ -240,7 +372,7 @@ class AdvancedProgramRef:
     name: str = ""
 
 
-@dataclass
+@_dataclass
 class Program:
     """Base class for a watering program."""
 
@@ -252,7 +384,7 @@ class Program:
     applies_to_zones: list[BaseZone] = field(default_factory=list)
 
 
-@dataclass
+@_dataclass
 class AdvancedProgram(Program):
     """An advanced watering program."""
 
@@ -279,7 +411,7 @@ class AdvancedProgramDayPatternEnum(_AutoEnum):
     DAYS = auto()
 
 
-@dataclass
+@_dataclass
 class WateringSettings:
     """Generic settings for a watering program."""
 
@@ -287,43 +419,35 @@ class WateringSettings:
     cycle_and_soak_settings: CycleAndSoakSettings | None = None
 
 
-@dataclass
+@_dataclass
 class AdvancedWateringSettings(WateringSettings):
     """Advanced watering program settings."""
 
     advanced_program: AdvancedProgram | None = None
 
 
-@dataclass
-@type_name("Unit")
+@_dataclass
+@_type_name("Unit")
 class TimeRange:
     """Time range units."""
 
-    valid_from: datetime = _optional_field(
-        metadata=_timestamp_conversion(), default_factory=default_datetime
-    )
-    valid_to: datetime = _optional_field(
-        metadata=_timestamp_conversion(), default_factory=default_datetime
-    )
+    valid_from: _Timestamp = _optional_field(default_factory=default_datetime)
+    valid_to: _Timestamp = _optional_field(default_factory=default_datetime)
 
 
-@dataclass
+@_dataclass
 class StandardProgramPeriodicity:
     """Program frequency for a standard program."""
 
     period: int = 0
-    series_start: datetime = field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
+    series_start: _GqlDateTime = field(default_factory=default_datetime)
 
 
-@dataclass
+@_dataclass
 class StandardProgram(Program):
     """A standard watering program."""
 
-    start_times: list[time] = _optional_field(
-        metadata=_list_conversion(_time_conversion()), default_factory=list
-    )
+    start_times: list[_HourMinute] = _optional_field(default_factory=list)
     time_range: TimeRange = field(default_factory=TimeRange)
     ignore_rain_sensor: bool = False
     days_run: list[DaysOfWeekEnum] = field(default_factory=list)
@@ -333,7 +457,7 @@ class StandardProgram(Program):
     )
 
 
-@dataclass
+@_dataclass
 class StandardProgramApplication:
     """A standard watering program application."""
 
@@ -342,7 +466,7 @@ class StandardProgramApplication:
     run_time_group: RunTimeGroup = field(default_factory=RunTimeGroup)
 
 
-@dataclass
+@_dataclass
 class StandardWateringSettings(WateringSettings):
     """Standard watering settings."""
 
@@ -351,7 +475,7 @@ class StandardWateringSettings(WateringSettings):
     )
 
 
-@dataclass
+@_dataclass
 class RunStatus:
     """Run status."""
 
@@ -359,30 +483,20 @@ class RunStatus:
     label: str = _optional_field(default="")
 
 
-@dataclass
+@_dataclass
 class ScheduledZoneRun:
     """A scheduled zone run."""
 
     id: str = ""
-    start_time: datetime = field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
-    end_time: datetime = field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
-    normal_duration: timedelta = field(
-        metadata=_duration_conversion("minutes"), default=timedelta()
-    )
-    duration: timedelta = field(
-        metadata=_duration_conversion("minutes"), default=timedelta()
-    )
-    remaining_time: timedelta = field(
-        metadata=_duration_conversion("seconds"), default=timedelta()
-    )
+    start_time: _GqlDateTime = field(default_factory=default_datetime)
+    end_time: _GqlDateTime = field(default_factory=default_datetime)
+    normal_duration: _Minutes = timedelta()
+    duration: _Minutes = timedelta()
+    remaining_time: _Seconds = timedelta()
     status: RunStatus = field(default_factory=RunStatus)
 
 
-@dataclass
+@_dataclass
 class ScheduledZoneRuns:
     """Scheduled runs for a zone."""
 
@@ -392,7 +506,7 @@ class ScheduledZoneRuns:
     status: str | None = None
 
 
-@dataclass
+@_dataclass
 class PastZoneRuns:
     """Previous zone runs."""
 
@@ -400,30 +514,24 @@ class PastZoneRuns:
     runs: list[ScheduledZoneRun] = _optional_field(default_factory=list)
 
 
-@dataclass
+@_dataclass
 class ZoneStatus:
     """A zone's status."""
 
     relative_water_balance: int = 0
-    suspended_until: datetime | None = field(
-        metadata=DateTime.conversion(), default=None
-    )
+    suspended_until: _GqlDateTime | None = None
 
 
-@dataclass
+@_dataclass
 class ZoneSuspension:
     """A zone suspension."""
 
     id: int = 0
-    start_time: datetime = _optional_field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
-    end_time: datetime = _optional_field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
+    start_time: _GqlDateTime = _optional_field(default_factory=default_datetime)
+    end_time: _GqlDateTime = _optional_field(default_factory=default_datetime)
 
 
-@dataclass
+@_dataclass
 class Zone(BaseZone):
     """A watering zone."""
 
@@ -511,7 +619,7 @@ class Zone(BaseZone):
         )
 
 
-@dataclass
+@_dataclass
 class ProgramStartTimeApplication:
     """Application of a start time to a program."""
 
@@ -519,12 +627,12 @@ class ProgramStartTimeApplication:
     zones: list[BaseZone] = _optional_field(default_factory=list)
 
 
-@dataclass
+@_dataclass
 class ProgramStartTime:
     """Start time for a watering program."""
 
     id: int = 0
-    time: time = field(metadata=_time_conversion(), default_factory=time)
+    time: _HourMinute = field(default_factory=time)
     watering_days: list[AdvancedProgramDayPatternEnum] = _optional_field(
         default_factory=list
     )
@@ -533,7 +641,7 @@ class ProgramStartTime:
     )
 
 
-@dataclass
+@_dataclass
 class ControllerFirmware:
     """Information about the controller's firmware."""
 
@@ -541,7 +649,7 @@ class ControllerFirmware:
     version: str = _optional_field(default="")
 
 
-@dataclass
+@_dataclass
 class ControllerModel:
     """Information about a controller model."""
 
@@ -549,7 +657,7 @@ class ControllerModel:
     description: str = ""
 
 
-@dataclass
+@_dataclass
 class ControllerHardware:
     """Information about a controller's hardware."""
 
@@ -569,7 +677,7 @@ class CustomSensorTypeEnum(_AutoEnum):
     THRESHOLD = auto()
 
 
-@dataclass
+@_dataclass
 class SensorModel:
     """Information about a sensor model."""
 
@@ -578,15 +686,13 @@ class SensorModel:
     active: bool = _optional_field(default=False)
     off_level: int = _optional_field(default=0)
     off_timer: int = _optional_field(default=0)
-    delay: timedelta = _optional_field(
-        metadata=_duration_conversion("minutes"), default=timedelta()
-    )
+    delay: _Minutes = _optional_field(default=timedelta())
     divisor: float = _optional_field(default=0.0)
     flow_rate: float = _optional_field(default=0.0)
     sensor_type: CustomSensorTypeEnum | None = None
 
 
-@dataclass
+@_dataclass
 class SensorStatus:
     """Current status of a sensor."""
 
@@ -594,7 +700,7 @@ class SensorStatus:
     active: bool = _optional_field(default=False)
 
 
-@dataclass
+@_dataclass
 class SensorFlowSummary:
     """Summary of a sensor's water flow."""
 
@@ -603,7 +709,7 @@ class SensorFlowSummary:
     )
 
 
-@dataclass
+@_dataclass
 class Sensor:
     """A sensor connected to a controller."""
 
@@ -613,8 +719,8 @@ class Sensor:
     status: SensorStatus = field(default_factory=SensorStatus)
 
 
-@dataclass
-@type_name("Sensor")
+@_dataclass
+@_type_name("Sensor")
 class SensorWithFlowSummary(Sensor):
     """A Sensor, as returned by its `flowSummary` method."""
 
@@ -623,26 +729,24 @@ class SensorWithFlowSummary(Sensor):
     )
 
 
-@dataclass
+@_dataclass
 class _WaterTime:
     """A water time duration."""
 
-    value: timedelta = _optional_field(
-        metadata=_duration_conversion("minutes"), default=timedelta()
-    )
+    value: _Minutes = _optional_field(default=timedelta())
 
 
-@dataclass
+@_dataclass
 class ActualWaterTime(_WaterTime):
     """An actual water time duration."""
 
 
-@dataclass
+@_dataclass
 class NormalWaterTime(_WaterTime):
     """A normal water time duration."""
 
 
-@dataclass
+@_dataclass
 class ControllerStatus:
     """Current status of a controller."""
 
@@ -657,7 +761,7 @@ class ControllerStatus:
     last_contact: DateTime | None = None
 
 
-@dataclass
+@_dataclass
 class RunStatusType:
     """The status of a reported zone run."""
 
@@ -665,7 +769,7 @@ class RunStatusType:
     label: str = ""
 
 
-@dataclass
+@_dataclass
 class RunStopReasonType:
     """Why a reported zone run stopped."""
 
@@ -673,8 +777,8 @@ class RunStopReasonType:
     description: list[str] = field(default_factory=list)
 
 
-@dataclass
-@type_name("RunEventType")
+@_dataclass
+@_type_name("RunEventType")
 class RunEvent:
     """A Hydrawise run event type."""
 
@@ -686,15 +790,9 @@ class RunEvent:
     advanced_program: AdvancedProgramRef = _optional_field(
         default_factory=AdvancedProgramRef
     )
-    reported_start_time: datetime | None = field(
-        metadata=DateTime.conversion(), default=None
-    )
-    reported_end_time: datetime | None = field(
-        metadata=DateTime.conversion(), default=None
-    )
-    reported_duration: timedelta = _optional_field(
-        metadata=_duration_conversion("seconds"), default=timedelta()
-    )
+    reported_start_time: _GqlDateTime | None = None
+    reported_end_time: _GqlDateTime | None = None
+    reported_duration: _Seconds = _optional_field(default=timedelta())
     reported_status: RunStatusType = _optional_field(default_factory=RunStatusType)
     reported_water_usage: LocalizedValueType = _optional_field(
         default_factory=LocalizedValueType
@@ -707,16 +805,14 @@ class RunEvent:
     )
 
 
-@dataclass
+@_dataclass
 class WateringReportEntry:
     """A Hydrawise watering report entry."""
 
-    run_event: RunEvent = _optional_field(
-        default_factory=RunEvent, metadata=fall_back_on_default
-    )
+    run_event: RunEvent = _optional_field(default_factory=RunEvent)
 
 
-@dataclass
+@_dataclass
 class MasterValve:
     """A master valve setting for a controller."""
 
@@ -725,7 +821,7 @@ class MasterValve:
     post_timer: int | None = None
 
 
-@dataclass
+@_dataclass
 class Controller:
     """A Hydrawise controller."""
 
@@ -733,12 +829,8 @@ class Controller:
     name: str = _optional_field(default="")
     software_version: str = _optional_field(default="")
     hardware: ControllerHardware = field(default_factory=ControllerHardware)
-    last_contact_time: datetime = _optional_field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
-    last_action: datetime = _optional_field(
-        metadata=DateTime.conversion(), default_factory=default_datetime
-    )
+    last_contact_time: _GqlDateTime = _optional_field(default_factory=default_datetime)
+    last_action: _GqlDateTime = _optional_field(default_factory=default_datetime)
     online: bool = _optional_field(default=False)
     sensors: list[Sensor] = _optional_field(default_factory=list)
     zones: list[Zone] = _optional_field(default_factory=list)
@@ -776,14 +868,14 @@ class Controller:
         self.online = True
 
 
-@dataclass
+@_dataclass
 class UnitsSummary:
     """Summary of user unit preferences."""
 
     units_name: str = ""
 
 
-@dataclass
+@_dataclass
 class User:
     """A Hydrawise user account."""
 
@@ -807,7 +899,7 @@ class DaysOfWeekEnum(_AutoEnum):
     SATURDAY = auto()
 
 
-@dataclass
+@_dataclass
 class ControllerWaterUseSummary:
     """Water use summary for a controller.
 
@@ -820,9 +912,7 @@ class ControllerWaterUseSummary:
 
     _pydrawise_type = True
 
-    total_active_time: timedelta = field(
-        metadata=_duration_conversion("seconds"), default=timedelta()
-    )
+    total_active_time: _Seconds = timedelta()
     active_time_by_zone_id: dict[int, timedelta] = field(default_factory=dict)
     total_use: float | None = None
     total_active_use: float | None = None

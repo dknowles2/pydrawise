@@ -1,15 +1,18 @@
 from dataclasses import dataclass, field
+from datetime import timedelta
 
-from apischema.metadata import skip
 from graphql import InlineFragmentNode
 
 from pydrawise import schema_utils
 from pydrawise.schema import (
     AdvancedWateringSettings,
     Controller,
+    DateTime,
+    ScheduledZoneRun,
     StandardWateringSettings,
     User,
     Zone,
+    ZoneStatus,
 )
 
 
@@ -81,12 +84,13 @@ def test_get_selectors_expands_unions_into_inline_fragments():
     )
     selections = settings.selection_set.selections
     assert all(isinstance(s, InlineFragmentNode) for s in selections)
-    type_names = {
+    type_names = [
         s.type_condition.name.value
         for s in selections
-        if isinstance(s, InlineFragmentNode)
-    }
-    assert type_names == {"AdvancedWateringSettings", "StandardWateringSettings"}
+        if isinstance(s, InlineFragmentNode) and s.type_condition is not None
+    ]
+    # Declaration order, not set order -- the query text has to be stable.
+    assert type_names == ["AdvancedWateringSettings", "StandardWateringSettings"]
 
 
 def test_get_selectors_is_cached_per_skip_list():
@@ -96,8 +100,8 @@ def test_get_selectors_is_cached_per_skip_list():
     assert schema_utils.get_selectors(Controller, ["zones"]) != first
 
 
-def test_fields_omits_fields_skipped_in_either_direction():
-    """A field skipped for (de)serialization is left out of the selection.
+def test_fields_omits_fields_marked_skip():
+    """A field marked SKIP_FIELD_METADATA is left out of the selection.
 
     No type in schema.py uses this today, so it's exercised here directly
     against purpose-built dataclasses rather than through get_selectors.
@@ -106,20 +110,17 @@ def test_fields_omits_fields_skipped_in_either_direction():
     @dataclass
     class Thing:
         kept: int = 0
-        no_deserialize: int = field(default=0, metadata=skip(deserialization=True))
-        no_serialize: int = field(default=0, metadata=skip(serialization=True))
+        skipped: int = field(
+            default=0, metadata={schema_utils.SKIP_FIELD_METADATA: True}
+        )
+        kept_falsy_marker: int = field(
+            default=0, metadata={schema_utils.SKIP_FIELD_METADATA: False}
+        )
 
-    assert [f.name for f in schema_utils._fields(Thing, [])] == ["kept"]
-
-
-def test_fields_keeps_fields_with_a_no_op_skip():
-    """Bare skip() sets neither direction, so the field stays in the selection."""
-
-    @dataclass
-    class Thing:
-        kept: int = field(default=0, metadata=skip())
-
-    assert [f.name for f in schema_utils._fields(Thing, [])] == ["kept"]
+    assert [f.name for f in schema_utils._fields(Thing, [])] == [
+        "kept",
+        "kept_falsy_marker",
+    ]
 
 
 def test_fields_drops_none_from_optional_fields():
@@ -146,3 +147,38 @@ def test_fields_yields_both_members_of_a_real_union():
     """A union of two dataclasses is reported as a multi-type field."""
     [f] = [f for f in schema_utils._fields(Zone, []) if f.name == "watering_settings"]
     assert set(f.types) == {AdvancedWateringSettings, StandardWateringSettings}
+
+
+def test_fields_reports_the_graphql_wire_type():
+    """A field converted from a GraphQL object reports that object's type.
+
+    ScheduledZoneRun.start_time is a datetime in Python but arrives as a
+    DateTime object, so the selector has to recurse into it.
+    """
+    [f] = [
+        f for f in schema_utils._fields(ScheduledZoneRun, []) if f.name == "start_time"
+    ]
+    assert f.types == [DateTime]
+
+
+def test_fields_looks_through_optional_for_a_wire_type():
+    """ZoneStatus.suspended_until is spelled `_GqlDateTime | None`."""
+    [f] = [
+        f for f in schema_utils._fields(ZoneStatus, []) if f.name == "suspended_until"
+    ]
+    assert f.types == [DateTime]
+
+
+def test_fields_reports_converted_scalars_as_leaves():
+    """A field converted from a scalar stays a leaf, with no sub-selection."""
+    by_name = {f.name: f.types for f in schema_utils._fields(ScheduledZoneRun, [])}
+    assert by_name["duration"] == [timedelta]
+    assert by_name["remaining_time"] == [timedelta]
+
+
+def test_get_selectors_sub_selects_a_wire_type():
+    """A DateTime-backed field selects the object's fields, not a bare scalar."""
+    start_time = next(
+        s for s in schema_utils.get_selectors(ScheduledZoneRun) if s.name == "startTime"
+    )
+    assert _field_names(start_time.selection_set.selections) == ["value", "timestamp"]

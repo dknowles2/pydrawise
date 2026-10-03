@@ -73,6 +73,36 @@ owns credential handling and low-level transport for that client. When adding a 
 to stay consistent — grep for an existing method like `get_sensors` across `client.py`, `hybrid.py`,
 `rest.py`, and `base.py` to see the pattern before adding a new one.
 
+### Deserialization is pydantic, behind a local `@_dataclass`
+
+`schema.py` does not use `dataclasses.dataclass` directly. Every type there is declared with the
+module's own `@_dataclass`, which wraps `pydantic.dataclasses.dataclass` with a shared config
+(`alias_generator=to_camel`, plus `validate_by_name` so the REST paths can keep constructing these
+types with snake_case keyword arguments). The result is still a real dataclass, which is what lets
+`schema_utils.get_selectors` walk it with `dataclasses.fields`.
+
+Three conventions follow from that, and all three are load-bearing:
+
+- **`_optional_field` means "fall back to the default".** The Hydrawise API routinely sends `null`,
+  or a half-populated object, where its own schema promises a value. `@_dataclass` installs a wrap
+  validator that catches the resulting `ValidationError`, drops the offending key, and revalidates
+  so the field's default applies. A plain `field()` has no such leniency — `null` there is fatal.
+  Declaring a field with `_optional_field` is therefore a statement about the wire, not about
+  Python-level optionality.
+- **Converted fields are `Annotated` type aliases**, not field metadata: `_Minutes`, `_Seconds`,
+  `_Timestamp`, `_HourMinute`, `_GqlDateTime`. Each carries a `BeforeValidator` that passes an
+  already-converted value straight through, which is what keeps `Zone.from_json` and
+  `Controller.from_json` able to pass real `timedelta`/`datetime` values to the constructor.
+- **`_GqlDateTime` also carries a `_WireType` marker**, because its GraphQL type (`DateTime`) is an
+  object, not a scalar. `schema_utils._wire_type` reads that marker to know it must emit a
+  `{ value timestamp }` sub-selection rather than treat the field as a leaf. Scalar conversions
+  need no marker: their Python type isn't a dataclass, so they're leaves either way. If you add a
+  field whose wire type is a GraphQL object but whose Python type is native, it needs a
+  `_WireType` or the generated query will silently omit the sub-selection.
+
+Union fields keep declaration order (`schema_utils._fields` builds a list, not a set), because that
+order determines the inline-fragment order in the query text we send. Don't reintroduce a set there.
+
 ### Schema models do double duty
 
 `schema.py`'s dataclasses (`Zone`, `Controller`, `Sensor`, etc.) are not plain GraphQL response
