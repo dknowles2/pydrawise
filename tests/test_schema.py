@@ -1,10 +1,10 @@
 from dataclasses import fields, is_dataclass
-from datetime import datetime
+from datetime import datetime, time
 from string import ascii_lowercase
+from types import UnionType
+from typing import Union, get_args, get_origin, get_type_hints
 
-from apischema.metadata.keys import CONVERSION_METADATA, FALL_BACK_ON_DEFAULT_METADATA
-from apischema.type_names import get_type_name
-from apischema.utils import to_camel_case
+import pytest
 from graphql import build_schema
 from graphql.type import (
     GraphQLBoolean,
@@ -14,10 +14,32 @@ from graphql.type import (
     GraphQLObjectType,
     GraphQLString,
 )
+from pydantic import ValidationError
+from pydantic.alias_generators import to_camel
 
 from pydrawise import schema as _schema
-from pydrawise.schema import SelectedOption, Zone, ZoneStatus
+from pydrawise.schema import (
+    _OPTIONAL_FIELD_METADATA,
+    SelectedOption,
+    Zone,
+    ZoneStatus,
+    _graphql_type_name,
+)
 from pydrawise.schema_utils import deserialize
+
+
+def _is_converted(annotation) -> bool:
+    """Whether a field deserializes through a converter.
+
+    Such a field's Python type deliberately differs from its GraphQL type
+    (a `timedelta` from an Int, say), so the scalar type comparison below
+    doesn't apply to it.
+    """
+    if getattr(annotation, "__metadata__", ()):
+        return True
+    if get_origin(annotation) in (Union, UnionType):
+        return any(_is_converted(arg) for arg in get_args(annotation))
+    return False
 
 
 def test_valid_schema():
@@ -33,9 +55,12 @@ def test_valid_schema():
         if not is_dataclass(v):
             # Only look at dataclass types
             continue
-        if not (name := get_type_name(v).graphql):
-            # Ignore types that are not graphql types.
+        if v.__module__ != _schema.__name__:
+            # Ignore dataclasses imported from elsewhere (pydantic's
+            # BeforeValidator, say) that happen to be in this namespace.
             continue
+        name = _graphql_type_name(v)
+        annotated_hints = get_type_hints(v, include_extras=True)
 
         st = gql_schema.get_type(name)
         assert st is not None, f"{name} not found in schema"
@@ -49,7 +74,7 @@ def test_valid_schema():
             if f.name.startswith("_"):
                 # Ignore private fields.
                 continue
-            fname = to_camel_case(f.name)
+            fname = to_camel(f.name)
             assert fname in st.fields, f"{name}.{f.name} is not a valid field"
             sf = st.fields[fname]
 
@@ -58,12 +83,11 @@ def test_valid_schema():
                 stype = sf.type.of_type
             else:
                 stype = sf.type
-                want_optional = FALL_BACK_ON_DEFAULT_METADATA not in f.metadata
-                assert (
-                    FALL_BACK_ON_DEFAULT_METADATA in f.metadata
-                    or "Optional" in f.type
-                    or "None" in f.type
-                ), f"{name}.{f.name} should be optional"
+                is_optional_field = bool(f.metadata.get(_OPTIONAL_FIELD_METADATA))
+                want_optional = not is_optional_field
+                assert is_optional_field or "Optional" in f.type or "None" in f.type, (
+                    f"{name}.{f.name} should be optional"
+                )
 
             type_map = {
                 GraphQLBoolean: "bool",
@@ -79,10 +103,8 @@ def test_valid_schema():
                 else:
                     want_type = f"Optional[{want_type}]"
             got_type = f.type
-            if md := f.metadata.get(CONVERSION_METADATA):
-                assert md.deserialization is not None
-                # TODO: Validate the source type.
-                # got_type = md.deserialization.source
+            if _is_converted(annotated_hints[f.name]):
+                # TODO: Validate the GraphQL type the converter reads from.
                 continue
             assert got_type == want_type, (
                 f"{name}.{f.name} is {got_type}, want {want_type}"
@@ -327,3 +349,54 @@ def test_update_with_json_untrusted_sentinel_still_corroborates_known_suspension
     )
 
     assert zone.status.suspended_until == datetime.max
+
+
+def test_converts_a_unix_timestamp():
+    time_range = deserialize(_schema.TimeRange, {"validFrom": 1672531200})
+    assert time_range.valid_from == datetime.fromtimestamp(1672531200)
+
+
+def test_converts_an_hour_minute_string():
+    start = deserialize(_schema.ProgramStartTime, {"id": 1, "time": "06:30"})
+    assert start.time == time(6, 30)
+
+
+def test_accepts_an_already_converted_value():
+    """The converters pass a native value through, so these dataclasses stay
+    constructible with ordinary Python values -- which the REST paths rely on."""
+    start = _schema.ProgramStartTime(id=1, time=time(6, 30))
+    assert start.time == time(6, 30)
+
+    run = _schema.ScheduledZoneRun(start_time=datetime(2023, 1, 1, 0, 0, 0))
+    assert run.start_time == datetime(2023, 1, 1, 0, 0, 0)
+
+    time_range = _schema.TimeRange(valid_from=datetime(2023, 1, 1, 0, 0, 0))
+    assert time_range.valid_from == datetime(2023, 1, 1, 0, 0, 0)
+
+
+def test_converts_a_datetime_object_instance():
+    """A GraphQL DateTime arrives as a mapping, but an already-built one works.
+
+    The field is annotated as a datetime, so this is deliberately looser than
+    the type says -- it keeps DateTime.from_json usable as an input the way
+    apischema's DateTime conversion was.
+    """
+    run = _schema.ScheduledZoneRun(
+        start_time=_schema.DateTime(  # type: ignore[arg-type]
+            value="Sun, 01 Jan 23 00:12:00", timestamp=1672531200
+        )
+    )
+    assert run.start_time == datetime.fromtimestamp(1672531200)
+
+
+def test_rejects_a_datetime_object_with_no_timestamp():
+    with pytest.raises(ValidationError, match="has no timestamp"):
+        deserialize(
+            _schema.ScheduledZoneRun, {"startTime": {"value": "Sun, 01 Jan 23"}}
+        )
+
+
+def test_rejects_null_for_a_required_field():
+    """Only _optional_field falls back to its default; everything else is fatal."""
+    with pytest.raises(ValidationError):
+        deserialize(_schema.StatusCodeAndSummary, {"status": None})
