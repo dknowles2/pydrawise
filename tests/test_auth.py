@@ -252,3 +252,11 @@ async def test_hybrid_auth_injected_session_covers_both_apis(
     assert await a.check() is True
     assert [call.args[0] for call in calls] == ["POST", "GET"]
     assert not client_session.closed
+
+
+async def test_pinned_timeouts_cap_connect_separately():
+    """Passing a ClientTimeout drops aiohttp's own connect ceiling, so pin it."""
+    for timeout in (auth.DEFAULT_TIMEOUT, auth.REQUEST_TIMEOUT):
+        assert timeout.total is not None
+        assert timeout.sock_connect is not None
+        assert timeout.sock_connect <= timeout.total

@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 from unittest import mock
@@ -35,18 +36,31 @@ class MockServer:
         spec = self._routes.get((request.method, request.path))
         if spec is None:
             return web.Response(status=404)
+        if spec["delay"]:
+            await asyncio.sleep(spec["delay"])
         if spec["payload"] is not None:
             return web.json_response(spec["payload"], status=spec["status"])
         return web.Response(text=spec["body"] or "", status=spec["status"])
 
     def add(
-        self, method: str, path: str, *, status: int = 200, payload=None, body=None
+        self,
+        method: str,
+        path: str,
+        *,
+        status: int = 200,
+        payload=None,
+        body=None,
+        delay: float = 0,
     ):
-        """Registers a canned response for the given method and path."""
+        """Registers a canned response for the given method and path.
+
+        :param delay: Seconds to stall before responding, for timeout tests.
+        """
         self._routes[(method, path)] = {
             "status": status,
             "payload": payload,
             "body": body,
+            "delay": delay,
         }
 
     async def start(self) -> None:

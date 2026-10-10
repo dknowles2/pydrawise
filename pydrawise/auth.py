@@ -11,7 +11,7 @@ from .base import BaseAuth
 from .const import CLIENT_ID, CLIENT_SECRET, REQUEST_TIMEOUT, REST_URL, TOKEN_URL
 from .exceptions import NotAuthorizedError
 
-DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=60)
+DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=60, sock_connect=30)
 _INVALID_API_KEY = "API key not valid"
 
 
