@@ -108,6 +108,30 @@ for zone_id, use in summary.active_use_by_zone_id.items():
     print(f"  zone {zone_id}: {use} {summary.unit}")
 ```
 
+## Supplying your own HTTP session
+
+By default each auth object creates a short-lived
+[`aiohttp.ClientSession`](https://docs.aiohttp.org/en/stable/client_reference.html#client-session)
+per request. Applications that already manage a shared session — Home
+Assistant, for instance, hands one to every integration — can pass it to the
+auth object instead, and it will be used for both the GraphQL and REST
+transports:
+
+```python
+from aiohttp import ClientSession
+
+from pydrawise import Auth, Hydrawise
+
+async with ClientSession() as session:
+    h = Hydrawise(Auth("username", "password", session=session))
+    controllers = await h.get_controllers()
+```
+
+[`RestAuth`][pydrawise.auth.RestAuth] and
+[`HybridAuth`][pydrawise.auth.HybridAuth] take the same `session` argument.
+The session belongs to whoever created it: pydrawise never closes a session
+that was passed in, so it's the caller's job to close it.
+
 ## Using the hybrid client
 
 [`HybridClient`][pydrawise.hybrid.HybridClient] prefers the GraphQL API but

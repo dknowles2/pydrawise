@@ -68,6 +68,31 @@ async def mock_server():
 
 
 @fixture
+async def client_session():
+    """A caller-owned session, as Home Assistant supplies to the library."""
+    async with aiohttp.ClientSession() as session:
+        yield session
+
+
+@fixture
+def session_spy(monkeypatch):
+    """Records requests made through one specific session instance."""
+
+    def spy_on(session: aiohttp.ClientSession) -> list:
+        calls = []
+        orig_request = session._request
+
+        async def spy(method, str_or_url, **kwargs):
+            calls.append(mock.call(method, str(str_or_url), **kwargs))
+            return await orig_request(method, str_or_url, **kwargs)
+
+        monkeypatch.setattr(session, "_request", spy)
+        return calls
+
+    return spy_on
+
+
+@fixture
 def request_spy(monkeypatch):
     """Captures outgoing aiohttp requests while letting them proceed normally."""
     calls = []
