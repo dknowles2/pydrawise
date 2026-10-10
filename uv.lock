@@ -1531,6 +1531,7 @@ docs = [
     { name = "mkdocs" },
     { name = "mkdocstrings" },
     { name = "mkdocstrings-python" },
+    { name = "pymdown-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -1563,6 +1564,7 @@ requires-dist = [
     { name = "mkdocstrings", marker = "extra == 'docs'", specifier = "==1.0.6" },
     { name = "mkdocstrings-python", marker = "extra == 'docs'", specifier = "==2.0.9" },
     { name = "pydantic" },
+    { name = "pymdown-extensions", marker = "extra == 'docs'", specifier = "==11.0.1" },
     { name = "requests" },
 ]
 provides-extras = ["docs"]
