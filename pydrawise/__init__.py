@@ -3,6 +3,7 @@
 from .auth import Auth
 from .base import HydrawiseBase
 from .client import Hydrawise
+from .diagnostics import REDACTED, redacted_dump
 from .exceptions import (
     APIError,
     Error,
@@ -16,6 +17,7 @@ from .exceptions import (
 from .schema import Controller, Sensor, User, Zone
 
 __all__ = (
+    "REDACTED",
     "APIError",
     "Auth",
     "Controller",
@@ -31,4 +33,5 @@ __all__ = (
     "UnknownError",
     "User",
     "Zone",
+    "redacted_dump",
 )

@@ -128,6 +128,22 @@ field only within a specific descendant (see `parse_skip`). This is why client m
 construct GraphQL selections by hand; adding a field to a `schema.py` dataclass is usually enough
 for it to start showing up in queries, as long as it isn't skipped.
 
+### Sensitive fields and diagnostics dumps
+
+`diagnostics.redacted_dump` converts an object graph into a JSON-serializable dump for bug
+reports (Home Assistant's [diagnostics
+rule](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/diagnostics)
+is the motivating caller). Which fields it hides is declared in `schema.py` next to the fields
+themselves, with `_sensitive_field(...)` or `_optional_field(..., sensitive=True)` — the same
+field-metadata pattern as `_optional_field`/`SKIP_FIELD_METADATA`. A new field holding account or
+hardware identity needs that marker, since the dump is otherwise exhaustive; a conversion
+(`timedelta`, `Enum`, ...) does not, because the walker handles types rather than field names.
+
+Redaction currently covers account identity (`User.id`, `User.customer_id`, `User.name`,
+`User.email`) and controller identity (`Controller.name`, `ControllerHardware.serial_number`).
+Zone and sensor names and ids are deliberately kept — they're what makes a dump useful for
+diagnosing a scheduling problem — and callers wanting them hidden pass `extra_redact`.
+
 ### Mutations vs queries
 
 `client.Hydrawise._mutation()` centralizes mutation result handling: a `status == "ERROR"` raises

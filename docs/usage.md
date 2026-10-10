@@ -220,3 +220,29 @@ except APIError as e:
     # available as e.__cause__.
     print(f"Request failed; try again later: {e}")
 ```
+
+## Collecting a redacted dump
+
+[`redacted_dump`][pydrawise.diagnostics.redacted_dump] turns the objects you
+already have into a JSON-serializable dump with sensitive values replaced by
+[`REDACTED`][pydrawise.diagnostics.REDACTED], so it can be attached to a bug
+report. It makes no API requests of its own.
+
+```python
+import json
+
+from pydrawise import Auth, Hydrawise, redacted_dump
+
+h = Hydrawise(Auth("username", "password"))
+user = await h.get_user()
+print(json.dumps(redacted_dump(user), indent=2))
+```
+
+Account identity (user id, customer id, name, email) and controller identity
+(name and hardware serial number) are redacted. Zone and sensor names are kept,
+since they're what makes a dump useful for diagnosing a scheduling problem; pass
+`extra_redact` to redact more:
+
+```python
+redacted_dump(user, extra_redact=["name"])
+```

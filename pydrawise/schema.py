@@ -39,6 +39,11 @@ _PYDANTIC_CONFIG = ConfigDict(
 # Field metadata key set by _optional_field. See _fall_back_on_default.
 _OPTIONAL_FIELD_METADATA = "pydrawise_optional"
 
+# Field metadata key set by _sensitive_field (and by _optional_field's
+# `sensitive` argument). Read by the diagnostics module, which replaces such a
+# field's value with a placeholder.
+_SENSITIVE_FIELD_METADATA = "pydrawise_sensitive"
+
 
 class _WireType:
     """Marks the GraphQL type a field is deserialized from.
@@ -81,12 +86,33 @@ def _graphql_type_name(cls: Any) -> str:
     return _GRAPHQL_TYPE_NAMES.get(cls, cls.__name__)
 
 
-def _optional_field(*args: Any, **kwargs: Any) -> Any:
+def _optional_field(*args: Any, sensitive: bool = False, **kwargs: Any) -> Any:
     """Declares a field that falls back to its default when the API sends null.
+
+    :param sensitive: Whether the field holds sensitive information. See
+        `_sensitive_field`.
 
     :meta private:
     """
-    kwargs["metadata"] = {**kwargs.get("metadata", {}), _OPTIONAL_FIELD_METADATA: True}
+    metadata = {**kwargs.pop("metadata", {}), _OPTIONAL_FIELD_METADATA: True}
+    if sensitive:
+        metadata[_SENSITIVE_FIELD_METADATA] = True
+    return field(*args, metadata=metadata, **kwargs)
+
+
+def _sensitive_field(*args: Any, **kwargs: Any) -> Any:
+    """Declares a field that holds sensitive information.
+
+    `diagnostics.redacted_dump` replaces such a field's value with
+    `diagnostics.REDACTED`, so that a dump can be attached to a bug report
+    without leaking account or hardware identity.
+
+    :meta private:
+    """
+    kwargs["metadata"] = {
+        **kwargs.get("metadata", {}),
+        _SENSITIVE_FIELD_METADATA: True,
+    }
     return field(*args, **kwargs)
 
 
@@ -110,7 +136,7 @@ def _optional_field_names(cls: type) -> frozenset[str]:
     return frozenset(names)
 
 
-@dataclass_transform(field_specifiers=(field, _optional_field))
+@dataclass_transform(field_specifiers=(field, _optional_field, _sensitive_field))
 def _dataclass(cls: type[_T]) -> type[_T]:
     """Declares a dataclass that deserializes from camelCased GraphQL JSON.
 
@@ -661,7 +687,7 @@ class ControllerModel:
 class ControllerHardware:
     """Information about a controller's hardware."""
 
-    serial_number: str = _optional_field(default="")
+    serial_number: str = _optional_field(default="", sensitive=True)
     version: str = _optional_field(default="")
     status: str = _optional_field(default="")
     model: ControllerModel = _optional_field(default_factory=ControllerModel)
@@ -826,7 +852,7 @@ class Controller:
     """A Hydrawise controller."""
 
     id: int = 0
-    name: str = _optional_field(default="")
+    name: str = _optional_field(default="", sensitive=True)
     software_version: str = _optional_field(default="")
     hardware: ControllerHardware = field(default_factory=ControllerHardware)
     last_contact_time: _GqlDateTime = _optional_field(default_factory=default_datetime)
@@ -879,10 +905,10 @@ class UnitsSummary:
 class User:
     """A Hydrawise user account."""
 
-    id: int = 0
-    customer_id: int = 0
-    name: str = ""
-    email: str = _optional_field(default="")
+    id: int = _sensitive_field(default=0)
+    customer_id: int = _sensitive_field(default=0)
+    name: str = _sensitive_field(default="")
+    email: str = _optional_field(default="", sensitive=True)
     controllers: list[Controller] = _optional_field(default_factory=list)
     units: UnitsSummary = field(default_factory=UnitsSummary)
 

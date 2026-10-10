@@ -22,7 +22,17 @@ classifiers     = [
 ]
 
 [project.optional-dependencies]
-docs = ["mkdocs==1.6.1", "mkdocstrings==1.0.6", "mkdocstrings-python==2.0.9"]
+# mkdocstrings 1.0.6 asks only for pymdown-extensions>=6.3, but its
+# Highlighter breaks on 12.x (Highlight.__init__ grew a required `md`
+# argument). Read the Docs installs this extra with plain pip, so without an
+# explicit pin it picks up the latest release and the docs build fails there
+# while passing locally against uv.lock.
+docs = [
+    "mkdocs==1.6.1",
+    "mkdocstrings==1.0.6",
+    "mkdocstrings-python==2.0.9",
+    "pymdown-extensions==11.0.1",
+]
 
 [project.urls]
 "Homepage"      = "https://github.com/dknowles2/pydrawise"
