@@ -31,16 +31,25 @@ class Token:
 class Auth(BaseAuth):
     """Authentication support for the Hydrawise GraphQL API."""
 
-    def __init__(self, username: str, password: str) -> None:
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        session: aiohttp.ClientSession | None = None,
+    ) -> None:
         """Initializer.
 
         :param username: The username to use for authenticating with the Hydrawise service.
         :param password: The password to use for authenticating with the Hydrawise service.
+        :param session: Optional aiohttp ClientSession to use for requests. If not
+            provided, a new session is created for each request. It is the
+            caller's responsibility to close any session that is passed in.
         """
         self.__username = username
         self.__password = password
         self._lock = Lock()
         self._token: Token | None = None
+        self._session = session
 
     async def _fetch_token_locked(self, refresh: bool = False) -> None:
         data = {
@@ -57,7 +66,7 @@ class Auth(BaseAuth):
             data["username"] = self.__username
             data["password"] = self.__password
         async with (
-            aiohttp.ClientSession() as session,
+            self._client_session() as session,
             session.post(
                 TOKEN_URL,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
@@ -104,12 +113,20 @@ class Auth(BaseAuth):
 class RestAuth(BaseAuth):
     """Authentication support for the Hydrawise REST API."""
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        session: aiohttp.ClientSession | None = None,
+    ) -> None:
         """Initializer.
 
         :param api_key: The API key to use for authenticating with the Hydrawise REST service.
+        :param session: Optional aiohttp ClientSession to use for requests. If not
+            provided, a new session is created for each request. It is the
+            caller's responsibility to close any session that is passed in.
         """
         self._api_key = api_key
+        self._session = session
 
     async def get(self, path: str, **kwargs: Any) -> dict:
         """Perform an authenticated GET request and return the JSON response."""
@@ -117,7 +134,7 @@ class RestAuth(BaseAuth):
         params = {"api_key": self._api_key}
         params.update(kwargs)
         async with (
-            aiohttp.ClientSession() as session,
+            self._client_session() as session,
             session.get(url, params=params, timeout=REQUEST_TIMEOUT) as resp,
         ):
             if resp.status == 404 and await resp.text() == _INVALID_API_KEY:
@@ -148,15 +165,24 @@ class RestAuth(BaseAuth):
 class HybridAuth(Auth, RestAuth):
     """Authentication support for the Hydrawise GraphQL & REST APIs."""
 
-    def __init__(self, username: str, password: str, api_key: str) -> None:
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        api_key: str,
+        session: aiohttp.ClientSession | None = None,
+    ) -> None:
         """Initializer.
 
         :param username: The username to use for authenticating with the Hydrawise GraphQL service.
         :param password: The password to use for authenticating with the Hydrawise GraphQL service.
         :param api_key: The API key to use for authenticating with the Hydrawise REST service.
+        :param session: Optional aiohttp ClientSession to use for requests. If not
+            provided, a new session is created for each request. It is the
+            caller's responsibility to close any session that is passed in.
         """
-        Auth.__init__(self, username, password)
-        RestAuth.__init__(self, api_key)
+        Auth.__init__(self, username, password, session=session)
+        RestAuth.__init__(self, api_key, session=session)
 
     async def _check_api_token(self) -> None:
         await self.get("customerdetails.php")

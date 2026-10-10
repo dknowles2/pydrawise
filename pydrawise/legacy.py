@@ -6,6 +6,7 @@ This library should remain compatible with https://github.com/ptcryan/hydrawiser
 import time
 from typing import Any
 
+import aiohttp
 import requests
 
 from .auth import RestAuth
@@ -23,12 +24,17 @@ class LegacyHydrawiseAsync(RestClient):
     prefer to use rest.RestClient instead.
     """
 
-    def __init__(self, user_token: str) -> None:
+    def __init__(
+        self, user_token: str, session: aiohttp.ClientSession | None = None
+    ) -> None:
         """Initializer.
 
         :param user_token: The API key to use for authenticating with the Hydrawise service.
+        :param session: Optional aiohttp ClientSession to use for requests. If not
+            provided, a new session is created for each request. It is the
+            caller's responsibility to close any session that is passed in.
         """
-        super().__init__(RestAuth(user_token))
+        super().__init__(RestAuth(user_token, session=session))
 
 
 class LegacyHydrawise:

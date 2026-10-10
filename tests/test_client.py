@@ -8,6 +8,7 @@ from gql import Client
 from gql.client import AsyncClientSession
 from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import (
+    TransportAlreadyConnected,
     TransportConnectionFailed,
     TransportQueryError,
     TransportServerError,
@@ -15,8 +16,9 @@ from gql.transport.exceptions import (
 from graphql import print_ast
 from pytest import fixture
 
+from pydrawise import client as client_module
 from pydrawise.auth import Auth
-from pydrawise.client import Hydrawise
+from pydrawise.client import Hydrawise, _SharedSessionTransport
 from pydrawise.const import DEFAULT_APP_ID, GRAPHQL_URL
 from pydrawise.exceptions import APIError, MutationError, NotAuthorizedError
 from pydrawise.schema import DSL_SCHEMA, Controller, Sensor, Zone, ZoneSuspension
@@ -27,6 +29,7 @@ from pydrawise.schema_utils import deserialize
 def mock_auth():
     mock_auth = create_autospec(Auth, spec_set=True, instance=True)
     mock_auth.token.return_value = "__token__"
+    mock_auth.session = None
     yield mock_auth
 
 
@@ -565,23 +568,39 @@ async def test_get_water_use_summary_takes_unit_from_flow_sensor(
     assert summary.total_inactive_use == summary.total_use == 23134.67952992029
 
 
-async def test_client_sends_bearer_token_and_targets_the_graphql_url(mock_auth):
-    """The gql client is built with the auth token in the Authorization header."""
+async def test_client_targets_the_graphql_url(mock_auth):
+    """Without an injected session, gql builds and owns its own."""
     api = Hydrawise(mock_auth)
-    client = await api._client()
-    transport = client.transport
+    transport = api._client().transport
     assert isinstance(transport, AIOHTTPTransport)
+    assert not isinstance(transport, _SharedSessionTransport)
     assert transport.url == GRAPHQL_URL
-    assert transport.headers == {"Authorization": "__token__"}
-    mock_auth.token.assert_awaited_once()
+
+
+async def test_client_sends_bearer_token_per_request(api: Hydrawise, mock_session):
+    """The auth token rides along on each request, not on the session."""
+    mock_session.execute.return_value = {"me": {}}
+    await api._query(DSL_SCHEMA.Query.me.select(DSL_SCHEMA.User.id))
+    extra_args = mock_session.execute.await_args.kwargs["extra_args"]
+    assert extra_args["headers"] == {"Authorization": "__token__"}
+
+
+async def test_mutation_sends_bearer_token_per_request(api: Hydrawise, mock_session):
+    """Mutations carry the same per-request Authorization header as queries."""
+    mock_session.execute.return_value = {
+        "stopZone": {"status": "OK", "summary": "stopped"}
+    }
+    await api._mutation(DSL_SCHEMA.Mutation.stopZone.args(zoneId=1))
+    extra_args = mock_session.execute.await_args.kwargs["extra_args"]
+    assert extra_args == {"headers": {"Authorization": "__token__"}}
 
 
 async def test_client_app_id_is_sent_as_a_query_param(api: Hydrawise, mock_session):
     """app_id rides along on queries as the appVersion param."""
     mock_session.execute.return_value = {"me": {}}
     await api._query(DSL_SCHEMA.Query.me.select(DSL_SCHEMA.User.id))
-    assert mock_session.execute.await_args.kwargs["extra_args"] == {
-        "params": {"appVersion": DEFAULT_APP_ID}
+    assert mock_session.execute.await_args.kwargs["extra_args"]["params"] == {
+        "appVersion": DEFAULT_APP_ID
     }
 
 
@@ -592,7 +611,48 @@ async def test_client_without_app_id_sends_no_extra_params(mock_auth, mock_clien
         session = mock_client.__aenter__.return_value
         session.execute.return_value = {"me": {}}
         await api._query(DSL_SCHEMA.Query.me.select(DSL_SCHEMA.User.id))
-        assert session.execute.await_args.kwargs["extra_args"] == {}
+        assert "params" not in session.execute.await_args.kwargs["extra_args"]
+
+
+async def test_client_borrows_an_injected_session(
+    mock_auth, client_session: aiohttp.ClientSession
+):
+    """A session supplied via auth is adopted as-is and never closed by us."""
+    mock_auth.session = client_session
+    api = Hydrawise(mock_auth)
+    transport = api._client().transport
+    assert isinstance(transport, _SharedSessionTransport)
+
+    await transport.connect()
+    assert transport.session is client_session
+    with pytest.raises(TransportAlreadyConnected):
+        await transport.connect()
+
+    await transport.close()
+    assert transport.session is None
+    assert not client_session.closed
+
+
+async def test_query_over_injected_session_carries_auth_header(
+    monkeypatch,
+    mock_server,
+    mock_auth,
+    client_session: aiohttp.ClientSession,
+    session_spy,
+):
+    """End to end: the borrowed session reaches the wire with our credentials."""
+    monkeypatch.setattr(client_module, "GRAPHQL_URL", mock_server.url("/graph"))
+    mock_server.add("POST", "/graph", status=200, payload={"data": {"me": {"id": 1}}})
+    calls = session_spy(client_session)
+    mock_auth.session = client_session
+
+    api = Hydrawise(mock_auth)
+    result = await api._query(DSL_SCHEMA.Query.me.select(DSL_SCHEMA.User.id))
+
+    assert result == {"me": {"id": 1}}
+    [call] = calls
+    assert call.kwargs["headers"] == {"Authorization": "__token__"}
+    assert not client_session.closed
 
 
 @pytest.mark.parametrize(

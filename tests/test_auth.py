@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 import pytest
-from aiohttp import ClientResponseError
+from aiohttp import ClientResponseError, ClientSession
 from freezegun import freeze_time
 from pytest import fixture
 
@@ -198,3 +198,57 @@ async def test_rest_auth_redacts_api_key_on_other_errors(mock_server):
     error_str = str(exc_info.value)
     assert "__secret_api_key__" not in error_str
     assert "api_key=***" in error_str
+
+
+async def test_auth_owns_its_sessions_by_default(mock_token_fetch):
+    """With no session passed in, each request gets an ephemeral one."""
+    a = auth.Auth("__username__", "__password__")
+    assert a.session is None
+    assert await a.check() is True
+
+
+async def test_auth_uses_injected_session(
+    mock_token_fetch, client_session: ClientSession, session_spy
+):
+    """A caller-supplied session is used for the token fetch and left open."""
+    calls = session_spy(client_session)
+    a = auth.Auth("__username__", "__password__", session=client_session)
+    assert a.session is client_session
+    await a.check_token()
+    assert len(calls) == 1
+    assert calls[0].args == ("POST", auth.TOKEN_URL)
+    assert not client_session.closed
+
+
+async def test_rest_auth_uses_injected_session(
+    mock_server, client_session: ClientSession, session_spy
+):
+    """A caller-supplied session is used for REST requests and left open."""
+    calls = session_spy(client_session)
+    a = auth.RestAuth("__api_key__", session=client_session)
+    assert a.session is client_session
+    mock_server.add(
+        "GET", "/api/v1/customerdetails.php", status=200, payload={"customer_id": 123}
+    )
+    assert await a.check() is True
+    assert len(calls) == 1
+    assert calls[0].args[0] == "GET"
+    assert not client_session.closed
+
+
+async def test_hybrid_auth_injected_session_covers_both_apis(
+    mock_server, token_payload, client_session: ClientSession, session_spy
+):
+    """One session passed to HybridAuth serves both the GraphQL and REST halves."""
+    calls = session_spy(client_session)
+    a = auth.HybridAuth(
+        "__username__", "__password__", "__api_key__", session=client_session
+    )
+    assert a.session is client_session
+    mock_server.add("POST", "/oauth/access-token", status=200, payload=token_payload)
+    mock_server.add(
+        "GET", "/api/v1/customerdetails.php", status=200, payload={"customer_id": 123}
+    )
+    assert await a.check() is True
+    assert [call.args[0] for call in calls] == ["POST", "GET"]
+    assert not client_session.closed

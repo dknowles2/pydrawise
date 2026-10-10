@@ -1,7 +1,11 @@
 """Base class for the Hydrawise client API."""
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
+
+import aiohttp
 
 from .schema import (
     Controller,
@@ -17,6 +21,27 @@ from .schema import (
 
 class BaseAuth(ABC):
     """Base class for Authentication objects."""
+
+    _session: aiohttp.ClientSession | None = None
+
+    @property
+    def session(self) -> aiohttp.ClientSession | None:
+        """The caller-supplied session, or None if this object owns its sessions."""
+        return self._session
+
+    @asynccontextmanager
+    async def _client_session(self) -> AsyncIterator[aiohttp.ClientSession]:
+        """Yields a session to use for a single request.
+
+        When the caller supplied a session, it is yielded as-is: the caller owns
+        it and it is not closed here. Otherwise an ephemeral session is created
+        and closed around the request.
+        """
+        if self._session is not None:
+            yield self._session
+            return
+        async with aiohttp.ClientSession() as session:
+            yield session
 
     @abstractmethod
     async def check(self) -> bool:

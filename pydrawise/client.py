@@ -4,13 +4,18 @@ import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+from typing import Any
 
 import aiohttp
 from gql import Client
 from gql.dsl import DSLField, DSLMutation, DSLQuery, DSLSelectable, dsl_gql
 from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.aiohttp import log as gql_log
-from gql.transport.exceptions import TransportError, TransportServerError
+from gql.transport.exceptions import (
+    TransportAlreadyConnected,
+    TransportError,
+    TransportServerError,
+)
 
 from .auth import Auth
 from .base import HydrawiseBase
@@ -51,6 +56,36 @@ def _translate_errors() -> Iterator[None]:
         raise APIError(str(e)) from e
     except (TransportError, aiohttp.ClientError, TimeoutError) as e:
         raise APIError(str(e)) from e
+
+
+class _SharedSessionTransport(AIOHTTPTransport):
+    """Transport that borrows a ClientSession owned by someone else.
+
+    gql's AIOHTTPTransport creates its own session when it connects and closes
+    it on exit. A caller-supplied session outlives any one query, so neither
+    half of that is right here: connecting adopts the session as-is, and
+    closing merely detaches from it.
+    """
+
+    def __init__(
+        self, *args: Any, session: aiohttp.ClientSession, **kwargs: Any
+    ) -> None:
+        """Initializer.
+
+        :param session: The session to use. Never closed by this transport.
+        """
+        super().__init__(*args, **kwargs)
+        self._shared_session = session
+
+    async def connect(self) -> None:
+        """Adopts the caller-supplied session."""
+        if self.session is not None:
+            raise TransportAlreadyConnected("Transport is already connected")
+        self.session = self._shared_session
+
+    async def close(self) -> None:
+        """Detaches from the caller-supplied session without closing it."""
+        self.session = None
 
 
 def _prune_watering_report_entries(
@@ -100,17 +135,30 @@ class Hydrawise(HydrawiseBase):
         self._auth = auth
         self._app_id = app_id
 
-    async def _client(self) -> Client:
-        headers = {"Authorization": await self._auth.token()}
-        transport = AIOHTTPTransport(url=GRAPHQL_URL, headers=headers)
+    def _client(self) -> Client:
+        transport: AIOHTTPTransport
+        if (session := self._auth.session) is not None:
+            transport = _SharedSessionTransport(url=GRAPHQL_URL, session=session)
+        else:
+            transport = AIOHTTPTransport(url=GRAPHQL_URL)
         return Client(transport=transport, parse_results=True)
 
+    async def _auth_headers(self) -> dict[str, str]:
+        """Builds the authorization headers to send with a single request.
+
+        These are sent per-request rather than installed on the session: a
+        caller-supplied session is shared with unrelated callers and must not
+        carry our credentials, and gql only applies transport-level headers to
+        sessions it creates itself.
+        """
+        return {"Authorization": await self._auth.token()}
+
     async def _query(self, selector: DSLSelectable) -> dict:
-        extra_args = {}
-        if self._app_id:
-            extra_args["params"] = {"appVersion": self._app_id}
         with _translate_errors():
-            async with await self._client() as session:
+            extra_args: dict[str, Any] = {"headers": await self._auth_headers()}
+            if self._app_id:
+                extra_args["params"] = {"appVersion": self._app_id}
+            async with self._client() as session:
                 return await session.execute(
                     dsl_gql(DSLQuery(selector)),
                     extra_args=extra_args,
@@ -118,8 +166,12 @@ class Hydrawise(HydrawiseBase):
 
     async def _mutation(self, selector: DSLField) -> None:
         with _translate_errors():
-            async with await self._client() as session:
-                result = await session.execute(dsl_gql(DSLMutation(selector)))
+            extra_args: dict[str, Any] = {"headers": await self._auth_headers()}
+            async with self._client() as session:
+                result = await session.execute(
+                    dsl_gql(DSLMutation(selector)),
+                    extra_args=extra_args,
+                )
         resp = result[selector.name]
         if isinstance(resp, dict):
             if resp["status"] == "ERROR":
