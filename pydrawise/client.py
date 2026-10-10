@@ -19,7 +19,7 @@ from gql.transport.exceptions import (
 
 from .auth import Auth
 from .base import HydrawiseBase
-from .const import DEFAULT_APP_ID, GRAPHQL_URL
+from .const import DEFAULT_APP_ID, GRAPHQL_TIMEOUT, GRAPHQL_URL
 from .exceptions import APIError, MutationError, NotAuthorizedError
 from .schema import (
     DSL_SCHEMA,
@@ -143,19 +143,23 @@ class Hydrawise(HydrawiseBase):
             transport = AIOHTTPTransport(url=GRAPHQL_URL)
         return Client(transport=transport, parse_results=True)
 
-    async def _auth_headers(self) -> dict[str, str]:
-        """Builds the authorization headers to send with a single request.
+    async def _request_args(self) -> dict[str, Any]:
+        """Builds the arguments to send with a single request.
 
-        These are sent per-request rather than installed on the session: a
-        caller-supplied session is shared with unrelated callers and must not
-        carry our credentials, and gql only applies transport-level headers to
-        sessions it creates itself.
+        The authorization header and the timeout are sent per-request rather
+        than installed on the session: a caller-supplied session is shared with
+        unrelated callers, so it must not carry our credentials and its own
+        timeout shouldn't decide how long we wait. gql only applies
+        transport-level headers to sessions it creates itself anyway.
         """
-        return {"Authorization": await self._auth.token()}
+        return {
+            "headers": {"Authorization": await self._auth.token()},
+            "timeout": GRAPHQL_TIMEOUT,
+        }
 
     async def _query(self, selector: DSLSelectable) -> dict:
         with _translate_errors():
-            extra_args: dict[str, Any] = {"headers": await self._auth_headers()}
+            extra_args = await self._request_args()
             if self._app_id:
                 extra_args["params"] = {"appVersion": self._app_id}
             async with self._client() as session:
@@ -166,7 +170,7 @@ class Hydrawise(HydrawiseBase):
 
     async def _mutation(self, selector: DSLField) -> None:
         with _translate_errors():
-            extra_args: dict[str, Any] = {"headers": await self._auth_headers()}
+            extra_args = await self._request_args()
             async with self._client() as session:
                 result = await session.execute(
                     dsl_gql(DSLMutation(selector)),

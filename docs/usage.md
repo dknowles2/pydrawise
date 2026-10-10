@@ -130,7 +130,9 @@ async with ClientSession() as session:
 [`RestAuth`][pydrawise.auth.RestAuth] and
 [`HybridAuth`][pydrawise.auth.HybridAuth] take the same `session` argument.
 The session belongs to whoever created it: pydrawise never closes a session
-that was passed in, so it's the caller's job to close it.
+that was passed in, so it's the caller's job to close it. Request timeouts are
+pinned per-request, so a shared session's own timeout doesn't change how long
+pydrawise waits.
 
 ## Using the hybrid client
 

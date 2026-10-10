@@ -19,7 +19,7 @@ from pytest import fixture
 from pydrawise import client as client_module
 from pydrawise.auth import Auth
 from pydrawise.client import Hydrawise, _SharedSessionTransport
-from pydrawise.const import DEFAULT_APP_ID, GRAPHQL_URL
+from pydrawise.const import DEFAULT_APP_ID, GRAPHQL_TIMEOUT, GRAPHQL_URL
 from pydrawise.exceptions import APIError, MutationError, NotAuthorizedError
 from pydrawise.schema import DSL_SCHEMA, Controller, Sensor, Zone, ZoneSuspension
 from pydrawise.schema_utils import deserialize
@@ -592,7 +592,45 @@ async def test_mutation_sends_bearer_token_per_request(api: Hydrawise, mock_sess
     }
     await api._mutation(DSL_SCHEMA.Mutation.stopZone.args(zoneId=1))
     extra_args = mock_session.execute.await_args.kwargs["extra_args"]
-    assert extra_args == {"headers": {"Authorization": "__token__"}}
+    assert extra_args == {
+        "headers": {"Authorization": "__token__"},
+        "timeout": GRAPHQL_TIMEOUT,
+    }
+
+
+async def test_client_sends_an_explicit_timeout(api: Hydrawise, mock_session):
+    """Requests pin their own timeout instead of inheriting the session's."""
+    mock_session.execute.return_value = {"me": {}}
+    await api._query(DSL_SCHEMA.Query.me.select(DSL_SCHEMA.User.id))
+    extra_args = mock_session.execute.await_args.kwargs["extra_args"]
+    assert extra_args["timeout"] == GRAPHQL_TIMEOUT
+    # Pinned alongside total so a dead peer can't consume the whole budget.
+    assert GRAPHQL_TIMEOUT.sock_connect is not None
+
+
+async def test_query_timeout_raises_api_error(
+    monkeypatch,
+    mock_server,
+    mock_auth,
+    client_session: aiohttp.ClientSession,
+):
+    """A stalled request is cut off by our timeout, not the session's."""
+    monkeypatch.setattr(client_module, "GRAPHQL_URL", mock_server.url("/graph"))
+    monkeypatch.setattr(
+        client_module, "GRAPHQL_TIMEOUT", aiohttp.ClientTimeout(total=0.1)
+    )
+    mock_server.add(
+        "POST", "/graph", status=200, payload={"data": {"me": {"id": 1}}}, delay=5
+    )
+    mock_auth.session = client_session
+    # The session would otherwise wait far longer than the request's timeout.
+    assert client_session.timeout.total is not None
+    assert client_session.timeout.total > 1
+
+    api = Hydrawise(mock_auth)
+    with pytest.raises(APIError):
+        await api._query(DSL_SCHEMA.Query.me.select(DSL_SCHEMA.User.id))
+    assert not client_session.closed
 
 
 async def test_client_app_id_is_sent_as_a_query_param(api: Hydrawise, mock_session):
