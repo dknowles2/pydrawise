@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from dataclasses import fields, is_dataclass
 from datetime import datetime, time
 from string import ascii_lowercase
@@ -5,6 +7,7 @@ from types import UnionType
 from typing import Union, get_args, get_origin, get_type_hints
 
 import pytest
+from freezegun import freeze_time
 from graphql import build_schema
 from graphql.type import (
     GraphQLBoolean,
@@ -400,3 +403,27 @@ def test_rejects_null_for_a_required_field():
     """Only _optional_field falls back to its default; everything else is fatal."""
     with pytest.raises(ValidationError):
         deserialize(_schema.StatusCodeAndSummary, {"status": None})
+
+
+def test_schemas_are_built_at_import():
+    """No schema is left for pydantic to build lazily on first use.
+
+    Checked in a fresh interpreter, because any earlier test that constructs
+    one of these types builds its schema as a side effect.
+    """
+    code = (
+        "import dataclasses, pydrawise.schema as s; "
+        "print([n for n, c in vars(s).items() if isinstance(c, type) "
+        "and dataclasses.is_dataclass(c) "
+        "and getattr(c, '__pydantic_complete__', True) is False])"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "[]"
+
+
+@freeze_time("2024-01-01")
+def test_construct_under_freeze_time():
+    """Constructing a type under freeze_time works, whatever ran before."""
+    assert _schema.User(controllers=[_schema.Controller(zones=[_schema.Zone()])])

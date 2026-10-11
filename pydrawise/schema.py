@@ -15,6 +15,7 @@ from graphql import build_ast_schema, parse
 from pydantic import BeforeValidator, ConfigDict, ValidationError, model_validator
 from pydantic.alias_generators import to_camel
 from pydantic.dataclasses import dataclass as _pydantic_dataclass
+from pydantic.dataclasses import is_pydantic_dataclass, rebuild_dataclass
 from pydantic_core.core_schema import ValidatorFunctionWrapHandler
 
 # The names in this file are from the GraphQL schema and don't always adhere to
@@ -945,3 +946,27 @@ class ControllerWaterUseSummary:
     total_inactive_use: float | None = None
     active_use_by_zone_id: dict[int, float] = field(default_factory=dict)
     unit: str | None = None
+
+
+def _build_deferred_schemas() -> None:
+    """Builds the schemas pydantic deferred at class creation.
+
+    Types that reference a type declared further down this module can't get
+    their pydantic schema when they are created, so pydantic builds it on
+    first use instead. Building it then picks up whatever ``datetime`` is at
+    that moment: under freezegun's ``freeze_time`` that is ``FakeDatetime``,
+    which pydantic can't generate a schema for. Building everything at import
+    keeps that first use from depending on the caller's state.
+
+    :meta private:
+    """
+    for value in list(globals().values()):
+        if (
+            isinstance(value, type)
+            and is_pydantic_dataclass(value)
+            and not value.__pydantic_complete__
+        ):
+            rebuild_dataclass(value)
+
+
+_build_deferred_schemas()
