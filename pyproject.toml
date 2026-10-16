@@ -49,7 +49,7 @@ test = [
     "ruff==0.17.0",
     "types-requests==2.33.0.20261006",
 ]
-dev = [{ include-group = "test" }, "pre-commit==4.6.2"]
+dev = [{ include-group = "test" }, "pre-commit==4.7.0"]
 
 [tool.setuptools]
 platforms            = ["any"]
