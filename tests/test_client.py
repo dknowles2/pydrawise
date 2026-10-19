@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 from datetime import datetime, timedelta
 from unittest.mock import create_autospec, patch
@@ -179,7 +180,9 @@ async def test_start_zone(api: Hydrawise, mock_session, zone_json):
     assert "customRunDuration: 10" in query
 
 
-async def test_start_zone_warning(api: Hydrawise, mock_session, zone_json):
+async def test_start_zone_warning(
+    api: Hydrawise, mock_session, zone_json, caplog: pytest.LogCaptureFixture
+):
     zone = deserialize(Zone, zone_json)
     mock_session.execute.return_value = {
         "startZone": {
@@ -187,7 +190,11 @@ async def test_start_zone_warning(api: Hydrawise, mock_session, zone_json):
             "summary": f"Starting {zone.name} in 5 seconds",
         }
     }
-    await api.start_zone(zone, custom_run_duration=10)
+    with caplog.at_level(logging.DEBUG, logger="pydrawise"):
+        await api.start_zone(zone, custom_run_duration=10)
+    assert [(r.levelno, r.getMessage()) for r in caplog.records] == [
+        (logging.DEBUG, f"Starting {zone.name} in 5 seconds")
+    ]
     mock_session.execute.assert_awaited_once()
     [selector] = mock_session.execute.await_args.args
     query = print_ast(selector.document)
