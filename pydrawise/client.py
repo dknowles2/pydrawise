@@ -181,7 +181,10 @@ class Hydrawise(HydrawiseBase):
             if resp["status"] == "ERROR":
                 raise MutationError(resp["summary"])
             elif resp["status"] == "WARNING":
-                _LOGGER.warning(resp["summary"])
+                # Not a problem: the API accepted the command, and the summary
+                # says when the controller will act on it ("Starting Zone 1 in
+                # 14 seconds"). Logging it as a warning floods callers' logs.
+                _LOGGER.debug(resp["summary"])
             return
         elif not resp:
             # Assume bool response
