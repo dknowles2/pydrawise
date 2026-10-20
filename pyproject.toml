@@ -31,7 +31,7 @@ docs = [
     "mkdocs==1.6.1",
     "mkdocstrings==1.0.7",
     "mkdocstrings-python==2.0.9",
-    "pymdown-extensions==12.2",
+    "pymdown-extensions==12.3",
 ]
 
 [project.urls]
