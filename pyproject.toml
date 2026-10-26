@@ -30,7 +30,7 @@ classifiers     = [
 docs = [
     "mkdocs==1.6.1",
     "mkdocstrings==1.0.8",
-    "mkdocstrings-python==2.0.9",
+    "mkdocstrings-python==2.0.10",
     "pymdown-extensions==12.3",
 ]
 
