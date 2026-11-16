@@ -9,10 +9,24 @@ import aiohttp
 
 from .base import BaseAuth
 from .const import CLIENT_ID, CLIENT_SECRET, REQUEST_TIMEOUT, REST_URL, TOKEN_URL
-from .exceptions import NotAuthorizedError
+from .exceptions import APIError, Error, NotAuthorizedError
 
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=60, sock_connect=30)
 _INVALID_API_KEY = "API key not valid"
+
+
+def _redact_api_key(e: aiohttp.ClientResponseError) -> None:
+    """Replaces the api_key query parameter in an error's URLs with a placeholder.
+
+    Mutates the error in place. ``aiohttp`` builds its message from
+    ``request_info``, so this has to happen before the error is stringified,
+    logged, or attached to another exception as ``__cause__``.
+    """
+    if e.request_info and e.request_info.url:
+        e.request_info = e.request_info._replace(
+            url=e.request_info.url.with_query({"api_key": "***"}),
+            real_url=e.request_info.real_url.with_query({"api_key": "***"}),
+        )
 
 
 @dataclass
@@ -129,32 +143,43 @@ class RestAuth(BaseAuth):
         self._session = session
 
     async def get(self, path: str, **kwargs: Any) -> dict:
-        """Perform an authenticated GET request and return the JSON response."""
+        """Perform an authenticated GET request and return the JSON response.
+
+        :raises NotAuthorizedError: if the API key was rejected.
+        :raises APIError: if the request failed for any other reason.
+        """
         url = f"{REST_URL}/{path}"
         params = {"api_key": self._api_key}
         params.update(kwargs)
-        async with (
-            self._client_session() as session,
-            session.get(url, params=params, timeout=REQUEST_TIMEOUT) as resp,
-        ):
-            if resp.status == 404 and await resp.text() == _INVALID_API_KEY:
-                raise NotAuthorizedError(_INVALID_API_KEY)
-
-            try:
+        try:
+            async with (
+                self._client_session() as session,
+                session.get(url, params=params, timeout=REQUEST_TIMEOUT) as resp,
+            ):
+                if resp.status == 404 and await resp.text() == _INVALID_API_KEY:
+                    raise NotAuthorizedError(_INVALID_API_KEY)
                 resp.raise_for_status()
-            except aiohttp.ClientResponseError as e:
-                # Redact the API key from the error message.
-                if e.request_info and e.request_info.url:
-                    e.request_info = e.request_info._replace(
-                        url=e.request_info.url.with_query({"api_key": "***"}),
-                        real_url=e.request_info.real_url.with_query({"api_key": "***"}),
-                    )
-                if e.status in (401, 403):
-                    # For client-side auth/authz statuses, we raise NotAuthorizedError.
-                    # Redaction above ensures the API key doesn't leak via the `__cause__`.
-                    raise NotAuthorizedError(f"HTTP {e.status}") from e
-                raise
-            return await resp.json()
+                return await resp.json()
+        except Error:
+            # Already one of ours; don't re-wrap it below.
+            raise
+        except aiohttp.ClientResponseError as e:
+            # Redact the API key so it can't leak via this message or `__cause__`.
+            _redact_api_key(e)
+            if e.status == 401:
+                # 401 is the only status that unambiguously means the API key was
+                # rejected. An invalid key is also reported as a 404 carrying the
+                # _INVALID_API_KEY body, which is handled above.
+                raise NotAuthorizedError(f"HTTP {e.status}") from e
+            # Anything else is a request failure, not a credential problem. In
+            # particular the v1 API answers 403 both for transient refusals and
+            # for per-controller conditions such as a controller with no serial
+            # number attached; neither means the API key is bad. Reporting those
+            # as NotAuthorizedError made callers (notably Home Assistant) prompt
+            # for reauthentication over a poll that succeeds on the next try.
+            raise APIError(f"HTTP {e.status}") from e
+        except (aiohttp.ClientError, TimeoutError) as e:
+            raise APIError(str(e) or type(e).__name__) from e
 
     async def check(self) -> bool:
         """Validates that the credentials are valid."""

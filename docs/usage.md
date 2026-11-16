@@ -209,6 +209,10 @@ h = Hydrawise(Auth("username", "password"))
 try:
     await h.start_zone(zone)
 except NotAuthorizedError:
+    # The credentials themselves were rejected: re-prompt for them. Note that
+    # this is deliberately narrow — an HTTP 403 from the REST v1 API is an
+    # APIError, since the API returns it for transient and per-controller
+    # conditions as well.
     print("Invalid credentials.")
 except ThrottledError:
     # Raised by HybridClient when a request is throttled and no cached
@@ -217,9 +221,10 @@ except ThrottledError:
 except MutationError as e:
     print(f"Hydrawise rejected the request: {e}")
 except APIError as e:
-    # Transient failure talking to the GraphQL API: network error, timeout,
-    # server error, or a GraphQL error response. The original exception is
-    # available as e.__cause__.
+    # Failure talking to the API: network error, timeout, server error, a
+    # GraphQL error response, or an HTTP error from the REST v1 API that isn't
+    # a rejected API key. Usually transient, so retry rather than re-prompting
+    # for credentials. The original exception is available as e.__cause__.
     print(f"Request failed; try again later: {e}")
 ```
 
