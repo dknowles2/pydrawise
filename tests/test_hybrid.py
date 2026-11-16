@@ -435,6 +435,32 @@ async def test_get_zones_all_controllers_rest_error(
             await api.get_controllers()
 
 
+async def test_get_zones_single_controller_403_is_api_error(
+    api, hybrid_auth, mock_gql_client, controller, zone, status_schedule
+):
+    """A 403 on the only controller stays an APIError; it must not look like bad credentials.
+
+    Regression test for home-assistant/core#192025: `_rest_ok` can never hold a
+    controller outside a single-controller batch, so this error always
+    propagates. Raising NotAuthorizedError here made Home Assistant start a
+    reauthentication flow for credentials that were still valid.
+    """
+    with freeze_time(FROZEN_TIME):
+        mock_gql_client.get_controllers.return_value = [deepcopy(controller)]
+        await api.get_controllers()
+        await api.get_controllers()
+
+        hybrid_auth.get.side_effect = APIError("HTTP 403")
+        with pytest.raises(APIError):
+            await api.get_controllers()
+
+        # The next poll succeeds without any credential change.
+        hybrid_auth.get.side_effect = None
+        hybrid_auth.get.return_value = status_schedule
+        [polled] = await api.get_controllers()
+        assert polled.id == controller.id
+
+
 async def test_start_zone(api, mock_gql_client, zone):
     await api.start_zone(zone, mark_run_as_scheduled=True, custom_run_duration=60)
     mock_gql_client.start_zone.assert_awaited_once_with(zone, True, 60)
@@ -623,7 +649,7 @@ async def test_update_master_valve(api, mock_gql_client, controller, zone):
     mock_gql_client.update_master_valve.assert_awaited_once_with(controller, zone)
 
 
-async def test_update_zones_suppresses_auth_error_if_rest_ok(api, mock_gql_client):
+async def test_update_zones_suppresses_rest_error_if_rest_ok(api, mock_gql_client):
     from unittest.mock import MagicMock
 
     from pydrawise.schema import Controller
@@ -644,9 +670,7 @@ async def test_update_zones_suppresses_auth_error_if_rest_ok(api, mock_gql_clien
         if controller_id == 11:
             return {"nextpoll": 60, "relays": []}
         else:
-            from pydrawise.exceptions import NotAuthorizedError
-
-            raise NotAuthorizedError("HTTP 403")
+            raise APIError("HTTP 403")
 
     api._auth.get.side_effect = mock_get
 

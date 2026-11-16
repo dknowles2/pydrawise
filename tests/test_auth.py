@@ -1,12 +1,12 @@
 from datetime import timedelta
 
 import pytest
-from aiohttp import ClientResponseError, ClientSession
+from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeout
 from freezegun import freeze_time
 from pytest import fixture
 
 from pydrawise import auth
-from pydrawise.exceptions import NotAuthorizedError
+from pydrawise.exceptions import APIError, Error, NotAuthorizedError
 
 
 @fixture
@@ -174,30 +174,69 @@ async def test_rest_auth_check_raises_on_invalid_api_key(mock_server):
         await a.check()
 
 
-async def test_rest_auth_raises_for_other_http_errors(mock_server):
-    """A non-404 failure is surfaced as-is, not mistaken for a bad API key."""
+async def test_rest_auth_raises_api_error_for_other_http_errors(mock_server):
+    """A non-404 failure is a request failure, not a bad API key."""
     a = auth.RestAuth("__api_key__")
     mock_server.add("GET", "/api/v1/customerdetails.php", status=500, body="boom")
-    with pytest.raises(ClientResponseError):
+    with pytest.raises(APIError, match="HTTP 500") as exc_info:
+        await a.check()
+    assert isinstance(exc_info.value.__cause__, ClientResponseError)
+
+
+async def test_rest_auth_raises_not_authorized_on_401(mock_server):
+    """401 is the one status that means the API key itself was rejected."""
+    a = auth.RestAuth("__api_key__")
+    mock_server.add(
+        "GET", "/api/v1/customerdetails.php", status=401, body="Unauthorized"
+    )
+    with pytest.raises(NotAuthorizedError, match="HTTP 401"):
         await a.check()
 
 
-async def test_rest_auth_raises_not_authorized_on_403(mock_server):
+async def test_rest_auth_raises_api_error_on_403(mock_server):
+    """A 403 is transient or controller-specific; it must not trigger reauth.
+
+    See home-assistant/core#192025: mapping this to NotAuthorizedError made
+    Home Assistant start a reauthentication flow over a poll that succeeded
+    again minutes later with the same credentials.
+    """
     a = auth.RestAuth("__api_key__")
     mock_server.add("GET", "/api/v1/customerdetails.php", status=403, body="Forbidden")
-    with pytest.raises(NotAuthorizedError, match="HTTP 403"):
+    with pytest.raises(APIError, match="HTTP 403"):
         await a.check()
 
 
-async def test_rest_auth_redacts_api_key_on_other_errors(mock_server):
+async def test_rest_auth_raises_api_error_on_connection_error(monkeypatch):
+    """A transport failure surfaces as APIError, not a bare aiohttp error."""
+    # Nothing is listening on port 1, so the connection is refused immediately.
+    monkeypatch.setattr(auth, "REST_URL", "http://127.0.0.1:1/api/v1")
+    a = auth.RestAuth("__api_key__")
+    with pytest.raises(APIError) as exc_info:
+        await a.check()
+    assert isinstance(exc_info.value.__cause__, ClientError)
+
+
+async def test_rest_auth_raises_api_error_on_timeout(mock_server, monkeypatch):
+    """A timeout surfaces as APIError with a non-empty message."""
+    monkeypatch.setattr(auth, "REQUEST_TIMEOUT", ClientTimeout(total=0.05))
+    a = auth.RestAuth("__api_key__")
+    mock_server.add("GET", "/api/v1/customerdetails.php", payload={}, delay=1)
+    with pytest.raises(APIError) as exc_info:
+        await a.check()
+    # TimeoutError stringifies to "", so the type name stands in for it.
+    assert str(exc_info.value)
+
+
+@pytest.mark.parametrize("status", [401, 403, 500])
+async def test_rest_auth_redacts_api_key_on_http_errors(mock_server, status):
     a = auth.RestAuth("__secret_api_key__")
-    mock_server.add("GET", "/api/v1/customerdetails.php", status=500, body="boom")
-    with pytest.raises(ClientResponseError) as exc_info:
+    mock_server.add("GET", "/api/v1/customerdetails.php", status=status, body="boom")
+    with pytest.raises(Error) as exc_info:
         await a.check()
 
-    error_str = str(exc_info.value)
-    assert "__secret_api_key__" not in error_str
-    assert "api_key=***" in error_str
+    for text in (str(exc_info.value), str(exc_info.value.__cause__)):
+        assert "__secret_api_key__" not in text
+    assert "api_key=***" in str(exc_info.value.__cause__)
 
 
 async def test_auth_owns_its_sessions_by_default(mock_token_fetch):
