@@ -5,7 +5,7 @@ This utilizes both the GraphQL and REST APIs.
 
 import logging
 from asyncio import Lock
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine, Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import wraps
@@ -19,8 +19,10 @@ from .exceptions import APIError, Error, NotAuthorizedError, ThrottledError
 from .schema import (
     Controller,
     ControllerWaterUseSummary,
+    DaysOfWeekEnum,
     Sensor,
     SensorFlowSummary,
+    StandardProgram,
     User,
     WateringReportEntry,
     Zone,
@@ -506,3 +508,22 @@ class HybridClient(HydrawiseBase):
         :param end: End time.
         """
         return await self._gql_client.get_water_use_summary(controller, start, end)
+
+    async def set_standard_program_days(
+        self,
+        controller: Controller,
+        program: StandardProgram,
+        days: Iterable[DaysOfWeekEnum],
+    ) -> None:
+        """Updates the run days of a standard watering program.
+
+        Always uses the GraphQL API.
+
+        :param controller: The controller that owns the program.
+        :param program: The standard program to update.
+        :param days: Weekdays on which the program should run. Pass an empty
+            iterable to disable all days.
+        """
+        return await self._gql_client.set_standard_program_days(
+            controller, program, days
+        )

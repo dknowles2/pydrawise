@@ -128,7 +128,13 @@ def test_optional_fields():
             "runTimeGroup": None,
         },
     )
-    deserialize(_schema.TimeRange, {"validFrom": None, "validTo": None})
+    time_range = deserialize(_schema.TimeRange, {"validFrom": None, "validTo": None})
+    assert time_range.valid_from is None
+    assert time_range.valid_to is None
+    deserialize(
+        _schema.WateringProgramAdjustment,
+        {"id": 1, "label": "Rain", "applicableSchedulingMethod": None},
+    )
     deserialize(
         _schema.StandardProgram,
         {
@@ -357,6 +363,14 @@ def test_update_with_json_untrusted_sentinel_still_corroborates_known_suspension
 def test_converts_a_unix_timestamp():
     time_range = deserialize(_schema.TimeRange, {"validFrom": 1672531200})
     assert time_range.valid_from == datetime.fromtimestamp(1672531200)
+    assert time_range.valid_to is None
+
+
+def test_time_range_preserves_null_bounds():
+    """Null validFrom/validTo must stay None so mutations write null back."""
+    time_range = deserialize(_schema.TimeRange, {"validFrom": None, "validTo": None})
+    assert time_range.valid_from is None
+    assert time_range.valid_to is None
 
 
 def test_converts_an_hour_minute_string():

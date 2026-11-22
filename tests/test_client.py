@@ -22,7 +22,15 @@ from pydrawise.auth import Auth
 from pydrawise.client import Hydrawise, _SharedSessionTransport
 from pydrawise.const import DEFAULT_APP_ID, GRAPHQL_TIMEOUT, GRAPHQL_URL
 from pydrawise.exceptions import APIError, MutationError, NotAuthorizedError
-from pydrawise.schema import DSL_SCHEMA, Controller, Sensor, Zone, ZoneSuspension
+from pydrawise.schema import (
+    DSL_SCHEMA,
+    Controller,
+    DaysOfWeekEnum,
+    Sensor,
+    StandardProgram,
+    Zone,
+    ZoneSuspension,
+)
 from pydrawise.schema_utils import deserialize
 
 
@@ -777,3 +785,193 @@ async def test_non_transport_errors_are_not_wrapped(api: Hydrawise, mock_session
     mock_session.execute.side_effect = ValueError("not a transport error")
     with pytest.raises(ValueError, match="not a transport error"):
         await api.get_user()
+
+
+def _standard_program_json(
+    *,
+    program_id: int = 42,
+    day_pattern: str = "dow",
+    valid_from: int | None = None,
+    valid_to: int | None = None,
+    adjustments: list[dict] | None = None,
+) -> dict:
+    return {
+        "id": program_id,
+        "name": "Summer",
+        "schedulingMethod": {"value": 0, "label": "Time Based"},
+        "monthlyWateringAdjustments": [100] * 12,
+        "appliesToZones": [
+            {"id": 101, "number": {"value": 1, "label": "Zone 1"}, "name": "Front"},
+            {"id": 102, "number": {"value": 2, "label": "Zone 2"}, "name": "Back"},
+        ],
+        "startTimes": ["06:00", "18:30"],
+        "timeRange": {"validFrom": valid_from, "validTo": valid_to},
+        "ignoreRainSensor": False,
+        "daysRun": ["MONDAY", "WEDNESDAY", "FRIDAY"],
+        "standardProgramDayPattern": day_pattern,
+        "periodicity": None,
+        "conditionalWateringAdjustments": (
+            adjustments
+            if adjustments is not None
+            else [
+                {
+                    "id": 7,
+                    "label": "Rain forecast",
+                    "applicableSchedulingMethod": {"value": 0, "label": "Time Based"},
+                },
+                {
+                    "id": 11,
+                    "label": "High temp",
+                    "applicableSchedulingMethod": {"value": 0, "label": "Time Based"},
+                },
+            ]
+        ),
+        "applications": [
+            {
+                "zone": {
+                    "id": 101,
+                    "number": {"value": 1, "label": "Zone 1"},
+                    "name": "Front",
+                },
+                "runTimeGroup": {"id": 501, "name": "Lawn", "duration": 15},
+            },
+            {
+                "zone": {
+                    "id": 102,
+                    "number": {"value": 2, "label": "Zone 2"},
+                    "name": "Back",
+                },
+                "runTimeGroup": {"id": 502, "name": "Garden", "duration": 20},
+            },
+        ],
+    }
+
+
+async def test_set_standard_program_days(api: Hydrawise, mock_session, controller):
+    """Fetches current program details and preserves adjustments, run times, and null dates."""
+    mock_session.execute.side_effect = [
+        {"controller": {"programs": [{}, _standard_program_json()]}},
+        {"updateStandardProgram": {"id": 42}},
+    ]
+    program = StandardProgram(id=42, standard_program_day_pattern="dow")
+    await api.set_standard_program_days(
+        controller, program, [DaysOfWeekEnum.TUESDAY, DaysOfWeekEnum.THURSDAY]
+    )
+
+    assert mock_session.execute.await_count == 2
+    [query_selector] = mock_session.execute.await_args_list[0].args
+    query = print_ast(query_selector.document)
+    assert f"controller(controllerId: {controller.id})" in query
+    assert "... on StandardProgram {" in query
+    assert f"conditionalWateringAdjustments(controllerId: {controller.id})" in query
+    assert "applications {" in query
+
+    [mutation_selector] = mock_session.execute.await_args_list[1].args
+    mutation = print_ast(mutation_selector.document)
+    assert "updateStandardProgram(" in mutation
+    assert "programId: 42" in mutation
+    assert f"controllerId: {controller.id}" in mutation
+    assert 'name: "Summer"' in mutation
+    assert "programType: 0" in mutation
+    assert 'dayPattern: "0010100"' in mutation
+    assert "standardProgramDayPattern: dow" in mutation
+    assert 'startTimes: ["06:00", "18:30"]' in mutation
+    assert "zoneRunTimes: [" in mutation
+    assert "{ zoneNumber: 1, runTimeGroupId: null, runDuration: 15 }" in mutation
+    assert "{ zoneNumber: 2, runTimeGroupId: null, runDuration: 20 }" in mutation
+    assert "scheduleAdjustmentIds: [7, 11]" in mutation
+    assert (
+        "seasonalAdjustmentFactors: "
+        "[100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100]"
+    ) in mutation
+    assert "validFrom: null" in mutation
+    assert "validTo: null" in mutation
+    assert "ignoreRainSensor: false" in mutation
+
+
+async def test_set_standard_program_days_empty_and_time_range(
+    api: Hydrawise, mock_session, controller
+):
+    """Empty days produces '0000000' and non-null timeRange bounds are preserved as timestamps."""
+    mock_session.execute.side_effect = [
+        {
+            "controller": {
+                "programs": [
+                    _standard_program_json(
+                        valid_from=1704067200,
+                        valid_to=1711929600,
+                        adjustments=[],
+                    )
+                ]
+            }
+        },
+        {"updateStandardProgram": {"id": 42}},
+    ]
+    await api.set_standard_program_days(controller, StandardProgram(id=42), [])
+
+    [mutation_selector] = mock_session.execute.await_args_list[1].args
+    mutation = print_ast(mutation_selector.document)
+    assert 'dayPattern: "0000000"' in mutation
+    assert "scheduleAdjustmentIds: []" in mutation
+    assert "validFrom: 1704067200" in mutation
+    assert "validTo: 1711929600" in mutation
+
+
+async def test_set_standard_program_days_rejects_invalid_day(
+    api: Hydrawise, mock_session, controller
+):
+    with pytest.raises(ValueError, match="Invalid days"):
+        await api.set_standard_program_days(
+            controller,
+            StandardProgram(id=42, standard_program_day_pattern="dow"),
+            ["MONDAY"],  # type: ignore[list-item]
+        )
+    mock_session.execute.assert_not_awaited()
+
+
+async def test_set_standard_program_days_rejects_non_dow_input(
+    api: Hydrawise, mock_session, controller
+):
+    with pytest.raises(ValueError, match="Only 'dow' day pattern is supported"):
+        await api.set_standard_program_days(
+            controller,
+            StandardProgram(id=42, standard_program_day_pattern="odd"),
+            [DaysOfWeekEnum.MONDAY],
+        )
+    mock_session.execute.assert_not_awaited()
+
+
+async def test_set_standard_program_days_rejects_non_dow_from_api(
+    api: Hydrawise, mock_session, controller
+):
+    mock_session.execute.return_value = {
+        "controller": {"programs": [_standard_program_json(day_pattern="interval")]}
+    }
+    with pytest.raises(ValueError, match="Only 'dow' day pattern is supported"):
+        await api.set_standard_program_days(
+            controller, StandardProgram(id=42), [DaysOfWeekEnum.MONDAY]
+        )
+    assert mock_session.execute.await_count == 1
+
+
+async def test_set_standard_program_days_program_not_found(
+    api: Hydrawise, mock_session, controller
+):
+    mock_session.execute.return_value = {"controller": {"programs": []}}
+    with pytest.raises(ValueError, match="Standard program with id=99 not found"):
+        await api.set_standard_program_days(
+            controller, StandardProgram(id=99), [DaysOfWeekEnum.MONDAY]
+        )
+
+
+async def test_set_standard_program_days_mutation_returns_null(
+    api: Hydrawise, mock_session, controller
+):
+    mock_session.execute.side_effect = [
+        {"controller": {"programs": [_standard_program_json()]}},
+        {"updateStandardProgram": None},
+    ]
+    with pytest.raises(MutationError):
+        await api.set_standard_program_days(
+            controller, StandardProgram(id=42), [DaysOfWeekEnum.SUNDAY]
+        )

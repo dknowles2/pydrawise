@@ -1,7 +1,7 @@
 """Base class for the Hydrawise client API."""
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -10,8 +10,10 @@ import aiohttp
 from .schema import (
     Controller,
     ControllerWaterUseSummary,
+    DaysOfWeekEnum,
     Sensor,
     SensorFlowSummary,
+    StandardProgram,
     User,
     WateringReportEntry,
     Zone,
@@ -228,3 +230,22 @@ class HydrawiseBase(ABC):
         :param controller: The controller whose water use to report.
         :param start: Start time
         :param end: End time."""
+
+    @abstractmethod
+    async def set_standard_program_days(
+        self,
+        controller: Controller,
+        program: StandardProgram,
+        days: Iterable[DaysOfWeekEnum],
+    ) -> None:
+        """Updates the run days of a standard watering program.
+
+        Only programs using the day-of-week (``"dow"``) day pattern are supported.
+
+        :param controller: The controller that owns the program.
+        :param program: The standard program to update.
+        :param days: Weekdays on which the program should run. Pass an empty
+            iterable to disable all days.
+        :raises ValueError: If the program is not found, does not use the
+            ``"dow"`` day pattern, or an invalid day is provided.
+        """

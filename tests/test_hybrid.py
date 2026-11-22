@@ -649,6 +649,18 @@ async def test_update_master_valve(api, mock_gql_client, controller, zone):
     mock_gql_client.update_master_valve.assert_awaited_once_with(controller, zone)
 
 
+async def test_set_standard_program_days(api, mock_gql_client, controller):
+    """Always delegates to the GraphQL API; the REST API can't update programs."""
+    from pydrawise.schema import DaysOfWeekEnum, StandardProgram
+
+    program = StandardProgram(id=42, standard_program_day_pattern="dow")
+    days = [DaysOfWeekEnum.TUESDAY, DaysOfWeekEnum.THURSDAY]
+    await api.set_standard_program_days(controller, program, days)
+    mock_gql_client.set_standard_program_days.assert_awaited_once_with(
+        controller, program, days
+    )
+
+
 async def test_update_zones_suppresses_rest_error_if_rest_ok(api, mock_gql_client):
     from unittest.mock import MagicMock
 
