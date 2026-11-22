@@ -458,8 +458,27 @@ class AdvancedWateringSettings(WateringSettings):
 class TimeRange:
     """Time range units."""
 
-    valid_from: _Timestamp = _optional_field(default_factory=default_datetime)
-    valid_to: _Timestamp = _optional_field(default_factory=default_datetime)
+    valid_from: _Timestamp | None = None
+    valid_to: _Timestamp | None = None
+
+
+@_dataclass
+class ApplicableSchedulingMethod:
+    """Scheduling method a watering program adjustment applies to."""
+
+    value: int | None = None
+    label: str | None = None
+
+
+@_dataclass
+class WateringProgramAdjustment:
+    """A conditional watering adjustment (weather rule) for a program."""
+
+    id: int = 0
+    label: str = ""
+    applicable_scheduling_method: ApplicableSchedulingMethod = _optional_field(
+        default_factory=ApplicableSchedulingMethod
+    )
 
 
 @_dataclass
@@ -491,6 +510,22 @@ class StandardProgramApplication:
     zone: BaseZone = field(default_factory=BaseZone)
     standard_program: StandardProgram = field(default_factory=StandardProgram)
     run_time_group: RunTimeGroup = field(default_factory=RunTimeGroup)
+
+
+@_dataclass
+@_type_name("StandardProgram")
+class _StandardProgramDetails(StandardProgram):
+    """A StandardProgram with controller-scoped adjustments and applications.
+
+    :meta private:
+    """
+
+    conditional_watering_adjustments: list[WateringProgramAdjustment] = _optional_field(
+        default_factory=list
+    )
+    applications: list[StandardProgramApplication] = _optional_field(
+        default_factory=list
+    )
 
 
 @_dataclass

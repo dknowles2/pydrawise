@@ -8,7 +8,13 @@ from pydrawise import rest
 from pydrawise.auth import RestAuth
 from pydrawise.const import REQUEST_TIMEOUT
 from pydrawise.exceptions import NotAuthorizedError
-from pydrawise.schema import Controller, Sensor, Zone, ZoneSuspension
+from pydrawise.schema import (
+    Controller,
+    Sensor,
+    StandardProgram,
+    Zone,
+    ZoneSuspension,
+)
 
 API_KEY = "__api_key__"
 
@@ -331,6 +337,8 @@ async def test_unsupported_methods(rest_auth: RestAuth) -> None:
         await client.get_watering_report(controller, start, end)
     with raises(NotImplementedError):
         await client.get_water_use_summary(controller, start, end)
+    with raises(NotImplementedError):
+        await client.set_standard_program_days(controller, StandardProgram(id=1), [])
 
 
 async def test_start_zone_with_custom_duration(

@@ -1,5 +1,6 @@
 """Asynchronous client library for interacting with Hydrawise's REST API."""
 
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -8,8 +9,10 @@ from .base import HydrawiseBase
 from .schema import (
     Controller,
     ControllerWaterUseSummary,
+    DaysOfWeekEnum,
     Sensor,
     SensorFlowSummary,
+    StandardProgram,
     User,
     WateringReportEntry,
     Zone,
@@ -248,6 +251,18 @@ class RestClient(HydrawiseBase):
     async def get_water_use_summary(
         self, controller: Controller, start: datetime, end: datetime
     ) -> ControllerWaterUseSummary:
+        """Not supported by the Hydrawise v1 REST API.
+
+        :raises NotImplementedError: always.
+        """
+        raise NotImplementedError
+
+    async def set_standard_program_days(
+        self,
+        controller: Controller,
+        program: StandardProgram,
+        days: Iterable[DaysOfWeekEnum],
+    ) -> None:
         """Not supported by the Hydrawise v1 REST API.
 
         :raises NotImplementedError: always.

@@ -1,14 +1,21 @@
 """Asynchronous client library for interacting with Hydrawise's GraphQL API."""
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Any
 
 import aiohttp
 from gql import Client
-from gql.dsl import DSLField, DSLMutation, DSLQuery, DSLSelectable, dsl_gql
+from gql.dsl import (
+    DSLField,
+    DSLInlineFragment,
+    DSLMutation,
+    DSLQuery,
+    DSLSelectable,
+    dsl_gql,
+)
 from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.aiohttp import log as gql_log
 from gql.transport.exceptions import (
@@ -27,15 +34,20 @@ from .schema import (
     ControllerWaterUseSummary,
     CustomSensorTypeEnum,
     DateTime,
+    DaysOfWeekEnum,
     LocalizedValueType,
     Sensor,
     SensorFlowSummary,
     SensorWithFlowSummary,
+    StandardProgram,
+    StandardProgramApplication,
     StatusCodeAndSummary,
     User,
+    WateringProgramAdjustment,
     WateringReportEntry,
     Zone,
     ZoneSuspension,
+    _StandardProgramDetails,
 )
 from .schema_utils import deserialize, get_selectors
 
@@ -86,6 +98,31 @@ class _SharedSessionTransport(AIOHTTPTransport):
     async def close(self) -> None:
         """Detaches from the caller-supplied session without closing it."""
         self.session = None
+
+
+_DAY_ORDER = (
+    DaysOfWeekEnum.SUNDAY,
+    DaysOfWeekEnum.MONDAY,
+    DaysOfWeekEnum.TUESDAY,
+    DaysOfWeekEnum.WEDNESDAY,
+    DaysOfWeekEnum.THURSDAY,
+    DaysOfWeekEnum.FRIDAY,
+    DaysOfWeekEnum.SATURDAY,
+)
+
+
+def _days_to_day_pattern(days: Iterable[DaysOfWeekEnum]) -> str:
+    """Converts a collection of weekdays into a 7-character Hydrawise dayPattern.
+
+    Characters are ordered Sunday through Saturday, with ``"1"`` for active
+    days and ``"0"`` for inactive days (e.g. ``"0010100"`` for Tuesday and
+    Thursday, ``"0000000"`` for no days).
+    """
+    day_set = set(days)
+    invalid = day_set - set(_DAY_ORDER)
+    if invalid:
+        raise ValueError(f"Invalid days: {invalid!r}")
+    return "".join("1" if day in day_set else "0" for day in _DAY_ORDER)
 
 
 def _prune_watering_report_entries(
@@ -178,16 +215,17 @@ class Hydrawise(HydrawiseBase):
                 )
         resp = result[selector.name]
         if isinstance(resp, dict):
-            if resp["status"] == "ERROR":
+            status = resp.get("status")
+            if status == "ERROR":
                 raise MutationError(resp["summary"])
-            elif resp["status"] == "WARNING":
+            elif status == "WARNING":
                 # Not a problem: the API accepted the command, and the summary
                 # says when the controller will act on it ("Starting Zone 1 in
                 # 14 seconds"). Logging it as a warning floods callers' logs.
                 _LOGGER.debug(resp["summary"])
             return
         elif not resp:
-            # Assume bool response
+            # Assume bool or nullable object response
             raise MutationError
 
     async def get_user(self, fetch_zones: bool = True) -> User:
@@ -593,3 +631,104 @@ class Hydrawise(HydrawiseBase):
         summary.total_active_use = total_active_use
         summary.total_inactive_use = total_inactive_use
         return summary
+
+    async def set_standard_program_days(
+        self,
+        controller: Controller,
+        program: StandardProgram,
+        days: Iterable[DaysOfWeekEnum],
+    ) -> None:
+        """Updates the run days of a standard watering program.
+
+        Fetches the program's current configuration (including conditional
+        watering adjustments and zone run times) before calling
+        ``updateStandardProgram`` so that existing settings are preserved.
+        Only programs using the day-of-week (``"dow"``) day pattern are
+        supported.
+
+        :param controller: The controller that owns the program.
+        :param program: The standard program to update.
+        :param days: Weekdays on which the program should run. Pass an empty
+            iterable to disable all days.
+        :raises ValueError: If the program is not found, does not use the
+            ``"dow"`` day pattern, or an invalid day is provided.
+        """
+        day_pattern = _days_to_day_pattern(days)
+        if (
+            program.standard_program_day_pattern
+            and program.standard_program_day_pattern != "dow"
+        ):
+            raise ValueError(
+                "Only 'dow' day pattern is supported, "
+                f"got {program.standard_program_day_pattern!r}"
+            )
+
+        result = await self._query(
+            DSL_SCHEMA.Query.controller(controllerId=controller.id).select(
+                DSL_SCHEMA.Controller.programs.select(
+                    DSLInlineFragment()
+                    .on(DSL_SCHEMA.StandardProgram)
+                    .select(
+                        *get_selectors(StandardProgram),
+                        DSL_SCHEMA.StandardProgram.conditionalWateringAdjustments(
+                            controllerId=controller.id
+                        ).select(*get_selectors(WateringProgramAdjustment)),
+                        DSL_SCHEMA.StandardProgram.applications.select(
+                            *get_selectors(
+                                StandardProgramApplication, ["standard_program"]
+                            )
+                        ),
+                    )
+                )
+            )
+        )
+        programs = (result.get("controller") or {}).get("programs") or []
+        matched = [p for p in programs if p.get("id") == program.id]
+        if not matched:
+            raise ValueError(f"Standard program with id={program.id} not found")
+
+        current = deserialize(_StandardProgramDetails, matched[0])
+        if current.standard_program_day_pattern != "dow":
+            raise ValueError(
+                "Only 'dow' day pattern is supported, "
+                f"got {current.standard_program_day_pattern!r}"
+            )
+
+        valid_from = (
+            int(current.time_range.valid_from.timestamp())
+            if current.time_range.valid_from is not None
+            else None
+        )
+        valid_to = (
+            int(current.time_range.valid_to.timestamp())
+            if current.time_range.valid_to is not None
+            else None
+        )
+        zone_run_times = [
+            {
+                "zoneNumber": app.zone.number.value,
+                "runTimeGroupId": None,
+                "runDuration": int(app.run_time_group.duration.total_seconds() // 60),
+            }
+            for app in current.applications
+        ]
+
+        await self._mutation(
+            DSL_SCHEMA.Mutation.updateStandardProgram.args(
+                programId=current.id,
+                controllerId=controller.id,
+                name=current.name,
+                programType=current.scheduling_method.value,
+                dayPattern=day_pattern,
+                standardProgramDayPattern="dow",
+                startTimes=[t.strftime("%H:%M") for t in current.start_times],
+                zoneRunTimes=zone_run_times,
+                scheduleAdjustmentIds=[
+                    adj.id for adj in current.conditional_watering_adjustments
+                ],
+                seasonalAdjustmentFactors=current.monthly_watering_adjustments,
+                validFrom=valid_from,
+                validTo=valid_to,
+                ignoreRainSensor=current.ignore_rain_sensor,
+            ).select(DSL_SCHEMA.StandardProgram.id)
+        )
